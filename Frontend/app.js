@@ -23,7 +23,7 @@ function showEmpty() {
 function renderResult(data) {
   emptyState.classList.add("hidden");
   resultState.classList.remove("hidden");
-  studentName.textContent = data.student.masked_name;
+  studentName.textContent = data.student.full_name || "-";
   studentNim.textContent = `NIM ${data.student.nim}`;
 
   const bills = data.bills || [];
@@ -52,7 +52,6 @@ form.addEventListener("submit", async (event) => {
   event.preventDefault();
   const formData = new FormData(form);
   const payload = {
-    name: String(formData.get("name") || "").trim(),
     nim: String(formData.get("nim") || "").trim(),
   };
 

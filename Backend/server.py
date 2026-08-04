@@ -17,7 +17,7 @@ from pathlib import Path
 from urllib.parse import unquote, urlparse
 
 from db import DEFAULT_DB_PATH, connect, init_db, resolve_db_path
-from excel_reader import normalize_name, normalize_nim
+from excel_reader import normalize_nim
 from import_excel import DEFAULT_WORKBOOK, import_workbook, preview_workbook
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -90,17 +90,6 @@ def json_response(
 
 def rupiah(value: int) -> str:
     return "Rp " + f"{value:,}".replace(",", ".")
-
-
-def mask_name(full_name: str) -> str:
-    parts = full_name.split()
-    masked_parts: list[str] = []
-    for part in parts:
-        if len(part) <= 2:
-            masked_parts.append(part[0] + "*" if part else "")
-        else:
-            masked_parts.append(part[:3] + "***")
-    return " ".join(masked_parts)
 
 
 def digest(value: str) -> str:
@@ -545,19 +534,18 @@ class SalutHandler(BaseHTTPRequestHandler):
         request_id = f"req_{uuid.uuid4().hex[:12]}"
         payload = self.read_json()
         nim = normalize_nim(payload.get("nim"))
-        name = normalize_name(payload.get("name"))
 
-        if not self.enforce_rate_limit("lookup", self.client_ip(), 10, 10 * 60, nim, name):
+        if not self.enforce_rate_limit("lookup", self.client_ip(), 10, 10 * 60, nim):
             return
 
-        if not nim or not name:
-            self.write_lookup_log(nim, name, "invalid")
+        if not nim:
+            self.write_lookup_log(nim, "", "invalid")
             json_response(
                 self,
                 400,
                 {
                     "success": False,
-                    "error": {"code": "VALIDATION_ERROR", "message": "Nama dan NIM wajib diisi."},
+                    "error": {"code": "VALIDATION_ERROR", "message": "NIM wajib diisi."},
                     "request_id": request_id,
                 },
             )
@@ -569,9 +557,9 @@ class SalutHandler(BaseHTTPRequestHandler):
             (nim,),
         ).fetchone()
 
-        if not student or student["name_norm"] != name:
+        if not student:
             conn.close()
-            self.write_lookup_log(nim, name, "not_found")
+            self.write_lookup_log(nim, "", "not_found")
             json_response(
                 self,
                 404,
@@ -579,7 +567,7 @@ class SalutHandler(BaseHTTPRequestHandler):
                     "success": False,
                     "error": {
                         "code": "NOT_FOUND",
-                        "message": "Data tagihan tidak ditemukan. Pastikan nama dan NIM sesuai data SALUT.",
+                        "message": "Data tagihan tidak ditemukan. Pastikan NIM sesuai data SALUT.",
                     },
                     "request_id": request_id,
                 },
@@ -596,7 +584,7 @@ class SalutHandler(BaseHTTPRequestHandler):
             (student["id"],),
         ).fetchall()
         conn.close()
-        self.write_lookup_log(nim, name, "found")
+        self.write_lookup_log(nim, "", "found")
 
         json_response(
             self,
@@ -606,7 +594,7 @@ class SalutHandler(BaseHTTPRequestHandler):
                 "data": {
                     "student": {
                         "nim": student["nim"],
-                        "masked_name": mask_name(student["full_name"]),
+                        "full_name": student["full_name"],
                     },
                     "bills": [
                         {

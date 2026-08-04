@@ -16,7 +16,7 @@ Format mengikuti prinsip Keep a Changelog dan Semantic Versioning.
 - Portal HTML dokumentasi dengan tampilan ringkas untuk membaca requirement, diagram, database, API, security, testing, deployment, risiko, dan traceability.
 - Diagram tambahan untuk DFD Level 0, DFD Level 1, UML-style class diagram, dan UML-style component diagram.
 - Paket diagram lanjutan untuk activity lookup/import, BPMN-style business process, C4 container, data lifecycle, data privacy, authentication dan authorization, keputusan validasi import, backup dan recovery, CI/CD, serta sitemap.
-- Implementasi awal `Backend/` dan `Frontend/` untuk lookup tagihan berdasarkan nama + NIM.
+- Implementasi awal `Backend/` dan `Frontend/` untuk lookup tagihan publik.
 - Importer Excel khusus workbook `Data_Sinkron_BRIVA_UKT_2023_1_sd_2025_2.xlsx` dengan 408 data lengkap dan 9 issue data belum lengkap.
 - Admin MVP untuk login, session cookie, upload Excel, preview import, commit import, dan audit log dasar.
 - Rate limit untuk lookup, login gagal, dan import; role check untuk import; validasi commit tanpa baris kritis; serta header keamanan respons.
@@ -25,6 +25,7 @@ Format mengikuti prinsip Keep a Changelog dan Semantic Versioning.
 
 ### Changed
 
+- Public lookup sekarang hanya memakai NIM dan menampilkan nama mahasiswa penuh setelah data ditemukan.
 - Upload ulang workbook yang sama tidak lagi menimpa data, mereset status tagihan, atau mengubah waktu pembaruan.
 - Mengubah target deployment MVP dari platform terkelola sebelumnya menjadi VPS + SQLite.
 - Menetapkan Internal Auth berbasis database, Filesystem VPS untuk import opsional, dan backup SQLite sebagai baseline operasional.
@@ -33,7 +34,7 @@ Format mengikuti prinsip Keep a Changelog dan Semantic Versioning.
 ### Security
 
 - Menetapkan prinsip bahwa Secret aplikasi dan akses database hanya boleh berada di server environment.
-- Menetapkan nama sebagai pasangan NIM untuk public lookup agar NIM tidak menjadi satu-satunya kontrol akses.
+- Menetapkan mitigasi NIM-only lookup melalui rate limit, pesan error generik, lookup log ter-hash, dan monitoring lookup gagal.
 - Menambahkan perhatian khusus untuk permission file SQLite, penyimpanan di luar webroot, dan uji restore backup.
 
 ## [0.0.0] - 2026-08-01

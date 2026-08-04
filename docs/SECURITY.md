@@ -13,8 +13,8 @@ Security policy ini berlaku untuk aplikasi Salut Cek Pembayaran, termasuk fronte
 | `.env` | Tidak boleh di-commit. Gunakan `.env.example` untuk template non-secret. |
 | Bootstrap admin | Tidak ada default. Bootstrap pertama wajib menggunakan environment variable. |
 | NIM | Identifier pribadi, gunakan hati-hati dan hash pada log. |
-| Nama mahasiswa | Masking pada halaman publik. |
-| Nominal tagihan | Tampil hanya setelah verifikasi berhasil. |
+| Nama mahasiswa | Tampil penuh setelah NIM ditemukan. |
+| Nominal tagihan | Tampil hanya setelah NIM ditemukan. |
 | Tanggal lahir/HP | nama, tidak ditampilkan publik. |
 | File import | Anggap sensitif, batasi akses dan retensi. |
 

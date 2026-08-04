@@ -32,7 +32,7 @@ Dokumen ini menjelaskan workflow admin, SOP operasional, dan tata cara menjaga d
 | Kolom | Wajib | Contoh | Catatan |
 |---|---|---|---|
 | `nim` | Ya | `123456789` | Unique key mahasiswa. |
-| `full_name` | Ya | `Muhammad Adam` | Digunakan untuk identifikasi admin dan masking publik. |
+| `full_name` | Ya | `Muhammad Adam` | Digunakan untuk identifikasi admin dan ditampilkan penuh setelah lookup NIM valid. |
 | `briva` | Ya | `178100023200040` | Nomor VA pembayaran. |
 | `amount` | Ya | `1850000` | Nominal tagihan. |
 

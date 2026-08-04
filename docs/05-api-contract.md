@@ -3,7 +3,7 @@
 ## Prinsip API
 
 - Semua endpoint mengembalikan JSON.
-- Endpoint publik tidak mengembalikan data pribadi penuh.
+- Endpoint publik mengembalikan nama mahasiswa penuh hanya setelah NIM ditemukan.
 - Endpoint import admin wajib autentikasi dan role check.
 - Error response tidak boleh membocorkan detail database atau secret.
 - Setiap response error menyertakan `request_id`.
@@ -43,7 +43,6 @@ Request:
 
 ```json
 {
-  "name": "Syahla Taqiyyah",
   "nim": "050117077"
 }
 ```
@@ -56,7 +55,7 @@ Response 200:
   "data": {
     "student": {
       "nim": "050117077",
-      "masked_name": "Sya*** Taq***"
+      "full_name": "Syahla Taqiyyah"
     },
     "bills": [
       {
@@ -82,7 +81,7 @@ Response 404:
   "success": false,
   "error": {
     "code": "NOT_FOUND",
-    "message": "Data tagihan tidak ditemukan. Pastikan nama dan NIM sesuai data SALUT."
+    "message": "Data tagihan tidak ditemukan. Pastikan NIM sesuai data SALUT."
   },
   "request_id": "req_..."
 }
@@ -338,7 +337,7 @@ Query:
 | Field | Aturan |
 |---|---|
 | `nim` | Angka, panjang sesuai konfigurasi, trim whitespace. |
-| `name` | Wajib diisi, trim whitespace, cocok case-insensitive dengan data SALUT. |
+| `name` | Tidak dipakai pada lookup publik rilis ini. |
 | `amount` | Angka >= 0, maksimal sesuai batas konfigurasi. |
 | `status` | Harus masuk enum yang valid. |
 | `period` | Format konsisten, contoh `2026.1`. |

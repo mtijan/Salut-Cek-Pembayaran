@@ -11,7 +11,7 @@ Dokumen ini menetapkan desain keamanan dan privasi untuk melindungi data mahasis
 | Secret management | Secret aplikasi hanya di environment file/server secrets di VPS. |
 | Database access | File SQLite berada di luar webroot dan hanya diakses oleh proses server. |
 | Admin auth | Internal auth, PBKDF2-SHA256, session validation, dan role check untuk import. |
-| Public lookup | Nama mahasiswa plus NIM, response generik, dan rate limit 10 request per IP per 10 menit. |
+| Public lookup | NIM-only, response generik untuk data tidak ditemukan, dan rate limit 10 request per IP per 10 menit. |
 | Rate limiting | Lookup dibatasi per IP; preview dan commit import dibatasi per admin di memori proses. |
 | Audit logging | Catat aksi admin dan import data. |
 | Error handling | Jangan tampilkan stack trace atau detail database ke user. |
@@ -21,12 +21,12 @@ Dokumen ini menetapkan desain keamanan dan privasi untuk melindungi data mahasis
 
 | ID | Ancaman | Dampak | Mitigasi |
 |---|---|---|---|
-| TH-001 | Enumeration NIM | Orang lain melihat tagihan mahasiswa. | Cocokkan nama + NIM, rate limit, pesan error generik, dan monitoring lookup gagal. |
+| TH-001 | Enumeration NIM | Orang lain melihat tagihan mahasiswa. | Rate limit, pesan error generik, lookup log ter-hash, dan monitoring lookup gagal. |
 | TH-002 | Secret aplikasi bocor | Akses penuh database. | Simpan hanya di env server, scan secret, tidak commit `.env`. |
 | TH-003 | Admin account takeover | Data tagihan diubah. | Password kuat, session expiry, audit log, role minimum, dan MFA bila ditambahkan. |
 | TH-004 | Import file salah | Data tagihan rusak. | Preview, validasi kritis, commit atomik, dan audit log. |
 | TH-005 | Injection | Query atau data rusak. | prepared statement SQLite atau ORM/query builder yang aman, validasi input. |
-| TH-006 | Excessive data exposure | Kebocoran data pribadi. | Response DTO aman, masking, minimisasi kolom. |
+| TH-006 | Excessive data exposure | Kebocoran data pribadi. | Response DTO dibatasi pada nama, NIM, dan data pembayaran yang diperlukan. |
 | TH-007 | Broken access control | Admin biasa mengubah konfigurasi super admin. | RBAC di API, middleware role check, dan test akses negatif. |
 | TH-008 | Log berisi data sensitif | Kebocoran lewat observability. | Hash NIM/IP, hindari logging request body penuh. |
 
@@ -46,7 +46,7 @@ Dokumen ini menetapkan desain keamanan dan privasi untuk melindungi data mahasis
 | Data | Tampil Publik? | Bentuk |
 |---|---|---|
 | NIM | Ya | NIM yang dimasukkan user atau sebagian. |
-| Nama | Ya | Masking. |
+| Nama | Ya | Nama penuh setelah NIM ditemukan. |
 | Program studi | Opsional | Tampil bila dibutuhkan identifikasi. |
 | Nominal tagihan | Ya | Setelah verifikasi berhasil. |
 | Status tagihan | Ya | Setelah verifikasi berhasil. |
@@ -93,8 +93,8 @@ Dokumen ini menetapkan desain keamanan dan privasi untuk melindungi data mahasis
 | ID | Requirement | Acceptance Criteria |
 |---|---|---|
 | SEC-001 | Secret tidak boleh berada di repository. | `.env*` diignore kecuali `.env.example`; scan manual sebelum commit. |
-| SEC-002 | Public lookup harus memakai nama dan NIM. | Endpoint menolak lookup tanpa salah satu field. |
-| SEC-003 | Response publik harus dimasking. | Nama tidak pernah tampil penuh. |
+| SEC-002 | Public lookup harus memakai NIM. | Endpoint menolak lookup tanpa NIM. |
+| SEC-003 | Response publik menampilkan nama penuh setelah NIM valid. | Nama tampil utuh pada hasil lookup yang ditemukan. |
 | SEC-004 | API admin harus memvalidasi role. | Request tanpa role sesuai ditolak 403. |
 | SEC-005 | Audit log wajib untuk perubahan data penting. | Create/update/delete/import menghasilkan audit log. |
 | SEC-006 | Error tidak membocorkan detail internal. | Response 500 hanya menampilkan request ID. |
@@ -119,7 +119,7 @@ Dokumen ini menetapkan desain keamanan dan privasi untuk melindungi data mahasis
 | Secret aplikasi hanya di environment VPS. | Implemented oleh template/service; verifikasi sebelum release. |
 | Password admin di-hash dengan algoritma kuat. | Implemented. |
 | Public endpoint punya rate limit. | Implemented. |
-| Public response masking diuji. | Implemented. |
+| Public response nama penuh diuji. | Implemented. |
 | Admin endpoint punya role check. | Implemented untuk import. |
 | Audit log diuji. | Implemented untuk login dan import. |
 | Dependency audit dijalankan. | Pending implementasi. |

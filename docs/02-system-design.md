@@ -15,9 +15,9 @@ Aplikasi menggunakan arsitektur web single-server VPS:
 
 | Komponen | Tanggung Jawab |
 |---|---|
-| Public Web | Form cek tagihan nama + NIM dan halaman hasil untuk mahasiswa. |
+| Public Web | Form cek tagihan NIM dan halaman hasil untuk mahasiswa. |
 | Admin Web | Dashboard admin untuk data mahasiswa, tagihan, import, dan metode pembayaran. |
-| API Layer | Validasi input, rate limit, query server-side, logging lookup, masking output. |
+| API Layer | Validasi input, rate limit, query server-side, dan logging lookup. |
 | Internal Auth | Login admin, password hashing, session management, dan role check. |
 | SQLite | Penyimpanan mahasiswa, tagihan, pembayaran, audit, konfigurasi. |
 | Filesystem VPS | Penyimpanan file import mentah jika dibutuhkan. |
@@ -52,7 +52,7 @@ Aplikasi menggunakan arsitektur web single-server VPS:
 
 | Modul | Deskripsi |
 |---|---|
-| `lookup` | Pencarian tagihan publik berdasarkan nama dan NIM. |
+| `lookup` | Pencarian tagihan publik berdasarkan NIM. |
 | `billing` | Pengelolaan tagihan, status, periode, nominal. |
 | `students` | Pengelolaan data mahasiswa. |
 | `payment-methods` | Rencana pengelolaan instruksi pembayaran manual. |
@@ -67,7 +67,7 @@ Aplikasi menggunakan arsitektur web single-server VPS:
 |---|---|---|
 | ADR-001 | Menggunakan VPS dan SQLite untuk MVP. | Lebih cepat dieksekusi di satu server, biaya operasional mudah diprediksi, backup bisa dikontrol, dan cukup untuk beban awal web lookup. |
 | ADR-002 | Query tagihan dilakukan melalui API server-side. | Menghindari akses langsung browser ke data sensitif. |
-| ADR-003 | NIM tidak cukup sebagai satu-satunya verifikasi. | NIM dapat ditebak atau diketahui orang lain. |
+| ADR-003 | Lookup publik memakai NIM-only berdasarkan feedback pengguna. | UX diprioritaskan agar mahasiswa cukup memasukkan NIM; risiko enumeration dimitigasi dengan rate limit, pesan error generik, dan monitoring. |
 | ADR-004 | Semua import memakai batch ID. | Memudahkan audit, rollback manual, dan investigasi kesalahan data. |
 | ADR-005 | Soft delete untuk data penting. | Menjaga histori dan mengurangi risiko kehilangan data. |
 
@@ -75,9 +75,9 @@ Aplikasi menggunakan arsitektur web single-server VPS:
 
 | Aturan | Detail |
 |---|---|
-| Verifikasi | Nama mahasiswa plus NIM. |
+| Verifikasi | NIM. |
 | Error message | Pesan umum agar tidak membocorkan mana data yang salah. |
-| Masking | Nama dan data pribadi harus dimasking. |
+| Identitas | Nama mahasiswa ditampilkan penuh setelah NIM ditemukan. |
 | Rate limit | Berdasarkan IP, device fingerprint ringan, dan hash NIM. |
 | Logging | Simpan hash NIM, hasil umum, waktu, dan metadata request terbatas. |
 

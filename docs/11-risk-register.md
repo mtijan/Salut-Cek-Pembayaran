@@ -16,7 +16,7 @@ Risk score = Probability x Impact.
 
 | ID | Risiko | Probability | Impact | Score | Mitigasi | Owner | Status |
 |---|---|---:|---:|---:|---|---|---|
-| RSK-001 | NIM ditebak untuk melihat tagihan orang lain. | 4 | 5 | 20 | Tambah nama, rate limit, masking. | Developer/Ops | Open |
+| RSK-001 | NIM ditebak untuk melihat tagihan orang lain. | 4 | 5 | 20 | Rate limit, pesan error generik, lookup log ter-hash, monitoring lookup gagal, dan evaluasi CAPTCHA bila abuse meningkat. | Developer/Ops | Open |
 | RSK-002 | Data import salah format. | 4 | 4 | 16 | Preview, validasi baris, template file. | Admin SALUT | Open |
 | RSK-003 | Admin salah mengubah tagihan. | 3 | 4 | 12 | Audit log, alasan perubahan, soft delete. | Admin SALUT | Open |
 | RSK-004 | Secret aplikasi dan akses database bocor. | 2 | 5 | 10 | Env server-only, `.gitignore`, secret scan, rotasi secret. | Developer/Ops | Open |

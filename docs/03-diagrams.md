@@ -27,7 +27,7 @@ Diagram menggunakan Mermaid agar dapat dirender di GitHub, VS Code, atau dokumen
 | State Diagram Tagihan | Menjelaskan transisi status tagihan. |
 | Security Flow | Menjelaskan alur kontrol keamanan publik dan admin. |
 | Data Lifecycle Diagram | Menjelaskan siklus data dari sumber hingga retensi atau penghapusan. |
-| Data Privacy Flow | Menjelaskan minimisasi, hashing, masking, dan akses data pribadi. |
+| Data Privacy Flow | Menjelaskan minimisasi, hashing, dan akses data pribadi. |
 | Authentication and Authorization Flow | Menjelaskan autentikasi session dan pemeriksaan role admin. |
 | Import Validation Decision Tree | Menjelaskan keputusan validasi file sebelum data disimpan. |
 | Backup and Recovery Flow | Menjelaskan jalur pemulihan berdasarkan jenis insiden. |
@@ -68,7 +68,7 @@ flowchart LR
     PaymentData[(Data Metode Pembayaran)]
     AuditData[(Audit dan Lookup Log)]
 
-    Student -->|nama dan NIM| System
+    Student -->|NIM| System
     System -->|Tagihan dan instruksi pembayaran aman| Student
     Admin -->|Data mahasiswa, tagihan, metode pembayaran, file import| System
     System -->|Preview import, laporan, audit| Admin
@@ -95,13 +95,13 @@ flowchart TD
     D4[(import_issues dan audit_logs)]
     D5[(lookup_logs dan audit_logs)]
 
-    Student -->|NIM dan verifikasi| P1
+    Student -->|NIM| P1
     P1 -->|Data valid| P2
     P1 -->|Lookup attempt| P5
     P2 <--> D1
     P2 <--> D2
     P2 <--> D3
-    P2 -->|Response dimasking| Student
+    P2 -->|Response hasil lookup| Student
 
     Admin -->|CRUD request| P3
     P3 <--> D1
@@ -154,15 +154,14 @@ flowchart TB
 ```mermaid
 flowchart TD
     A[Buka halaman cek tagihan] --> B[Input NIM]
-    B --> C[Input nama]
-    C --> D{Format valid?}
+    B --> D{Format valid?}
     D -->|Tidak| E[Tampilkan validasi form]
     D -->|Ya| F[Kirim request lookup]
     F --> G{Rate limit aman?}
     G -->|Tidak| H[Tampilkan pesan coba lagi]
     G -->|Ya| I{Data cocok?}
     I -->|Tidak| J[Tampilkan pesan data tidak ditemukan]
-    I -->|Ya| K[Tampilkan identitas dimasking]
+    I -->|Ya| K[Tampilkan nama mahasiswa penuh]
     K --> L[Tampilkan tagihan]
     L --> M[Tampilkan instruksi pembayaran]
 ```
@@ -195,12 +194,12 @@ sequenceDiagram
     participant DB as SQLite
     participant Log as Audit/Lookup Log
 
-    Student->>UI: Input nama dan NIM
+    Student->>UI: Input NIM
     UI->>API: POST lookup
     API->>API: Validasi format dan rate limit
     API->>DB: Cari mahasiswa dan tagihan aktif
     DB-->>API: Data mahasiswa dan tagihan
-    API->>API: Masking data pribadi
+    API->>API: Susun response terbatas
     API->>Log: Simpan lookup log
     API-->>UI: Response aman
     UI-->>Student: Tampilkan tagihan dan cara bayar
@@ -443,7 +442,7 @@ flowchart TD
     C --> D{Aman?}
     D -->|Tidak| E[Reject 429]
     D -->|Ya| F[Server-side lookup]
-    F --> G[Masking response]
+    F --> G[Susun response terbatas]
     G --> H[Tulis lookup log]
     H --> I[Kirim response]
 
@@ -459,15 +458,15 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-    Start([Mulai]) --> Input[Mahasiswa isi nama dan NIM]
+    Start([Mulai]) --> Input[Mahasiswa isi NIM]
     Input --> Validate{Format input valid?}
     Validate -->|Tidak| Invalid[Tampilkan validasi form]
     Validate -->|Ya| Rate{Rate limit aman?}
     Rate -->|Tidak| Limited[Tampilkan pesan coba lagi]
-    Rate -->|Ya| Match{Data verifikasi cocok?}
+    Rate -->|Ya| Match{NIM ditemukan?}
     Match -->|Tidak| NotFound[Tampilkan pesan generik]
     Match -->|Ya| Fetch[Ambil tagihan dan metode pembayaran]
-    Fetch --> Mask[Masking data pribadi]
+    Fetch --> Mask[Susun data tagihan dan nama penuh]
     Mask --> Log[Tulis lookup log]
     Log --> Result[Tampilkan hasil]
     Invalid --> End([Selesai])
@@ -506,12 +505,12 @@ Diagram ini menggunakan swimlane Mermaid untuk merepresentasikan kolaborasi pros
 ```mermaid
 flowchart LR
     subgraph Mahasiswa
-        M1[Butuh informasi tagihan] --> M2[Masukkan NIM dan verifikasi]
+        M1[Butuh informasi tagihan] --> M2[Masukkan NIM]
         M3[Terima tagihan dan instruksi] --> M4[Lakukan pembayaran]
     end
 
     subgraph Sistem
-        S1[Validasi lookup] --> S2[Ambil dan masking data]
+        S1[Validasi lookup] --> S2[Ambil data terbatas]
         S2 --> S3[Tampilkan tagihan]
     end
 
@@ -562,7 +561,7 @@ flowchart LR
     Source[File sumber tagihan] --> Preview[Parse dan preview]
     Preview --> Commit[Commit batch terverifikasi]
     Commit --> Active[(Database aktif)]
-    Active --> Lookup[Lookup publik dimasking]
+    Active --> Lookup[Lookup publik NIM-only]
     Active --> Admin[Pengelolaan admin]
     Lookup --> LookupLog[(Lookup log ter-hash)]
     Admin --> AuditLog[(Audit log)]
@@ -578,14 +577,14 @@ flowchart LR
 
 ```mermaid
 flowchart TD
-    Raw[NIM, nama, nama, dan tagihan] --> Server[API server-side]
-    Server --> Verify[Verifikasi kecocokan data]
-    Server --> Mask[Masking nama dan identitas]
+    Raw[NIM, nama, dan tagihan] --> Server[API server-side]
+    Server --> Verify[Verifikasi NIM]
+    Server --> Minimize[Batasi response publik]
     Server --> Hash[Hash NIM dan IP untuk log]
     Verify --> Authorized{Kanal akses?}
-    Authorized -->|Publik terverifikasi| Public[Response minimal]
+    Authorized -->|Publik ditemukan| Public[Nama penuh dan data pembayaran]
     Authorized -->|Admin berizin| Admin[Data sesuai role]
-    Mask --> Public
+    Minimize --> Public
     Hash --> Logs[(Lookup logs)]
     Admin --> Audit[(Audit logs)]
 ```

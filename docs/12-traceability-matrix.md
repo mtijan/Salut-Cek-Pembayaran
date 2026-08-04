@@ -10,9 +10,9 @@ Traceability matrix menghubungkan requirement dengan desain, API, tabel database
 |---|---|---|---|---|---|---|
 | FR-001 | Halaman publik tanpa login. | `docs/02-system-design.md` | N/A | `/` | TC-001 | Implemented |
 | FR-002 | Input NIM. | `docs/02-system-design.md` | `students.nim` | `/api/lookup` | TC-002, TC-003 | Implemented |
-| FR-003 | Nama sebagai pasangan NIM. | `docs/06-security-privacy-design.md` | `students.full_name`, `students.name_norm` | `/api/lookup` | TC-004 | Implemented |
+| FR-003 | Lookup berdasarkan NIM. | `docs/06-security-privacy-design.md` | `students.nim` | `/api/lookup` | TC-004 | Implemented |
 | FR-004 | Tampilkan tagihan ditemukan. | `docs/03-diagrams.md` | `bills` | `/api/lookup` | TC-005 | Implemented |
-| FR-005 | Masking identitas mahasiswa. | `docs/06-security-privacy-design.md` | `students.full_name` | `/api/lookup` | TC-006, ST-005 | Implemented |
+| FR-005 | Nama mahasiswa tampil penuh setelah NIM ditemukan. | `docs/06-security-privacy-design.md` | `students.full_name` | `/api/lookup` | TC-006, ST-005 | Implemented |
 | FR-006 | Tampilkan instruksi pembayaran. | `docs/02-system-design.md` | `bills.briva`, `bills.instructions` | `/api/lookup` | TC-007 | Implemented |
 | FR-007 | Pesan aman untuk data tidak ditemukan. | `docs/06-security-privacy-design.md` | `lookup_logs` | `/api/lookup` | TC-008 | Implemented |
 | FR-008 | Admin login. | `docs/02-system-design.md` | `admin_users`, `admin_sessions` | `/api/admin/login`, `/api/admin/me`, `/api/admin/logout` | TC-009, TC-010 | Implemented |
@@ -24,8 +24,8 @@ Traceability matrix menghubungkan requirement dengan desain, API, tabel database
 | FR-013 | Rate limit endpoint. | `docs/06-security-privacy-design.md` | `lookup_logs` | Lookup dan Import API | ST-002, ST-003 | Implemented |
 | FR-014 | CRUD manual dan export laporan. | `docs/07-admin-operations.md` | Future schema | Future Admin API | TBD | Deferred |
 | SEC-001 | Secret tidak masuk repo. | `docs/06-security-privacy-design.md` | N/A | N/A | ST-006 | Implemented secara konfigurasi; verifikasi release wajib |
-| SEC-002 | Lookup memakai nama dan NIM. | `docs/06-security-privacy-design.md` | `students` | `/api/lookup` | TC-004 | Implemented |
-| SEC-003 | Response publik dimasking. | `docs/06-security-privacy-design.md` | `students` | `/api/lookup` | ST-005 | Implemented |
+| SEC-002 | Lookup memakai NIM. | `docs/06-security-privacy-design.md` | `students` | `/api/lookup` | TC-004 | Implemented |
+| SEC-003 | Response publik menampilkan nama penuh untuk NIM valid. | `docs/06-security-privacy-design.md` | `students` | `/api/lookup` | ST-005 | Implemented |
 | SEC-004 | Admin API role check. | `docs/06-security-privacy-design.md` | `admin_users` | Import Admin API | TC-016 | Implemented |
 | SEC-005 | Audit log perubahan penting. | `docs/06-security-privacy-design.md` | `audit_logs` | Admin API | TC-011, TC-012 | Implemented untuk login dan import |
 | SEC-006 | Error aman. | `docs/06-security-privacy-design.md` | N/A | All API | TC-017 | Implemented untuk error API |

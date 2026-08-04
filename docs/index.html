@@ -449,7 +449,7 @@
             <div class="card-grid">
               <div class="doc-card">
                 <strong>Public lookup</strong>
-                <span>nama plus NIM, hasil dimasking, rate limit.</span>
+                <span>NIM-only, nama penuh setelah ditemukan, rate limit.</span>
               </div>
               <div class="doc-card">
                 <strong>Tagihan</strong>
@@ -495,9 +495,9 @@
                   </tr>
                   <tr>
                     <td>FR-003</td>
-                    <td>Sistem meminta nama sebagai pasangan NIM.</td>
+                    <td>Sistem mencari tagihan berdasarkan NIM.</td>
                     <td><span class="badge must">Must</span></td>
-                    <td>Form memiliki nama mahasiswa sesuai konfigurasi.</td>
+                    <td>Form hanya meminta NIM; lookup berhasil bila NIM ditemukan.</td>
                   </tr>
                   <tr>
                     <td>FR-004</td>
@@ -552,7 +552,7 @@
                   </tr>
                   <tr>
                     <td>API Layer</td>
-                    <td>Validasi, rate limit, query server-side, masking.</td>
+                    <td>Validasi, rate limit, query server-side, dan logging.</td>
                     <td>Python service</td>
                   </tr>
                   <tr>
@@ -647,7 +647,7 @@ flowchart LR
     PaymentData[(Data Metode Pembayaran)]
     AuditData[(Audit dan Lookup Log)]
 
-    Student -->|nama dan NIM| System
+    Student -->|NIM| System
     System -->|Tagihan dan instruksi pembayaran aman| Student
     Admin -->|Data mahasiswa, tagihan, metode pembayaran, file import| System
     System -->|Preview import, laporan, audit| Admin
@@ -675,12 +675,12 @@ flowchart TD
     D4[(admin_users dan admin_sessions)]
     D5[(lookup_logs dan audit_logs)]
 
-    Student -->|NIM dan verifikasi| P1
+    Student -->|NIM| P1
     P1 -->|Data valid| P2
     P1 -->|Lookup attempt| P5
     P2 <--> D1
     P2 <--> D2
-    P2 -->|Response dimasking| Student
+    P2 -->|Response hasil lookup| Student
 
     Admin -->|Login dan session| P3
     P3 <--> D4
@@ -700,15 +700,14 @@ flowchart TD
               <pre class="mermaid">
 flowchart TD
     A[Buka halaman cek tagihan] --> B[Input NIM]
-    B --> C[Input nama]
-    C --> D{Format valid?}
+    B --> D{Format valid?}
     D -->|Tidak| E[Tampilkan validasi form]
     D -->|Ya| F[Kirim request lookup]
     F --> G{Rate limit aman?}
     G -->|Tidak| H[Tampilkan pesan coba lagi]
     G -->|Ya| I{Data cocok?}
     I -->|Tidak| J[Tampilkan pesan data tidak ditemukan]
-    I -->|Ya| K[Tampilkan identitas dimasking]
+    I -->|Ya| K[Tampilkan nama mahasiswa penuh]
     K --> L[Tampilkan tagihan]
     L --> M[Tampilkan instruksi pembayaran]
               </pre>
@@ -745,12 +744,12 @@ sequenceDiagram
     participant DB as SQLite
     participant Log as Audit/Lookup Log
 
-    Student->>UI: Input nama dan NIM
+    Student->>UI: Input NIM
     UI->>API: POST lookup
     API->>API: Validasi format dan rate limit
     API->>DB: Cari mahasiswa dan tagihan aktif
     DB-->>API: Data mahasiswa dan tagihan
-    API->>API: Masking data pribadi
+    API->>API: Susun response terbatas
     API->>Log: Simpan lookup log
     API-->>UI: Response aman
     UI-->>Student: Tampilkan tagihan dan cara bayar
@@ -974,7 +973,7 @@ flowchart TD
     C --> D{Aman?}
     D -->|Tidak| E[Reject 429]
     D -->|Ya| F[Server-side lookup]
-    F --> G[Masking response]
+    F --> G[Susun response terbatas]
     G --> H[Tulis lookup log]
     H --> I[Kirim response]
 
@@ -991,15 +990,15 @@ flowchart TD
             <div class="diagram">
               <pre class="mermaid">
 flowchart TD
-    Start([Mulai]) --> Input[Mahasiswa isi nama dan NIM]
+    Start([Mulai]) --> Input[Mahasiswa isi NIM]
     Input --> Validate{Format input valid?}
     Validate -->|Tidak| Invalid[Tampilkan validasi form]
     Validate -->|Ya| Rate{Rate limit aman?}
     Rate -->|Tidak| Limited[Tampilkan pesan coba lagi]
-    Rate -->|Ya| Match{Data verifikasi cocok?}
+    Rate -->|Ya| Match{NIM ditemukan?}
     Match -->|Tidak| NotFound[Tampilkan pesan generik]
     Match -->|Ya| Fetch[Ambil tagihan dan metode pembayaran]
-    Fetch --> Mask[Masking data pribadi]
+    Fetch --> Mask[Susun data tagihan dan nama penuh]
     Mask --> Log[Tulis lookup log]
     Log --> Result[Tampilkan hasil]
     Invalid --> End([Selesai])
@@ -1039,12 +1038,12 @@ flowchart TD
               <pre class="mermaid">
 flowchart LR
     subgraph Mahasiswa
-        M1[Butuh informasi tagihan] --> M2[Masukkan NIM dan verifikasi]
+        M1[Butuh informasi tagihan] --> M2[Masukkan NIM]
         M3[Terima tagihan dan instruksi] --> M4[Lakukan pembayaran]
     end
 
     subgraph Sistem
-        S1[Validasi lookup] --> S2[Ambil dan masking data]
+        S1[Validasi lookup] --> S2[Ambil data terbatas]
         S2 --> S3[Tampilkan tagihan]
     end
 
@@ -1097,7 +1096,7 @@ flowchart LR
     Source[File sumber tagihan] --> Preview[Parse dan preview]
     Preview --> Commit[Commit batch terverifikasi]
     Commit --> Active[(Database aktif)]
-    Active --> Lookup[Lookup publik dimasking]
+    Active --> Lookup[Lookup publik NIM-only]
     Active --> Admin[Pengelolaan admin]
     Lookup --> LookupLog[(Lookup log ter-hash)]
     Admin --> AuditLog[(Audit log)]
@@ -1114,14 +1113,14 @@ flowchart LR
             <div class="diagram">
               <pre class="mermaid">
 flowchart TD
-    Raw[NIM, nama, nama, dan tagihan] --> Server[API server-side]
-    Server --> Verify[Verifikasi kecocokan data]
-    Server --> Mask[Masking nama dan identitas]
+    Raw[NIM, nama, dan tagihan] --> Server[API server-side]
+    Server --> Verify[Verifikasi NIM]
+    Server --> Minimize[Batasi response publik]
     Server --> Hash[Hash NIM dan IP untuk log]
     Verify --> Authorized{Kanal akses?}
-    Authorized -->|Publik terverifikasi| Public[Response minimal]
+    Authorized -->|Publik ditemukan| Public[Nama penuh dan data pembayaran]
     Authorized -->|Admin berizin| Admin[Data sesuai role]
-    Mask --> Public
+    Minimize --> Public
     Hash --> Logs[(Lookup logs)]
     Admin --> Audit[(Audit logs)]
               </pre>
@@ -1253,7 +1252,7 @@ flowchart TD
                   <tr>
                     <td><code>students</code></td>
                     <td>Data mahasiswa.</td>
-                    <td>NIM unique, nama dimasking pada response publik.</td>
+                    <td>NIM unique, nama penuh tampil setelah lookup valid.</td>
                   </tr>
                   <tr>
                     <td><code>bills</code></td>
@@ -1301,7 +1300,7 @@ flowchart TD
                   <tr>
                     <td><code>/api/lookup</code></td>
                     <td>POST</td>
-                    <td>Cari tagihan berdasarkan nama dan NIM.</td>
+                    <td>Cari tagihan berdasarkan NIM.</td>
                     <td>Public + rate limit</td>
                   </tr>
                   <tr>
@@ -1358,13 +1357,13 @@ flowchart TD
                   </tr>
                   <tr>
                     <td>SEC-002</td>
-                    <td>Public lookup memakai verifikasi tambahan.</td>
-                    <td>Lookup tanpa verifikasi ditolak.</td>
+                    <td>Public lookup memakai NIM.</td>
+                    <td>Lookup tanpa NIM ditolak.</td>
                   </tr>
                   <tr>
                     <td>SEC-003</td>
-                    <td>Response publik harus dimasking.</td>
-                    <td>Nama tidak pernah tampil penuh.</td>
+                    <td>Response publik menampilkan nama penuh untuk NIM valid.</td>
+                    <td>Nama tampil utuh setelah data ditemukan.</td>
                   </tr>
                   <tr>
                     <td>SEC-004</td>
@@ -1409,7 +1408,7 @@ flowchart TD
                   <tr>
                     <td>Unit</td>
                     <td>Fungsi kecil.</td>
-                    <td>Validasi NIM, masking nama, parsing nominal.</td>
+                    <td>Validasi NIM dan parsing nominal.</td>
                   </tr>
                   <tr>
                     <td>Integration</td>
@@ -1495,7 +1494,7 @@ flowchart TD
                     <td>RSK-001</td>
                     <td>NIM ditebak untuk melihat tagihan orang lain.</td>
                     <td><span class="badge risk">20</span></td>
-                    <td>nama, rate limit, masking.</td>
+                    <td>Rate limit, pesan error generik, lookup log ter-hash, dan monitoring.</td>
                   </tr>
                   <tr>
                     <td>RSK-002</td>

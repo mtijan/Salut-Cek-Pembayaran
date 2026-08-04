@@ -30,7 +30,7 @@ Salut Cek Pembayaran adalah aplikasi web ringan untuk membantu mahasiswa UT yang
 | Mahasiswa | Publik terbatas | Mengakses halaman cek tagihan. |
 | Admin | Internal | Mengelola tagihan dan metode pembayaran. |
 | Super Admin | Internal | Mengelola admin dan konfigurasi global. |
-| Sistem | Otomatis | Melakukan validasi, logging, dan masking data. |
+| Sistem | Otomatis | Melakukan validasi, logging, dan pembatasan akses lookup. |
 
 ## Scope MVP
 
@@ -38,7 +38,7 @@ Salut Cek Pembayaran adalah aplikasi web ringan untuk membantu mahasiswa UT yang
 
 | ID | Fitur |
 |---|---|
-| S-MVP-001 | Cek tagihan berdasarkan nama dan NIM. |
+| S-MVP-001 | Cek tagihan berdasarkan NIM. |
 | S-MVP-002 | Tampilan tagihan aktif dari workbook yang diimpor. |
 | S-MVP-003 | Tampilan instruksi pembayaran aktif. |
 | S-MVP-004 | Login admin. |
@@ -64,9 +64,9 @@ Salut Cek Pembayaran adalah aplikasi web ringan untuk membantu mahasiswa UT yang
 |---|---|---|---|
 | FR-001 | Mahasiswa dapat membuka halaman cek tagihan tanpa login. | Must | Halaman publik tersedia dan dapat diakses. |
 | FR-002 | Mahasiswa dapat memasukkan NIM. | Must | Input menerima NIM dengan format angka sesuai konfigurasi. |
-| FR-003 | Sistem meminta nama mahasiswa sebagai pasangan verifikasi NIM. | Must | Form memiliki field nama dan NIM; lookup hanya berhasil bila keduanya cocok. |
+| FR-003 | Sistem mencari tagihan hanya menggunakan NIM. | Must | Form hanya meminta NIM; lookup berhasil bila NIM ditemukan pada data SALUT. |
 | FR-004 | Sistem menampilkan tagihan ditemukan. | Must | Hasil memuat periode, jenis tagihan, nominal, status, BRIVA, dan instruksi. |
-| FR-005 | Sistem memasking identitas mahasiswa. | Must | Nama tampil sebagian, contoh `Muh*** Ad***`. |
+| FR-005 | Sistem menampilkan nama mahasiswa penuh setelah NIM ditemukan. | Must | Nama tampil utuh pada hasil lookup yang valid. |
 | FR-006 | Sistem menampilkan instruksi pembayaran aktif. | Must | Minimal satu metode pembayaran tampil jika ada tagihan belum lunas. |
 | FR-007 | Sistem menampilkan pesan data tidak ditemukan. | Must | Pesan tidak membocorkan apakah nama salah atau NIM tidak ada. |
 | FR-008 | Admin dapat login. | Must | Admin berhasil masuk menggunakan internal auth berbasis email, password hash, dan session server-side. |
@@ -86,7 +86,7 @@ Salut Cek Pembayaran adalah aplikasi web ringan untuk membantu mahasiswa UT yang
 | NFR-001 | Performance efficiency | Lookup tagihan cepat. | P95 kurang dari 3 detik. |
 | NFR-002 | Availability | Aplikasi tersedia untuk publik. | 99 persen pada fase MVP best effort. |
 | NFR-003 | Security | Secret tidak terekspos di frontend. | Secret aplikasi hanya di server environment. |
-| NFR-004 | Confidentiality | Data pribadi dibatasi. | Nama dimasking, tidak tampil alamat/email/HP penuh. |
+| NFR-004 | Confidentiality | Data pribadi dibatasi. | Nama tampil penuh setelah NIM ditemukan; alamat/email/HP tidak ditampilkan. |
 | NFR-005 | Integrity | Import tidak merusak data lama tanpa jejak. | Upload ulang yang sama tidak mengubah tagihan; perubahan nominal/BRIVA memerlukan konfirmasi dan audit log preview/commit. |
 | NFR-006 | Usability | Mahasiswa non-teknis mudah mengecek tagihan. | Form sederhana, pesan error jelas. |
 | NFR-007 | Maintainability | Skema dan API terdokumentasi. | Perubahan wajib memperbarui docs terkait. |
@@ -97,9 +97,9 @@ Salut Cek Pembayaran adalah aplikasi web ringan untuk membantu mahasiswa UT yang
 | Data | Kategori | Aturan |
 |---|---|---|
 | NIM | Personal identifier | Tidak dijadikan satu-satunya autentikasi jika memungkinkan. |
-| Nama mahasiswa | Personal data | Tampil publik dalam bentuk masking. |
+| Nama mahasiswa | Personal data | Tampil penuh setelah NIM valid ditemukan. |
 | Nominal tagihan | Financial data | Tampil hanya setelah verifikasi. |
-| Nama + NIM | Verification data | Dipakai sebagai pasangan lookup dan dicatat di log dalam bentuk hash. |
+| NIM | Lookup data | Dipakai sebagai kunci pencarian dan dicatat di log dalam bentuk hash. |
 | Audit log | Operational data | Hanya admin berwenang. |
 
 ## Assumption

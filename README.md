@@ -8,7 +8,7 @@ Rilis ini siap untuk deployment VPS setelah environment production dan reverse p
 
 ## Target MVP
 
-- Mahasiswa dapat mencari tagihan menggunakan nama dan NIM.
+- Mahasiswa dapat mencari tagihan menggunakan NIM.
 - Sistem menampilkan tagihan, status pembayaran, nomor BRIVA, dan cara pembayaran.
 - Admin SALUT dapat login dan mengimpor workbook tagihan yang disetujui.
 - Sistem mencatat audit penting seperti import data, login admin, dan pencarian tagihan.
@@ -66,12 +66,12 @@ python .\Backend\server.py
 
 Buka `http://127.0.0.1:8000`, lalu coba data contoh:
 
-| Nama | NIM |
-|---|---|
-| `Syahla Taqiyyah` | `050117077` |
+| NIM |
+|---|
+| `050117077` |
 
 Sebelum bootstrap admin pertama, set `ADMIN_BOOTSTRAP_EMAIL` dan `ADMIN_BOOTSTRAP_PASSWORD`. Untuk VPS juga wajib set `APP_ENV=production` dan `LOOKUP_HASH_SECRET`; lihat [template environment](Backend/.env.example) dan [panduan deployment](docs/09-deployment-plan.md).
 
 ## Catatan Keamanan
 
-NIM bukan rahasia kuat. Untuk mengurangi risiko orang lain menebak NIM, rilis ini memakai pasangan nama dan NIM, response error generik, lookup log ter-hash, rate limit 10 request per IP per 10 menit, dan output publik yang dibatasi.
+NIM bukan rahasia kuat. Berdasarkan feedback pengguna, rilis ini memakai lookup NIM-only dan menampilkan nama mahasiswa penuh setelah NIM ditemukan. Risiko enumeration dikurangi dengan response error generik, lookup log ter-hash, rate limit 10 request per IP per 10 menit, dan monitoring lookup gagal.

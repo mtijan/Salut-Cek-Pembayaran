@@ -1,16 +1,21 @@
 from __future__ import annotations
 
+import json
 import sys
 import sqlite3
 import tempfile
+import threading
 import unittest
+import urllib.request
 import zipfile
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
+import server
 from import_excel import import_workbook, preview_workbook
-from server import ROLE_PERMISSIONS, RateLimiter
+from db import connect, init_db
+from server import ROLE_PERMISSIONS, RateLimiter, SalutHandler
 
 
 class CoreBehaviorTests(unittest.TestCase):
@@ -30,6 +35,60 @@ class CoreBehaviorTests(unittest.TestCase):
     def test_viewer_cannot_import(self) -> None:
         self.assertNotIn("import", ROLE_PERMISSIONS["viewer"])
         self.assertIn("import", ROLE_PERMISSIONS["admin"])
+
+    def test_lookup_uses_nim_only_and_returns_full_name(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            database = Path(temporary_directory) / "salut.sqlite"
+            conn = connect(database)
+            init_db(conn)
+            with conn:
+                conn.execute(
+                    "insert into students (id, nim, full_name, name_norm) values (?, ?, ?, ?)",
+                    ("student-1", "050117077", "Syahla Taqiyyah", "syahla taqiyyah"),
+                )
+                conn.execute(
+                    """
+                    insert into bills (id, student_id, briva, amount, period, bill_type, instructions, source_file)
+                    values (?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        "bill-1",
+                        "student-1",
+                        "178100023200040",
+                        1850000,
+                        "2025.2",
+                        "UKT BRIVA",
+                        "Bayar melalui BRIVA BRI dengan nomor VA yang tampil.",
+                        "unit-test.xlsx",
+                    ),
+                )
+            conn.close()
+
+            original_db_path = server.DB_PATH
+            httpd = server.ThreadingHTTPServer(("127.0.0.1", 0), SalutHandler)
+            server.DB_PATH = database
+            thread = threading.Thread(target=httpd.serve_forever, daemon=True)
+            thread.start()
+            try:
+                body = json.dumps({"nim": "050117077"}).encode("utf-8")
+                request = urllib.request.Request(
+                    f"http://127.0.0.1:{httpd.server_port}/api/lookup",
+                    data=body,
+                    headers={"content-type": "application/json"},
+                    method="POST",
+                )
+                with urllib.request.urlopen(request, timeout=5) as response:
+                    result = json.loads(response.read().decode("utf-8"))
+            finally:
+                httpd.shutdown()
+                httpd.server_close()
+                thread.join(timeout=5)
+                server.DB_PATH = original_db_path
+
+            self.assertTrue(result["success"])
+            self.assertEqual(result["data"]["student"]["nim"], "050117077")
+            self.assertEqual(result["data"]["student"]["full_name"], "Syahla Taqiyyah")
+            self.assertNotIn("masked_name", result["data"]["student"])
 
     def test_reupload_is_unchanged_and_amount_update_requires_confirmation(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
