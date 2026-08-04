@@ -9,11 +9,13 @@ Data lookup mahasiswa memakai sheet `Data Sinkron` dengan kolom:
 | Kolom Excel | Tabel | Keterangan |
 |---|---|---|
 | `NIM` | `students.nim` | Unique key mahasiswa. |
-| `Nama Mahasiswa` | `students.full_name`, `students.name_norm` | Nama asli dan versi ternormalisasi untuk lookup. |
+| `Nama Mahasiswa` | `students.full_name`, `students.name_norm` | Nama asli dan versi ternormalisasi untuk import serta administrasi internal. |
 | `BRIVA` | `bills.briva` | Nomor VA pembayaran. |
 | `Jumlah` | `bills.amount` | Nominal tagihan dalam rupiah. |
 
 Sheet `Data Belum Lengkap` tidak dipakai untuk lookup publik dan dicatat ke `import_issues`.
+
+Nama file workbook tidak menjadi syarat bisnis; file `.xlsx` dengan nama apa pun diterima bila memiliki sheet `Data Sinkron` dan `Data Belum Lengkap` dengan header wajib yang sama seperti workbook resmi. Satu `students.nim` dapat memiliki lebih dari satu baris `bills`, termasuk ketika beberapa tagihan memakai BRIVA yang sama. Idempotensi import dijaga dengan `source_file` dan `source_row_number`.
 
 ## Prinsip Desain
 
@@ -23,7 +25,7 @@ Sheet `Data Belum Lengkap` tidak dipakai untuk lookup publik dan dicatat ke `imp
 - Timestamp disimpan sebagai ISO-8601 `text`.
 - Nominal uang disimpan sebagai `integer` rupiah.
 - Query memakai prepared statement.
-- Lookup log menyimpan hash, bukan nama/NIM mentah.
+- Lookup log menyimpan hash NIM, bukan nilai NIM mentah.
 
 ## Tabel `students`
 
@@ -42,14 +44,15 @@ Sheet `Data Belum Lengkap` tidak dipakai untuk lookup publik dan dicatat ke `imp
 |---|---|---|---|
 | `id` | text | PK | UUID tagihan. |
 | `student_id` | text | FK `students.id` | Pemilik tagihan. |
-| `briva` | text | unique, not null | Nomor VA/BRIVA. |
+| `briva` | text | not null | Nomor VA/BRIVA. Nilai yang sama boleh muncul pada beberapa tagihan untuk NIM yang sama. |
 | `amount` | integer | not null | Nominal tagihan dalam rupiah. |
 | `period` | text | not null | Periode data, default `UKT 2023.1 s/d 2025.2`. |
 | `bill_type` | text | not null | Jenis tagihan, default `UKT BRIVA`. |
-| `status` | text | not null | Status tagihan, default `unpaid`. |
+| `status` | text | not null | Status tagihan, `unpaid` atau `paid`; default `unpaid`. |
 | `payment_method` | text | not null | Metode pembayaran, default `BRIVA`. |
 | `instructions` | text | not null | Instruksi pembayaran yang tampil ke mahasiswa. |
-| `source_file` | text | not null | Nama file Excel sumber. |
+| `source_file` | text | not null | Nama file Excel sumber untuk grouping halaman admin. |
+| `source_row_number` | integer | nullable | Nomor baris Excel sumber untuk mencegah re-upload file yang sama menggandakan tagihan. |
 | `created_at` | text | not null | Waktu dibuat. |
 | `updated_at` | text | not null | Waktu diperbarui. |
 
@@ -83,7 +86,7 @@ Sheet `Data Belum Lengkap` tidak dipakai untuk lookup publik dan dicatat ke `imp
 | Tabel | Index |
 |---|---|
 | `students` | unique `nim`; index `nim`; index `name_norm`. |
-| `bills` | unique `briva`; index `student_id`. |
+| `bills` | index `student_id`; index `source_file, source_row_number`. |
 | `lookup_logs` | index `created_at`. |
 
 ## SQL Utama
@@ -103,7 +106,7 @@ create table if not exists students (
 create table if not exists bills (
   id text primary key,
   student_id text not null references students(id) on delete cascade,
-  briva text not null unique,
+  briva text not null,
   amount integer not null,
   period text not null,
   bill_type text not null,
@@ -111,6 +114,7 @@ create table if not exists bills (
   payment_method text not null default 'BRIVA',
   instructions text not null,
   source_file text not null,
+  source_row_number integer,
   created_at text not null default (datetime('now')),
   updated_at text not null default (datetime('now'))
 );

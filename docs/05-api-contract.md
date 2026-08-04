@@ -3,7 +3,7 @@
 ## Prinsip API
 
 - Semua endpoint mengembalikan JSON.
-- Endpoint publik mengembalikan nama mahasiswa penuh hanya setelah NIM ditemukan.
+- Endpoint publik hanya menerima NIM dan tidak mengembalikan nama mahasiswa.
 - Endpoint import admin wajib autentikasi dan role check.
 - Error response tidak boleh membocorkan detail database atau secret.
 - Setiap response error menyertakan `request_id`.
@@ -54,12 +54,12 @@ Response 200:
   "success": true,
   "data": {
     "student": {
-      "nim": "050117077",
-      "full_name": "Syahla Taqiyyah"
+      "nim": "050117077"
     },
     "bills": [
       {
         "period": "UKT 2023.1 s/d 2025.2",
+        "bill_label": "UKT BRIVA",
         "bill_type": "UKT BRIVA",
         "status": "unpaid",
         "amount": 1850000,
@@ -116,7 +116,7 @@ Menghapus session admin aktif.
 
 ### `POST /api/admin/import/preview`
 
-Upload file Excel `.xlsx`, membaca sheet `Data Sinkron` dan `Data Belum Lengkap`, lalu mengembalikan ringkasan tanpa commit ke tabel tagihan.
+Upload file Excel `.xlsx` dengan nama file apa pun, membaca sheet `Data Sinkron` dan `Data Belum Lengkap`, lalu mengembalikan ringkasan tanpa commit ke tabel tagihan. Struktur header wajib mengikuti workbook resmi: `Data Sinkron` memuat `NIM`, `Nama Mahasiswa`, `BRIVA`, dan `Jumlah`; `Data Belum Lengkap` juga memuat `Keterangan`.
 
 Form data:
 
@@ -140,6 +140,8 @@ Response:
     "update_rows": 0,
     "amount_change_rows": 0,
     "briva_change_rows": 0,
+    "multiple_bill_rows": 0,
+    "duplicate_briva_conflict_rows": 0,
     "requires_update_confirmation": false,
     "sample": [],
     "changes": [],
@@ -150,7 +152,7 @@ Response:
 
 ### `POST /api/admin/import/commit`
 
-Commit file Excel yang sudah dipreview ke SQLite. Commit ditolak bila `critical_rows` lebih dari 0. Bila preview mendeteksi perubahan nominal atau BRIVA, `confirm_updates` wajib bernilai `true`. Upload ulang data yang sama tidak memperbarui baris maupun status tagihan. Issue dari sheet `Data Belum Lengkap` dicatat sebagai warning dan tidak menghalangi baris valid.
+Commit file Excel yang sudah dipreview ke SQLite. Commit ditolak bila `critical_rows` lebih dari 0. Bila preview mendeteksi perubahan nominal atau BRIVA, `confirm_updates` wajib bernilai `true`. Upload ulang data yang sama tidak memperbarui baris maupun status tagihan. Issue dari sheet `Data Belum Lengkap` dicatat sebagai warning dan tidak menghalangi baris valid. NIM yang muncul lebih dari satu kali disimpan sebagai beberapa tagihan, termasuk ketika BRIVA sama; BRIVA yang sama untuk NIM berbeda tetap menjadi konflik kritis.
 
 Request:
 
@@ -175,6 +177,44 @@ Response:
   }
 }
 ```
+
+### `GET /api/admin/imported-bills`
+
+Mengambil tagihan yang sudah tersimpan, dikelompokkan berdasarkan nama file import.
+
+Response:
+
+```json
+{
+  "success": true,
+  "data": {
+    "groups": [
+      {
+        "file_name": "Data_Sinkron_BRIVA_UKT_2023_1_sd_2025_2.xlsx",
+        "total": 408,
+        "paid": 12,
+        "unpaid": 396,
+        "bills": []
+      }
+    ]
+  }
+}
+```
+
+### `POST /api/admin/bills/status`
+
+Mengubah status satu tagihan melalui checkbox admin.
+
+Request:
+
+```json
+{
+  "bill_id": "uuid",
+  "status": "paid"
+}
+```
+
+`status` hanya menerima `paid` atau `unpaid`.
 
 ## API Rilis Lanjutan (Belum Diimplementasikan)
 
@@ -339,7 +379,7 @@ Query:
 | `nim` | Angka, panjang sesuai konfigurasi, trim whitespace. |
 | `name` | Tidak dipakai pada lookup publik rilis ini. |
 | `amount` | Angka >= 0, maksimal sesuai batas konfigurasi. |
-| `status` | Harus masuk enum yang valid. |
+| `status` | Untuk endpoint status MVP hanya `paid` atau `unpaid`. |
 | `period` | Format konsisten, contoh `2026.1`. |
 | `file` | XLSX, maksimal 5 MB. |
 

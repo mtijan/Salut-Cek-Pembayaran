@@ -100,6 +100,22 @@ def read_sheet(path: str | Path, sheet_name: str) -> list[dict[str, str]]:
         return records
 
 
+def read_sheet_headers(path: str | Path, sheet_name: str) -> list[str]:
+    workbook_path = Path(path)
+    with zipfile.ZipFile(workbook_path) as zf:
+        shared = _shared_strings(zf)
+        targets = _sheet_targets(zf)
+        if sheet_name not in targets:
+            available = ", ".join(targets)
+            raise ValueError(f"Sheet '{sheet_name}' tidak ditemukan. Sheet tersedia: {available}")
+
+        root = ET.fromstring(zf.read(targets[sheet_name]))
+        rows = root.findall(".//a:sheetData/a:row", NS)
+        if not rows:
+            return []
+        return [_cell_value(cell, shared) for cell in rows[0].findall("a:c", NS)]
+
+
 def workbook_sheet_names(path: str | Path) -> list[str]:
     with zipfile.ZipFile(Path(path)) as zf:
         return list(_sheet_targets(zf).keys())

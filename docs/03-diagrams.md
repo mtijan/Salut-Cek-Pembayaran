@@ -161,9 +161,8 @@ flowchart TD
     G -->|Tidak| H[Tampilkan pesan coba lagi]
     G -->|Ya| I{Data cocok?}
     I -->|Tidak| J[Tampilkan pesan data tidak ditemukan]
-    I -->|Ya| K[Tampilkan nama mahasiswa penuh]
-    K --> L[Tampilkan tagihan]
-    L --> M[Tampilkan instruksi pembayaran]
+    I -->|Ya| K[Tampilkan NIM dan tagihan]
+    K --> L[Tampilkan instruksi pembayaran]
 ```
 
 ## User Flow Admin Import

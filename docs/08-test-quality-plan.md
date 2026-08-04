@@ -55,8 +55,11 @@ Mengacu pada ISO/IEC 25010:2023, kualitas produk dipantau melalui kategori berik
 | TC-019 | FR-009 | Upload ulang workbook yang sudah tersimpan. | Preview menampilkan seluruh baris sebagai tidak berubah dan commit tidak memodifikasi tagihan. |
 | TC-020 | FR-016 | Nominal berubah pada BRIVA yang sama. | Commit ditolak tanpa konfirmasi dan berhasil hanya setelah persetujuan admin. |
 | TC-021 | FR-016 | BRIVA berubah untuk NIM/periode yang sama. | Preview menampilkan penggantian BRIVA; commit terkonfirmasi mempertahankan satu tagihan. |
-| TC-022 | FR-010 | BRIVA/NIM duplikat dalam satu workbook. | Preview kritis dan commit ditolak. |
+| TC-022 | FR-010 | BRIVA yang sama dipakai untuk NIM berbeda dalam satu workbook. | Preview kritis dan commit ditolak. |
 | TC-023 | FR-010 | Nominal tagihan `paid` berubah. | Preview kritis dan commit ditolak. |
+| TC-024 | FR-004 | Satu NIM memiliki dua tagihan, termasuk BRIVA yang sama. | Lookup menampilkan `Tagihan 1` dan `Tagihan 2`. |
+| TC-025 | FR-017 | Admin membuka dashboard setelah import. | Tabel tagihan tampil dikelompokkan berdasarkan nama file. |
+| TC-026 | FR-018 | Admin mencentang status lunas. | Status tagihan berubah menjadi `paid`; melepas centang mengubah ke `unpaid`. |
 
 ## Security Test
 

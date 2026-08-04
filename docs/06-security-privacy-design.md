@@ -94,7 +94,7 @@ Dokumen ini menetapkan desain keamanan dan privasi untuk melindungi data mahasis
 |---|---|---|
 | SEC-001 | Secret tidak boleh berada di repository. | `.env*` diignore kecuali `.env.example`; scan manual sebelum commit. |
 | SEC-002 | Public lookup harus memakai NIM. | Endpoint menolak lookup tanpa NIM. |
-| SEC-003 | Response publik menampilkan nama penuh setelah NIM valid. | Nama tampil utuh pada hasil lookup yang ditemukan. |
+| SEC-003 | Response publik tidak mengirim nama mahasiswa. | Hasil lookup hanya memuat NIM dan detail tagihan. |
 | SEC-004 | API admin harus memvalidasi role. | Request tanpa role sesuai ditolak 403. |
 | SEC-005 | Audit log wajib untuk perubahan data penting. | Create/update/delete/import menghasilkan audit log. |
 | SEC-006 | Error tidak membocorkan detail internal. | Response 500 hanya menampilkan request ID. |

@@ -3,7 +3,6 @@ const message = document.querySelector("#form-message");
 const submitButton = document.querySelector("#submit-button");
 const emptyState = document.querySelector("#empty-state");
 const resultState = document.querySelector("#result-state");
-const studentName = document.querySelector("#student-name");
 const studentNim = document.querySelector("#student-nim");
 const billStatus = document.querySelector("#bill-status");
 const billList = document.querySelector("#bill-list");
@@ -23,16 +22,18 @@ function showEmpty() {
 function renderResult(data) {
   emptyState.classList.add("hidden");
   resultState.classList.remove("hidden");
-  studentName.textContent = data.student.full_name || "-";
-  studentNim.textContent = `NIM ${data.student.nim}`;
+  studentNim.textContent = data.student.nim || "-";
 
   const bills = data.bills || [];
-  billStatus.textContent = bills.some((bill) => bill.status === "unpaid") ? "Belum lunas" : "Lunas";
+  const hasUnpaidBill = bills.some((bill) => bill.status === "unpaid");
+  billStatus.textContent = hasUnpaidBill ? "Belum lunas" : "Lunas";
+  billStatus.classList.toggle("is-paid", !hasUnpaidBill);
+  billStatus.classList.toggle("is-unpaid", hasUnpaidBill);
   billList.replaceChildren();
 
   for (const bill of bills) {
     const item = billTemplate.content.cloneNode(true);
-    item.querySelector(".bill-type").textContent = bill.bill_type;
+    item.querySelector(".bill-type").textContent = bill.bill_label || bill.bill_type;
     item.querySelector(".amount").textContent = bill.amount_formatted;
     item.querySelector(".period").textContent = bill.period;
     item.querySelector(".briva").textContent = bill.briva;

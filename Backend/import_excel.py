@@ -7,7 +7,7 @@ from collections import Counter
 from pathlib import Path
 
 from db import DEFAULT_DB_PATH, connect, init_db
-from excel_reader import normalize_name, normalize_nim, normalize_text, read_sheet
+from excel_reader import normalize_name, normalize_nim, normalize_text, read_sheet, read_sheet_headers
 
 DEFAULT_WORKBOOK = Path(__file__).resolve().parents[1] / "Data_Sinkron_BRIVA_UKT_2023_1_sd_2025_2.xlsx"
 DEFAULT_PERIOD = "UKT 2023.1 s/d 2025.2"
@@ -16,6 +16,8 @@ DEFAULT_INSTRUCTIONS = (
     "Bayar melalui BRIVA BRI dengan nomor VA yang tampil. "
     "Pastikan nama dan nominal sesuai sebelum menyelesaikan pembayaran."
 )
+REQUIRED_SYNC_HEADERS = ("NIM", "Nama Mahasiswa", "BRIVA", "Jumlah")
+OPTIONAL_ISSUE_HEADERS = ("NIM", "Nama Mahasiswa", "BRIVA", "Jumlah", "Keterangan")
 
 
 def _amount_to_int(value: str) -> int | None:
@@ -23,6 +25,30 @@ def _amount_to_int(value: str) -> int | None:
     if not cleaned or not cleaned.isdigit():
         return None
     return int(cleaned)
+
+
+def _normalized_header_set(headers: list[str]) -> set[str]:
+    return {normalize_text(header).casefold() for header in headers if normalize_text(header)}
+
+
+def _require_headers(workbook: Path) -> None:
+    sync_headers = _normalized_header_set(read_sheet_headers(workbook, "Data Sinkron"))
+    missing = [header for header in REQUIRED_SYNC_HEADERS if header.casefold() not in sync_headers]
+    if missing:
+        raise ValueError(
+            "Struktur header sheet Data Sinkron tidak sesuai. "
+            f"Kolom wajib: {', '.join(REQUIRED_SYNC_HEADERS)}. "
+            f"Kolom belum ditemukan: {', '.join(missing)}."
+        )
+
+    issue_headers = _normalized_header_set(read_sheet_headers(workbook, "Data Belum Lengkap"))
+    missing_issue_headers = [header for header in OPTIONAL_ISSUE_HEADERS if header.casefold() not in issue_headers]
+    if missing_issue_headers:
+        raise ValueError(
+            "Struktur header sheet Data Belum Lengkap tidak sesuai. "
+            f"Kolom wajib: {', '.join(OPTIONAL_ISSUE_HEADERS)}. "
+            f"Kolom belum ditemukan: {', '.join(missing_issue_headers)}."
+        )
 
 
 def _get_existing_id(conn: sqlite3.Connection, table: str, column: str, value: str) -> str | None:
@@ -59,30 +85,40 @@ def _read_sync_rows(workbook: Path) -> tuple[list[dict[str, object]], list[dict[
     return rows, errors, sample
 
 
-def _existing_bills(db_path: str | Path, nims: set[str], period: str) -> tuple[dict[str, sqlite3.Row], dict[str, list[sqlite3.Row]]]:
+def _existing_bills(
+    db_path: str | Path,
+    nims: set[str],
+    period: str,
+    source_file: str,
+) -> tuple[dict[str, list[sqlite3.Row]], dict[str, list[sqlite3.Row]], dict[int, sqlite3.Row]]:
     if not nims:
-        return {}, {}
+        return {}, {}, {}
 
     conn = connect(db_path)
     init_db(conn)
     placeholders = ",".join("?" for _ in nims)
     rows = conn.execute(
         f"""
-        select b.id, b.student_id, b.briva, b.amount, b.period, b.status, s.nim, s.full_name
+        select b.id, b.student_id, b.briva, b.amount, b.period, b.status, b.source_file, b.source_row_number,
+               s.nim, s.full_name
         from bills b
         join students s on s.id = b.student_id
-        where b.period = ? or s.nim in ({placeholders})
+        where b.source_file = ? or b.period = ? or s.nim in ({placeholders})
         """,
-        (period, *sorted(nims)),
+        (source_file, period, *sorted(nims)),
     ).fetchall()
     conn.close()
 
-    by_briva = {str(row["briva"]): row for row in rows}
+    by_briva: dict[str, list[sqlite3.Row]] = {}
     by_nim: dict[str, list[sqlite3.Row]] = {}
+    by_source_row: dict[int, sqlite3.Row] = {}
     for row in rows:
+        by_briva.setdefault(str(row["briva"]), []).append(row)
         if row["period"] == period:
             by_nim.setdefault(str(row["nim"]), []).append(row)
-    return by_briva, by_nim
+        if row["source_file"] == source_file and row["source_row_number"] is not None:
+            by_source_row[int(row["source_row_number"])] = row
+    return by_briva, by_nim, by_source_row
 
 
 def _append_limited(items: list[dict[str, object]], item: dict[str, object], limit: int = 12) -> None:
@@ -94,23 +130,28 @@ def _analyze_workbook(
     workbook_path: str | Path,
     db_path: str | Path | None = None,
     period: str = DEFAULT_PERIOD,
+    source_file_name: str | None = None,
 ) -> dict[str, object]:
     workbook = Path(workbook_path)
     if not workbook.exists():
         raise FileNotFoundError(f"File Excel tidak ditemukan: {workbook}")
 
+    _require_headers(workbook)
+    source_file = source_file_name or workbook.name
     rows, errors, sample = _read_sync_rows(workbook)
     valid_rows = len(rows)
     issue_rows = len(errors)
     critical_rows = len(errors)
     briva_counts = Counter(str(row["briva"]) for row in rows)
     nim_counts = Counter(str(row["nim"]) for row in rows)
-    duplicate_briva_rows = 0
-    duplicate_nim_rows = 0
+    duplicate_briva_conflict_rows = 0
+    multiple_bill_rows = 0
 
     for row in rows:
-        if briva_counts[str(row["briva"])] > 1:
-            duplicate_briva_rows += 1
+        rows_with_same_briva = [candidate for candidate in rows if candidate["briva"] == row["briva"]]
+        nims_for_same_briva = {str(candidate["nim"]) for candidate in rows_with_same_briva}
+        if briva_counts[str(row["briva"])] > 1 and len(nims_for_same_briva) > 1:
+            duplicate_briva_conflict_rows += 1
             critical_rows += 1
             issue_rows += 1
             _append_limited(
@@ -119,27 +160,27 @@ def _analyze_workbook(
                     "sheet": "Data Sinkron",
                     "row_number": row["row_number"],
                     "severity": "critical",
-                    "message": "BRIVA duplikat dalam file. Setiap BRIVA hanya boleh muncul satu kali.",
+                    "message": "BRIVA yang sama muncul untuk NIM berbeda dalam file.",
                 },
             )
         if nim_counts[str(row["nim"])] > 1:
-            duplicate_nim_rows += 1
-            critical_rows += 1
+            multiple_bill_rows += 1
             issue_rows += 1
             _append_limited(
                 errors,
                 {
                     "sheet": "Data Sinkron",
                     "row_number": row["row_number"],
-                    "severity": "critical",
-                    "message": "NIM duplikat dalam file untuk periode yang sama.",
+                    "severity": "warning",
+                    "message": "NIM muncul lebih dari satu kali. Sistem akan menyimpan sebagai beberapa tagihan.",
                 },
             )
 
-    by_briva: dict[str, sqlite3.Row] = {}
+    by_briva: dict[str, list[sqlite3.Row]] = {}
     by_nim: dict[str, list[sqlite3.Row]] = {}
+    by_source_row: dict[int, sqlite3.Row] = {}
     if db_path is not None:
-        by_briva, by_nim = _existing_bills(db_path, {str(row["nim"]) for row in rows}, period)
+        by_briva, by_nim, by_source_row = _existing_bills(db_path, {str(row["nim"]) for row in rows}, period, source_file)
 
     new_rows = 0
     unchanged_rows = 0
@@ -155,11 +196,15 @@ def _analyze_workbook(
         nim = str(row["nim"])
         briva = str(row["briva"])
         amount = int(row["amount"])
-        existing_briva = by_briva.get(briva)
+        row_number = int(row["row_number"])
+        existing_source_row = by_source_row.get(row_number)
+        matching_briva_rows = [candidate for candidate in by_briva.get(briva, []) if candidate["nim"] == nim and candidate["period"] == period]
+        conflicting_briva_rows = [candidate for candidate in by_briva.get(briva, []) if candidate["nim"] != nim]
+        existing_briva = matching_briva_rows[0] if len(matching_briva_rows) == 1 else None
         current_bills = by_nim.get(nim, [])
 
-        if existing_briva:
-            if existing_briva["nim"] != nim:
+        if existing_source_row:
+            if existing_source_row["nim"] != nim:
                 critical_rows += 1
                 issue_rows += 1
                 conflict_rows += 1
@@ -169,10 +214,28 @@ def _analyze_workbook(
                         "sheet": "Data Sinkron",
                         "row_number": row["row_number"],
                         "severity": "critical",
-                        "message": "BRIVA sudah terdaftar untuk NIM lain.",
+                        "message": "Baris sumber file ini sebelumnya terdaftar untuk NIM lain.",
                     },
                 )
                 continue
+            existing_briva = existing_source_row
+
+        if conflicting_briva_rows:
+            critical_rows += 1
+            issue_rows += 1
+            conflict_rows += 1
+            _append_limited(
+                errors,
+                {
+                    "sheet": "Data Sinkron",
+                    "row_number": row["row_number"],
+                    "severity": "critical",
+                    "message": "BRIVA sudah terdaftar untuk NIM lain.",
+                },
+            )
+            continue
+
+        if existing_briva:
             if existing_briva["period"] != period:
                 critical_rows += 1
                 issue_rows += 1
@@ -231,24 +294,15 @@ def _analyze_workbook(
                 )
             continue
 
-        if len(current_bills) == 0:
+        has_multiple_rows_for_nim = nim_counts[nim] > 1
+        if len(current_bills) == 0 or has_multiple_rows_for_nim:
             new_rows += 1
             actions.append({"type": "new", "row": row, "existing": None})
             continue
 
         if len(current_bills) > 1:
-            critical_rows += 1
-            issue_rows += 1
-            conflict_rows += 1
-            _append_limited(
-                errors,
-                {
-                    "sheet": "Data Sinkron",
-                    "row_number": row["row_number"],
-                    "severity": "critical",
-                    "message": "Mahasiswa sudah memiliki lebih dari satu tagihan pada periode ini. Perlu koreksi manual.",
-                },
-            )
+            new_rows += 1
+            actions.append({"type": "new", "row": row, "existing": None})
             continue
 
         existing = current_bills[0]
@@ -308,8 +362,8 @@ def _analyze_workbook(
         "update_rows": update_rows,
         "amount_change_rows": amount_change_rows,
         "briva_change_rows": briva_change_rows,
-        "duplicate_briva_rows": duplicate_briva_rows,
-        "duplicate_nim_rows": duplicate_nim_rows,
+        "duplicate_briva_conflict_rows": duplicate_briva_conflict_rows,
+        "multiple_bill_rows": multiple_bill_rows,
         "conflict_rows": conflict_rows,
         "requires_update_confirmation": requires_update_confirmation,
         "sample": sample,
@@ -323,8 +377,9 @@ def preview_workbook(
     workbook_path: str | Path,
     db_path: str | Path | None = None,
     period: str = DEFAULT_PERIOD,
+    source_file_name: str | None = None,
 ) -> dict[str, object]:
-    analysis = _analyze_workbook(workbook_path, db_path, period)
+    analysis = _analyze_workbook(workbook_path, db_path, period, source_file_name)
     return {key: value for key, value in analysis.items() if key != "actions"}
 
 
@@ -353,7 +408,8 @@ def import_workbook(
     confirm_updates: bool = False,
 ) -> dict[str, int]:
     workbook = Path(workbook_path)
-    analysis = _analyze_workbook(workbook, db_path, period)
+    source_file = source_file_name or workbook.name
+    analysis = _analyze_workbook(workbook, db_path, period, source_file)
     if analysis["critical_rows"]:
         raise ValueError("Import dibatalkan karena ada duplikasi atau konflik kritis.")
     if analysis["requires_update_confirmation"] and not confirm_updates:
@@ -361,7 +417,6 @@ def import_workbook(
 
     conn = connect(db_path)
     init_db(conn)
-    source_file = source_file_name or workbook.name
     issues = 0
     created = 0
     updated = 0
@@ -378,16 +433,17 @@ def import_workbook(
             full_name = str(row["full_name"])
             briva = str(row["briva"])
             amount = int(row["amount"])
+            row_number = int(row["row_number"])
             student_id = _upsert_student(conn, nim, full_name)
 
             if action_type == "new":
                 conn.execute(
                     """
                     insert into bills
-                      (id, student_id, briva, amount, period, bill_type, status, instructions, source_file, updated_at)
-                    values (?, ?, ?, ?, ?, ?, 'unpaid', ?, ?, datetime('now'))
+                      (id, student_id, briva, amount, period, bill_type, status, instructions, source_file, source_row_number, updated_at)
+                    values (?, ?, ?, ?, ?, ?, 'unpaid', ?, ?, ?, datetime('now'))
                     """,
-                    (str(uuid.uuid4()), student_id, briva, amount, period, bill_type, DEFAULT_INSTRUCTIONS, source_file),
+                    (str(uuid.uuid4()), student_id, briva, amount, period, bill_type, DEFAULT_INSTRUCTIONS, source_file, row_number),
                 )
                 created += 1
                 continue
@@ -397,18 +453,18 @@ def import_workbook(
             if action_type == "replace_briva":
                 conn.execute(
                     """
-                    update bills set student_id = ?, briva = ?, amount = ?, bill_type = ?, source_file = ?, updated_at = datetime('now')
+                    update bills set student_id = ?, briva = ?, amount = ?, bill_type = ?, source_file = ?, source_row_number = ?, updated_at = datetime('now')
                     where id = ?
                     """,
-                    (student_id, briva, amount, bill_type, source_file, existing["id"]),
+                    (student_id, briva, amount, bill_type, source_file, row_number, existing["id"]),
                 )
             else:
                 conn.execute(
                     """
-                    update bills set student_id = ?, amount = ?, bill_type = ?, source_file = ?, updated_at = datetime('now')
+                    update bills set student_id = ?, amount = ?, bill_type = ?, source_file = ?, source_row_number = ?, updated_at = datetime('now')
                     where id = ?
                     """,
-                    (student_id, amount, bill_type, source_file, existing["id"]),
+                    (student_id, amount, bill_type, source_file, row_number, existing["id"]),
                 )
             updated += 1
 

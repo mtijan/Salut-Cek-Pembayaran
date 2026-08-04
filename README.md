@@ -9,8 +9,8 @@ Rilis ini siap untuk deployment VPS setelah environment production dan reverse p
 ## Target MVP
 
 - Mahasiswa dapat mencari tagihan menggunakan NIM.
-- Sistem menampilkan tagihan, status pembayaran, nomor BRIVA, dan cara pembayaran.
-- Admin SALUT dapat login dan mengimpor workbook tagihan yang disetujui.
+- Sistem menampilkan tagihan, status pembayaran, nomor BRIVA, dan cara pembayaran; bila satu NIM punya beberapa tagihan, hasil tampil sebagai `Tagihan 1`, `Tagihan 2`, dan seterusnya.
+- Admin SALUT dapat login, mengimpor workbook tagihan dengan nama file apa pun selama struktur header sesuai template resmi, melihat data per nama file import, dan menandai status lunas/belum lunas.
 - Sistem mencatat audit penting seperti import data, login admin, dan pencarian tagihan.
 - Deployment awal menggunakan VPS dan SQLite.
 
@@ -74,4 +74,4 @@ Sebelum bootstrap admin pertama, set `ADMIN_BOOTSTRAP_EMAIL` dan `ADMIN_BOOTSTRA
 
 ## Catatan Keamanan
 
-NIM bukan rahasia kuat. Berdasarkan feedback pengguna, rilis ini memakai lookup NIM-only dan menampilkan nama mahasiswa penuh setelah NIM ditemukan. Risiko enumeration dikurangi dengan response error generik, lookup log ter-hash, rate limit 10 request per IP per 10 menit, dan monitoring lookup gagal.
+NIM bukan rahasia kuat. Berdasarkan feedback pengguna, rilis ini memakai lookup NIM-only dan tidak mengirim atau menampilkan nama mahasiswa di hasil publik. Risiko enumeration dikurangi dengan response error generik, lookup log ter-hash, rate limit 10 request per IP per 10 menit, dan monitoring lookup gagal.

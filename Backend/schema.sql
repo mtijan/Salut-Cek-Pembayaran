@@ -12,7 +12,7 @@ create table if not exists students (
 create table if not exists bills (
   id text primary key,
   student_id text not null references students(id) on delete cascade,
-  briva text not null unique,
+  briva text not null,
   amount integer not null,
   period text not null,
   bill_type text not null,
@@ -20,6 +20,7 @@ create table if not exists bills (
   payment_method text not null default 'BRIVA',
   instructions text not null,
   source_file text not null,
+  source_row_number integer,
   created_at text not null default (datetime('now')),
   updated_at text not null default (datetime('now'))
 );

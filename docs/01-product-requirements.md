@@ -45,6 +45,7 @@ Salut Cek Pembayaran adalah aplikasi web ringan untuk membantu mahasiswa UT yang
 | S-MVP-005 | Import tagihan dari workbook XLSX yang disetujui dengan preview. |
 | S-MVP-006 | Rate limit lookup dan import. |
 | S-MVP-007 | Audit log login dan import. |
+| S-MVP-008 | Admin melihat tagihan per file import dan mengubah status lunas/belum lunas. |
 
 ### Out of Scope MVP
 
@@ -55,7 +56,7 @@ Salut Cek Pembayaran adalah aplikasi web ringan untuk membantu mahasiswa UT yang
 | S-OOS-003 | Notifikasi WhatsApp otomatis. |
 | S-OOS-004 | Rekonsiliasi bank otomatis. |
 | S-OOS-005 | Mobile app native. |
-| S-OOS-006 | CRUD manual mahasiswa, tagihan, dan metode pembayaran. |
+| S-OOS-006 | CRUD manual penuh mahasiswa, tagihan, dan metode pembayaran selain update status lunas/belum lunas. |
 | S-OOS-007 | Jatuh tempo dan histori pembayaran, karena kolom tersebut tidak tersedia pada workbook saat ini. |
 
 ## Functional Requirements
@@ -65,19 +66,21 @@ Salut Cek Pembayaran adalah aplikasi web ringan untuk membantu mahasiswa UT yang
 | FR-001 | Mahasiswa dapat membuka halaman cek tagihan tanpa login. | Must | Halaman publik tersedia dan dapat diakses. |
 | FR-002 | Mahasiswa dapat memasukkan NIM. | Must | Input menerima NIM dengan format angka sesuai konfigurasi. |
 | FR-003 | Sistem mencari tagihan hanya menggunakan NIM. | Must | Form hanya meminta NIM; lookup berhasil bila NIM ditemukan pada data SALUT. |
-| FR-004 | Sistem menampilkan tagihan ditemukan. | Must | Hasil memuat periode, jenis tagihan, nominal, status, BRIVA, dan instruksi. |
-| FR-005 | Sistem menampilkan nama mahasiswa penuh setelah NIM ditemukan. | Must | Nama tampil utuh pada hasil lookup yang valid. |
+| FR-004 | Sistem menampilkan tagihan ditemukan. | Must | Hasil memuat periode, jenis tagihan, nominal, status, BRIVA, dan instruksi; bila satu NIM memiliki lebih dari satu tagihan, item diberi label `Tagihan 1`, `Tagihan 2`, dan seterusnya. |
+| FR-005 | Sistem tidak menampilkan nama mahasiswa pada hasil lookup publik. | Must | Response dan UI publik hanya memuat NIM serta detail tagihan. |
 | FR-006 | Sistem menampilkan instruksi pembayaran aktif. | Must | Minimal satu metode pembayaran tampil jika ada tagihan belum lunas. |
 | FR-007 | Sistem menampilkan pesan data tidak ditemukan. | Must | Pesan tidak membocorkan apakah nama salah atau NIM tidak ada. |
 | FR-008 | Admin dapat login. | Must | Admin berhasil masuk menggunakan internal auth berbasis email, password hash, dan session server-side. |
-| FR-009 | Admin dapat upload workbook XLSX tagihan. | Must | Sistem menampilkan preview, warning, error kritis, tagihan baru, tagihan tidak berubah, dan rencana pembaruan sebelum commit. |
-| FR-010 | Sistem menolak commit import bila terdapat baris kritis. | Must | Tidak ada perubahan ketika validasi `Data Sinkron` gagal, BRIVA/NIM duplikat ditemukan, atau tagihan lunas akan diubah. |
+| FR-009 | Admin dapat upload workbook XLSX tagihan. | Must | Nama file bebas; sistem menampilkan preview, warning, error kritis, tagihan baru, tagihan tidak berubah, dan rencana pembaruan sebelum commit jika sheet/header sesuai workbook resmi. |
+| FR-010 | Sistem menolak commit import bila terdapat baris kritis. | Must | Tidak ada perubahan ketika validasi `Data Sinkron` gagal, BRIVA yang sama dipakai untuk NIM berbeda, atau tagihan lunas akan diubah. |
 | FR-016 | Admin mengonfirmasi perubahan tagihan sensitif. | Must | Perubahan nominal atau BRIVA hanya dapat di-commit setelah konfirmasi eksplisit admin. |
 | FR-011 | Sistem mencatat lookup publik. | Should | Log menyimpan waktu, hash NIM, dan hasil umum termasuk `rate_limited`. |
 | FR-012 | Admin dengan role yang tepat dapat mengimpor data. | Must | Role `admin` atau `super_admin` dapat import; `viewer` ditolak 403. |
 | FR-013 | Rate limit melindungi endpoint publik dan admin. | Must | Lookup dibatasi per IP; import dibatasi per admin. |
 | FR-014 | CRUD manual mahasiswa, tagihan, dan metode pembayaran. | Could | Dirilis setelah model data dan SOP koreksi disetujui. |
 | FR-015 | Sistem dapat mengekspor laporan tagihan. | Could | Admin dapat mengunduh CSV sesuai filter. |
+| FR-017 | Admin dapat melihat tagihan terimport berdasarkan nama file. | Must | Dashboard admin mengelompokkan tagihan berdasarkan `source_file`. |
+| FR-018 | Admin dapat mengubah status lunas/belum lunas. | Must | Checkbox pada tabel admin mengubah `bills.status` antara `paid` dan `unpaid`, menulis audit log, serta menampilkan `Lunas` biru dan `Belum lunas` merah. |
 
 ## Non-Functional Requirements
 
@@ -86,7 +89,7 @@ Salut Cek Pembayaran adalah aplikasi web ringan untuk membantu mahasiswa UT yang
 | NFR-001 | Performance efficiency | Lookup tagihan cepat. | P95 kurang dari 3 detik. |
 | NFR-002 | Availability | Aplikasi tersedia untuk publik. | 99 persen pada fase MVP best effort. |
 | NFR-003 | Security | Secret tidak terekspos di frontend. | Secret aplikasi hanya di server environment. |
-| NFR-004 | Confidentiality | Data pribadi dibatasi. | Nama tampil penuh setelah NIM ditemukan; alamat/email/HP tidak ditampilkan. |
+| NFR-004 | Confidentiality | Data pribadi dibatasi. | Nama, alamat, email, dan HP tidak dikirim atau ditampilkan pada hasil lookup publik. |
 | NFR-005 | Integrity | Import tidak merusak data lama tanpa jejak. | Upload ulang yang sama tidak mengubah tagihan; perubahan nominal/BRIVA memerlukan konfirmasi dan audit log preview/commit. |
 | NFR-006 | Usability | Mahasiswa non-teknis mudah mengecek tagihan. | Form sederhana, pesan error jelas. |
 | NFR-007 | Maintainability | Skema dan API terdokumentasi. | Perubahan wajib memperbarui docs terkait. |
@@ -97,7 +100,7 @@ Salut Cek Pembayaran adalah aplikasi web ringan untuk membantu mahasiswa UT yang
 | Data | Kategori | Aturan |
 |---|---|---|
 | NIM | Personal identifier | Tidak dijadikan satu-satunya autentikasi jika memungkinkan. |
-| Nama mahasiswa | Personal data | Tampil penuh setelah NIM valid ditemukan. |
+| Nama mahasiswa | Personal data | Dipakai untuk import dan administrasi internal, tidak ditampilkan pada hasil lookup publik. |
 | Nominal tagihan | Financial data | Tampil hanya setelah verifikasi. |
 | NIM | Lookup data | Dipakai sebagai kunci pencarian dan dicatat di log dalam bentuk hash. |
 | Audit log | Operational data | Hanya admin berwenang. |

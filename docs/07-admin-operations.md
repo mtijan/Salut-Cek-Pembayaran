@@ -15,7 +15,7 @@ Dokumen ini menjelaskan workflow admin, SOP operasional, dan tata cara menjaga d
 
 ## SOP Import Tagihan
 
-1. Admin menyiapkan workbook XLSX dengan sheet `Data Sinkron` dan `Data Belum Lengkap` dari sumber resmi.
+1. Admin menyiapkan workbook XLSX dengan nama file apa pun selama sheet `Data Sinkron` dan `Data Belum Lengkap` memakai header yang sama seperti workbook resmi.
 2. Admin login ke dashboard.
 3. Admin membuka menu Import Tagihan.
 4. Admin upload file.
@@ -25,14 +25,15 @@ Dokumen ini menjelaskan workflow admin, SOP operasional, dan tata cara menjaga d
 8. Admin menekan commit setelah `critical_rows` bernilai 0 dan persetujuan tersedia bila diperlukan.
 9. Sistem membuat tagihan baru atau memperbarui tagihan belum lunas yang telah dikonfirmasi, mencatat `import_issues`, serta menulis audit log.
 10. Upload ulang file yang sama tidak mengubah nominal, status, atau waktu pembaruan tagihan.
-11. Admin memeriksa ringkasan hasil import.
+11. Admin memeriksa ringkasan hasil import dan tabel tagihan yang dikelompokkan berdasarkan nama file.
+12. Admin dapat mencentang kolom `Lunas` untuk mengubah status tagihan menjadi lunas, atau melepas centang untuk mengembalikan status belum lunas.
 
 ## Template Kolom Import
 
 | Kolom | Wajib | Contoh | Catatan |
 |---|---|---|---|
 | `nim` | Ya | `123456789` | Unique key mahasiswa. |
-| `full_name` | Ya | `Muhammad Adam` | Digunakan untuk identifikasi admin dan ditampilkan penuh setelah lookup NIM valid. |
+| `full_name` | Ya | `Muhammad Adam` | Digunakan untuk import dan identifikasi admin; tidak dikirim pada hasil lookup publik. |
 | `briva` | Ya | `178100023200040` | Nomor VA pembayaran. |
 | `amount` | Ya | `1850000` | Nominal tagihan. |
 
@@ -44,12 +45,13 @@ Dokumen ini menjelaskan workflow admin, SOP operasional, dan tata cara menjaga d
 | Nama kosong | Error kritis |
 | Nominal bukan angka | Error kritis |
 | BRIVA kosong | Error kritis |
-| Duplikasi BRIVA atau NIM dalam file | Error kritis; commit ditolak. |
+| BRIVA yang sama dipakai untuk NIM berbeda | Error kritis; commit ditolak. |
+| NIM muncul lebih dari satu kali | Warning; disimpan sebagai beberapa tagihan, walaupun BRIVA sama, dan tampil sebagai `Tagihan 1`, `Tagihan 2`, dan seterusnya pada lookup publik. |
 | File sama di-upload ulang | Ditampilkan sebagai `Tidak Berubah`; tidak ada pembaruan database. |
 | Nominal pada BRIVA yang sama berubah | Ditampilkan dalam daftar perubahan; commit memerlukan persetujuan eksplisit admin. |
 | BRIVA berubah pada NIM dan periode yang sama | Ditampilkan sebagai penggantian BRIVA; commit memerlukan persetujuan eksplisit admin. |
 | Tagihan berstatus `paid` akan diubah | Error kritis; lakukan koreksi melalui prosedur manual berotorisasi. |
-| Lebih dari satu tagihan tersimpan untuk NIM/periode yang sama | Error kritis; lakukan koreksi manual sebelum import ulang. |
+| Lebih dari satu tagihan tersimpan untuk NIM/periode yang sama | Diizinkan; admin mengelola status masing-masing tagihan dari tabel per file. |
 
 ## SOP Koreksi Tagihan Manual (Rilis Lanjutan)
 

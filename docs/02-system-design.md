@@ -77,7 +77,7 @@ Aplikasi menggunakan arsitektur web single-server VPS:
 |---|---|
 | Verifikasi | NIM. |
 | Error message | Pesan umum agar tidak membocorkan mana data yang salah. |
-| Identitas | Nama mahasiswa ditampilkan penuh setelah NIM ditemukan. |
+| Identitas | Hasil publik hanya menampilkan NIM dan detail tagihan; nama mahasiswa tidak dikirim. |
 | Rate limit | Berdasarkan IP, device fingerprint ringan, dan hash NIM. |
 | Logging | Simpan hash NIM, hasil umum, waktu, dan metadata request terbatas. |
 

@@ -9,8 +9,11 @@ Format mengikuti prinsip Keep a Changelog dan Semantic Versioning.
 ### Added
 
 - Preview import sekarang membedakan tagihan baru, tidak berubah, akan diperbarui, perubahan nominal, dan penggantian BRIVA.
+- Dashboard admin sekarang menampilkan tagihan terimport per nama file dan menyediakan checkbox status lunas/belum lunas.
+- Public lookup memberi label `Tagihan 1`, `Tagihan 2`, dan seterusnya bila satu NIM memiliki lebih dari satu tagihan.
+- Endpoint admin untuk daftar tagihan terimport dan update status tagihan.
 - Konfirmasi eksplisit admin untuk perubahan nominal atau BRIVA, termasuk daftar contoh perubahan sebelum commit.
-- Validasi kritis untuk BRIVA/NIM duplikat dalam workbook, konflik tagihan per NIM/periode, dan perubahan tagihan berstatus `paid`.
+- Validasi kritis untuk BRIVA yang sama pada NIM berbeda, konflik BRIVA lintas periode, dan perubahan tagihan berstatus `paid`.
 - Baseline dokumentasi ISO-aligned untuk requirement, desain sistem, diagram, database, API, keamanan, operasi, testing, deployment, project management, risk register, traceability, dan release plan.
 - `.gitignore` awal untuk melindungi dependency, build output, secret, runtime data, backup, session, database lokal, dan log.
 - Portal HTML dokumentasi dengan tampilan ringkas untuk membaca requirement, diagram, database, API, security, testing, deployment, risiko, dan traceability.
@@ -25,7 +28,11 @@ Format mengikuti prinsip Keep a Changelog dan Semantic Versioning.
 
 ### Changed
 
-- Public lookup sekarang hanya memakai NIM dan menampilkan nama mahasiswa penuh setelah data ditemukan.
+- UI admin import sekarang memberi validasi file, status upload/commit, pesan alasan saat commit belum siap, dan notifikasi hasil commit yang terlihat di dekat form.
+- Import XLSX menerima nama file apa pun selama sheet dan header mengikuti struktur workbook resmi.
+- NIM yang muncul lebih dari sekali diperlakukan sebagai beberapa tagihan, termasuk saat BRIVA sama, bukan error kritis.
+- Public lookup hanya memakai NIM dan tidak lagi mengirim atau menampilkan nama mahasiswa; hasil publik hanya memuat NIM dan detail tagihan.
+- Status `Lunas` sekarang biru dan `Belum lunas` merah pada hasil publik dan tabel tagihan admin.
 - Upload ulang workbook yang sama tidak lagi menimpa data, mereset status tagihan, atau mengubah waktu pembaruan.
 - Mengubah target deployment MVP dari platform terkelola sebelumnya menjadi VPS + SQLite.
 - Menetapkan Internal Auth berbasis database, Filesystem VPS untuk import opsional, dan backup SQLite sebagai baseline operasional.

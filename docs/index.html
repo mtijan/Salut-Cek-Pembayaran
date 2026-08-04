@@ -453,7 +453,7 @@
               </div>
               <div class="doc-card">
                 <strong>Tagihan</strong>
-                <span>Periode, jenis tagihan, nominal, status, BRIVA, dan instruksi.</span>
+                <span>Periode, jenis tagihan, nominal, status, BRIVA, instruksi, dan label Tagihan 1 bila ada beberapa tagihan.</span>
               </div>
               <div class="doc-card">
                 <strong>Cara bayar</strong>
@@ -461,11 +461,11 @@
               </div>
               <div class="doc-card">
                 <strong>Admin dashboard</strong>
-                <span>Login, preview workbook XLSX, dan commit import.</span>
+                <span>Login, preview workbook XLSX, commit import, tabel per file, dan checkbox lunas/belum lunas.</span>
               </div>
               <div class="doc-card">
                 <strong>Import data</strong>
-                <span>Workbook XLSX dengan preview perubahan, validasi kritis, dan konfirmasi nominal atau BRIVA.</span>
+                <span>Workbook XLSX nama bebas dengan header resmi, preview perubahan, validasi kritis, dan konfirmasi nominal atau BRIVA.</span>
               </div>
               <div class="doc-card">
                 <strong>Auditability</strong>
@@ -503,7 +503,7 @@
                     <td>FR-004</td>
                     <td>Sistem menampilkan tagihan ditemukan.</td>
                     <td><span class="badge must">Must</span></td>
-                    <td>Hasil memuat periode, jenis, nominal, status, BRIVA, dan instruksi.</td>
+                    <td>Hasil memuat periode, jenis, nominal, status, BRIVA, instruksi, dan label urutan bila tagihan lebih dari satu.</td>
                   </tr>
                   <tr>
                     <td>FR-008</td>
@@ -515,7 +515,7 @@
                     <td>FR-009</td>
                     <td>Admin dapat upload workbook XLSX tagihan.</td>
                     <td><span class="badge must">Must</span></td>
-                    <td>Preview membedakan data baru, tidak berubah, dan perubahan sensitif sebelum commit.</td>
+                    <td>Nama file bebas selama header sesuai; preview membedakan data baru, tidak berubah, dan perubahan sensitif sebelum commit.</td>
                   </tr>
                 </tbody>
               </table>
@@ -707,9 +707,8 @@ flowchart TD
     G -->|Tidak| H[Tampilkan pesan coba lagi]
     G -->|Ya| I{Data cocok?}
     I -->|Tidak| J[Tampilkan pesan data tidak ditemukan]
-    I -->|Ya| K[Tampilkan nama mahasiswa penuh]
-    K --> L[Tampilkan tagihan]
-    L --> M[Tampilkan instruksi pembayaran]
+    I -->|Ya| K[Tampilkan NIM dan tagihan]
+    K --> L[Tampilkan instruksi pembayaran]
               </pre>
             </div>
 
@@ -1252,12 +1251,12 @@ flowchart TD
                   <tr>
                     <td><code>students</code></td>
                     <td>Data mahasiswa.</td>
-                    <td>NIM unique, nama penuh tampil setelah lookup valid.</td>
+                    <td>NIM unique; nama hanya untuk import dan administrasi internal.</td>
                   </tr>
                   <tr>
                     <td><code>bills</code></td>
                     <td>Data tagihan.</td>
-                    <td>Rilis ini mengimpor status <code>unpaid</code>.</td>
+                    <td>Status dapat diubah admin antara <code>unpaid</code> dan <code>paid</code>; BRIVA yang sama boleh muncul untuk NIM yang sama.</td>
                   </tr>
                   <tr>
                     <td><code>import_issues</code></td>
@@ -1333,6 +1332,18 @@ flowchart TD
                     <td>Simpan data import ke database.</td>
                     <td>Admin</td>
                   </tr>
+                  <tr>
+                    <td><code>/api/admin/imported-bills</code></td>
+                    <td>GET</td>
+                    <td>Ambil tagihan terimport per nama file.</td>
+                    <td>Admin</td>
+                  </tr>
+                  <tr>
+                    <td><code>/api/admin/bills/status</code></td>
+                    <td>POST</td>
+                    <td>Ubah status lunas atau belum lunas.</td>
+                    <td>Admin</td>
+                  </tr>
                 </tbody>
               </table>
             </div>
@@ -1362,8 +1373,8 @@ flowchart TD
                   </tr>
                   <tr>
                     <td>SEC-003</td>
-                    <td>Response publik menampilkan nama penuh untuk NIM valid.</td>
-                    <td>Nama tampil utuh setelah data ditemukan.</td>
+                    <td>Response publik tidak mengirim nama mahasiswa.</td>
+                    <td>Hasil publik hanya memuat NIM dan detail tagihan.</td>
                   </tr>
                   <tr>
                     <td>SEC-004</td>
@@ -1383,13 +1394,14 @@ flowchart TD
           <section id="operations">
             <h2>Admin dan Operasional</h2>
             <ol>
-              <li>Admin menyiapkan workbook XLSX dengan sheet yang disetujui.</li>
+              <li>Admin menyiapkan workbook XLSX dengan nama bebas dan header resmi.</li>
               <li>Admin login ke dashboard.</li>
               <li>Admin upload file tagihan.</li>
               <li>Sistem menampilkan preview dan error per baris.</li>
               <li>Admin memperbaiki data bila ada error kritis.</li>
               <li>Admin commit import hanya saat tidak ada baris kritis dan perubahan nominal/BRIVA telah disetujui.</li>
               <li>Sistem menyimpan data tagihan, issue import, dan audit log.</li>
+              <li>Admin memeriksa tagihan per nama file dan mengubah status lunas/belum lunas dari checkbox tabel.</li>
             </ol>
           </section>
 
@@ -1527,7 +1539,7 @@ flowchart TD
               <a href="12-traceability-matrix.md">Requirements Traceability Matrix</a>.
             </p>
             <pre><code>FR-004 -> docs/03-diagrams.md -> bills -> /api/lookup -> TC-005
-SEC-003 -> docs/06-security-privacy-design.md -> students.full_name -> /api/lookup -> ST-005
+SEC-003 -> docs/06-security-privacy-design.md -> /api/lookup tanpa nama mahasiswa -> ST-005
 FR-009 -> docs/07-admin-operations.md -> students/bills/import_issues -> /api/admin/import/* -> TC-014/TC-015</code></pre>
           </section>
 

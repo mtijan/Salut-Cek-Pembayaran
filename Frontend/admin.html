@@ -44,6 +44,7 @@
           <input id="excel-file" name="file" type="file" accept=".xlsx" required />
           <button type="submit">Preview File</button>
         </form>
+        <p id="import-message" class="form-message" role="status"></p>
 
         <div id="preview-state" class="preview-state hidden">
           <div class="summary-grid">
@@ -94,8 +95,18 @@
 
           <button type="button" id="commit-button">Commit Import</button>
         </div>
+      </section>
 
-        <p id="import-message" class="form-message" role="status"></p>
+      <section id="bills-card" class="lookup-panel admin-card hidden">
+        <div class="admin-card-title">
+          <div>
+            <p class="eyebrow">Data Terimport</p>
+            <h2>Tagihan per File</h2>
+          </div>
+          <button type="button" id="refresh-bills-button" class="ghost-button">Refresh</button>
+        </div>
+        <p id="bills-message" class="form-message" role="status"></p>
+        <div id="bills-state" class="imported-bills"></div>
       </section>
     </main>
 

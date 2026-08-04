@@ -15,7 +15,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import server
 from import_excel import import_workbook, preview_workbook
 from db import connect, init_db
-from server import ROLE_PERMISSIONS, RateLimiter, SalutHandler
+from server import ROLE_PERMISSIONS, RateLimiter, SalutHandler, list_imported_bill_groups, update_bill_status
 
 
 class CoreBehaviorTests(unittest.TestCase):
@@ -36,7 +36,7 @@ class CoreBehaviorTests(unittest.TestCase):
         self.assertNotIn("import", ROLE_PERMISSIONS["viewer"])
         self.assertIn("import", ROLE_PERMISSIONS["admin"])
 
-    def test_lookup_uses_nim_only_and_returns_full_name(self) -> None:
+    def test_lookup_uses_nim_only_without_returning_name(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
             database = Path(temporary_directory) / "salut.sqlite"
             conn = connect(database)
@@ -62,6 +62,22 @@ class CoreBehaviorTests(unittest.TestCase):
                         "unit-test.xlsx",
                     ),
                 )
+                conn.execute(
+                    """
+                    insert into bills (id, student_id, briva, amount, period, bill_type, instructions, source_file)
+                    values (?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        "bill-2",
+                        "student-1",
+                        "178100023200041",
+                        750000,
+                        "2025.2",
+                        "UKT BRIVA",
+                        "Bayar melalui BRIVA BRI dengan nomor VA yang tampil.",
+                        "unit-test.xlsx",
+                    ),
+                )
             conn.close()
 
             original_db_path = server.DB_PATH
@@ -70,7 +86,7 @@ class CoreBehaviorTests(unittest.TestCase):
             thread = threading.Thread(target=httpd.serve_forever, daemon=True)
             thread.start()
             try:
-                body = json.dumps({"nim": "050117077"}).encode("utf-8")
+                body = json.dumps({"nim": "050117077", "full_name": "Tidak Dipakai"}).encode("utf-8")
                 request = urllib.request.Request(
                     f"http://127.0.0.1:{httpd.server_port}/api/lookup",
                     data=body,
@@ -87,8 +103,9 @@ class CoreBehaviorTests(unittest.TestCase):
 
             self.assertTrue(result["success"])
             self.assertEqual(result["data"]["student"]["nim"], "050117077")
-            self.assertEqual(result["data"]["student"]["full_name"], "Syahla Taqiyyah")
-            self.assertNotIn("masked_name", result["data"]["student"])
+            self.assertNotIn("full_name", result["data"]["student"])
+            self.assertEqual(set(result["data"]["student"]), {"nim"})
+            self.assertEqual([bill["bill_label"] for bill in result["data"]["bills"]], ["Tagihan 1", "Tagihan 2"])
 
     def test_reupload_is_unchanged_and_amount_update_requires_confirmation(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
@@ -149,33 +166,84 @@ class CoreBehaviorTests(unittest.TestCase):
             self.assertGreater(paid_preview["critical_rows"], 0)
             self.assertGreater(paid_preview["conflict_rows"], 0)
 
-    def test_duplicate_briva_and_nim_are_critical(self) -> None:
+    def test_same_briva_for_different_nim_is_critical(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
-            workbook = Path(temporary_directory) / "duplicate.xlsx"
+            workbook = Path(temporary_directory) / "duplicate-briva-different-nim.xlsx"
             self._write_workbook(
                 workbook,
                 [
                     ("01003", "Citra P", "30001", 100000),
-                    ("01003", "Citra P", "30001", 100000),
+                    ("01004", "Dina R", "30001", 100000),
                 ],
             )
             preview = preview_workbook(workbook)
             self.assertGreater(preview["critical_rows"], 0)
-            self.assertEqual(preview["duplicate_briva_rows"], 2)
-            self.assertEqual(preview["duplicate_nim_rows"], 2)
+            self.assertEqual(preview["duplicate_briva_conflict_rows"], 2)
+
+    def test_same_nim_with_same_briva_imports_multiple_bills_idempotently(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            temp = Path(temporary_directory)
+            database = temp / "salut.sqlite"
+            workbook = temp / "Tagihan tambahan bebas namanya.xlsx"
+            self._write_workbook(
+                workbook,
+                [
+                    ("01004", "Dina Rahma", "40001", 100000),
+                    ("01004", "Dina Rahma", "40001", 150000),
+                ],
+            )
+
+            preview = preview_workbook(workbook, database)
+            self.assertEqual(preview["critical_rows"], 0)
+            self.assertEqual(preview["multiple_bill_rows"], 2)
+            self.assertEqual(preview["new_rows"], 2)
+            result = import_workbook(workbook, database)
+            self.assertEqual(result["created"], 2)
+            self.assertEqual(import_workbook(workbook, database)["unchanged"], 2)
+
+            conn = sqlite3.connect(database)
+            count = conn.execute("select count(*) from bills").fetchone()[0]
+            briva_count = conn.execute("select count(*) from bills where briva = '40001'").fetchone()[0]
+            source_files = conn.execute("select distinct source_file from bills").fetchall()
+            conn.close()
+            self.assertEqual(count, 2)
+            self.assertEqual(briva_count, 2)
+            self.assertEqual(source_files[0][0], "Tagihan tambahan bebas namanya.xlsx")
+
+    def test_admin_bill_groups_and_status_update(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            temp = Path(temporary_directory)
+            database = temp / "salut.sqlite"
+            workbook = temp / "batch-admin.xlsx"
+            self._write_workbook(workbook, [("01005", "Eka Putri", "50001", 125000)])
+            import_workbook(workbook, database)
+
+            groups = list_imported_bill_groups(database)
+            self.assertEqual(len(groups), 1)
+            self.assertEqual(groups[0]["file_name"], "batch-admin.xlsx")
+            self.assertEqual(groups[0]["unpaid"], 1)
+            bill_id = groups[0]["bills"][0]["id"]
+
+            updated = update_bill_status(database, bill_id, "paid")
+            self.assertIsNotNone(updated)
+            self.assertEqual(updated["status"], "paid")
+            groups = list_imported_bill_groups(database)
+            self.assertEqual(groups[0]["paid"], 1)
 
     @staticmethod
     def _write_workbook(path: Path, rows: list[tuple[str, str, str, int]]) -> None:
         def inline(cell: str, value: str) -> str:
             return f'<c r="{cell}" t="inlineStr"><is><t>{value}</t></is></c>'
 
-        def worksheet(headers: list[str], values: list[tuple[str, str, str, int]]) -> str:
-            header_cells = "".join(inline(f"{column}1", value) for column, value in zip("ABCD", headers))
+        def worksheet(headers: list[str], values: list[tuple[str, str, str, int]], issue_sheet: bool = False) -> str:
+            columns = "ABCDEF"
+            header_cells = "".join(inline(f"{column}1", value) for column, value in zip(columns, headers))
             data_rows = []
             for index, (nim, name, briva, amount) in enumerate(values, start=2):
                 data_rows.append(
-                    f'<row r="{index}">{inline(f"A{index}", nim)}{inline(f"B{index}", name)}'
-                    f'{inline(f"C{index}", briva)}<c r="D{index}"><v>{amount}</v></c></row>'
+                    f'<row r="{index}">{inline(f"A{index}", str(index - 1))}{inline(f"B{index}", nim)}'
+                    f'{inline(f"C{index}", name)}{inline(f"D{index}", briva)}<c r="E{index}"><v>{amount}</v></c>'
+                    f'{inline(f"F{index}", "") if issue_sheet else ""}</row>'
                 )
             return (
                 '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
@@ -197,8 +265,11 @@ class CoreBehaviorTests(unittest.TestCase):
         with zipfile.ZipFile(path, "w") as archive:
             archive.writestr("xl/workbook.xml", workbook)
             archive.writestr("xl/_rels/workbook.xml.rels", relationships)
-            archive.writestr("xl/worksheets/sheet1.xml", worksheet(["NIM", "Nama Mahasiswa", "BRIVA", "Jumlah"], rows))
-            archive.writestr("xl/worksheets/sheet2.xml", worksheet(["Keterangan", "", "", ""], []))
+            archive.writestr("xl/worksheets/sheet1.xml", worksheet(["No.", "NIM", "Nama Mahasiswa", "BRIVA", "Jumlah"], rows))
+            archive.writestr(
+                "xl/worksheets/sheet2.xml",
+                worksheet(["No.", "NIM", "Nama Mahasiswa", "BRIVA", "Jumlah", "Keterangan"], [], issue_sheet=True),
+            )
 
 
 if __name__ == "__main__":

@@ -192,6 +192,95 @@ def ensure_database() -> None:
         import_workbook(DEFAULT_WORKBOOK, DB_PATH)
 
 
+def bill_row_to_dict(row: sqlite3.Row) -> dict[str, object]:
+    return {
+        "id": row["id"],
+        "nim": row["nim"],
+        "full_name": row["full_name"],
+        "period": row["period"],
+        "bill_type": row["bill_type"],
+        "status": row["status"],
+        "amount": row["amount"],
+        "amount_formatted": rupiah(int(row["amount"])),
+        "payment_method": row["payment_method"],
+        "briva": row["briva"],
+        "source_file": row["source_file"],
+        "source_row_number": row["source_row_number"],
+    }
+
+
+def list_imported_bill_groups(db_path: str | Path) -> list[dict[str, object]]:
+    conn = connect(db_path)
+    init_db(conn)
+    rows = conn.execute(
+        """
+        select b.id, b.briva, b.amount, b.period, b.bill_type, b.status, b.payment_method,
+               b.source_file, b.source_row_number, s.nim, s.full_name
+        from bills b
+        join students s on s.id = b.student_id
+        order by b.source_file desc, s.nim asc, b.source_row_number asc, b.created_at asc, b.briva asc
+        """
+    ).fetchall()
+    conn.close()
+
+    groups: list[dict[str, object]] = []
+    by_file: dict[str, dict[str, object]] = {}
+    for row in rows:
+        source_file = str(row["source_file"])
+        group = by_file.get(source_file)
+        if group is None:
+            group = {"file_name": source_file, "total": 0, "paid": 0, "unpaid": 0, "bills": []}
+            by_file[source_file] = group
+            groups.append(group)
+        bill = bill_row_to_dict(row)
+        bills = group["bills"]
+        assert isinstance(bills, list)
+        bills.append(bill)
+        group["total"] = int(group["total"]) + 1
+        if row["status"] == "paid":
+            group["paid"] = int(group["paid"]) + 1
+        else:
+            group["unpaid"] = int(group["unpaid"]) + 1
+    return groups
+
+
+def update_bill_status(db_path: str | Path, bill_id: str, status: str) -> sqlite3.Row | None:
+    if status not in {"paid", "unpaid"}:
+        raise ValueError("Status hanya boleh paid atau unpaid.")
+
+    conn = connect(db_path)
+    init_db(conn)
+    with conn:
+        row = conn.execute(
+            """
+            select b.id, b.briva, b.amount, b.period, b.bill_type, b.status, b.payment_method,
+                   b.source_file, b.source_row_number, s.nim, s.full_name
+            from bills b
+            join students s on s.id = b.student_id
+            where b.id = ?
+            """,
+            (bill_id,),
+        ).fetchone()
+        if not row:
+            updated = None
+        elif row["status"] != status:
+            conn.execute("update bills set status = ?, updated_at = datetime('now') where id = ?", (status, bill_id))
+            updated = conn.execute(
+                """
+                select b.id, b.briva, b.amount, b.period, b.bill_type, b.status, b.payment_method,
+                       b.source_file, b.source_row_number, s.nim, s.full_name
+                from bills b
+                join students s on s.id = b.student_id
+                where b.id = ?
+                """,
+                (bill_id,),
+            ).fetchone()
+        else:
+            updated = row
+    conn.close()
+    return updated
+
+
 class SalutHandler(BaseHTTPRequestHandler):
     server_version = "SalutCekPembayaran/0.1"
 
@@ -217,6 +306,9 @@ class SalutHandler(BaseHTTPRequestHandler):
         if parsed.path == "/api/admin/me":
             self.handle_admin_me()
             return
+        if parsed.path == "/api/admin/imported-bills":
+            self.handle_admin_imported_bills()
+            return
         self.serve_frontend(parsed.path)
 
     def do_HEAD(self) -> None:
@@ -239,6 +331,9 @@ class SalutHandler(BaseHTTPRequestHandler):
             return
         if parsed.path == "/api/admin/import/commit":
             self.handle_admin_import_commit()
+            return
+        if parsed.path == "/api/admin/bills/status":
+            self.handle_admin_bill_status()
             return
         json_response(self, 404, {"success": False, "error": {"message": "Endpoint tidak ditemukan."}})
 
@@ -368,6 +463,58 @@ class SalutHandler(BaseHTTPRequestHandler):
             {"Set-Cookie": cookie_header("", 0)},
         )
 
+    def handle_admin_imported_bills(self) -> None:
+        admin = self.require_admin("import")
+        if not admin:
+            return
+        json_response(self, 200, {"success": True, "data": {"groups": list_imported_bill_groups(DB_PATH)}})
+
+    def handle_admin_bill_status(self) -> None:
+        admin = self.require_admin("import")
+        if not admin:
+            return
+
+        payload = self.read_json()
+        bill_id = str(payload.get("bill_id") or "").strip()
+        status = str(payload.get("status") or "").strip().lower()
+        if not bill_id:
+            json_response(
+                self,
+                400,
+                {"success": False, "error": {"code": "VALIDATION_ERROR", "message": "ID tagihan wajib diisi."}},
+            )
+            return
+        try:
+            updated = update_bill_status(DB_PATH, bill_id, status)
+        except ValueError as exc:
+            json_response(
+                self,
+                400,
+                {"success": False, "error": {"code": "VALIDATION_ERROR", "message": str(exc)}},
+            )
+            return
+
+        if not updated:
+            json_response(
+                self,
+                404,
+                {"success": False, "error": {"code": "NOT_FOUND", "message": "Tagihan tidak ditemukan."}},
+            )
+            return
+
+        conn = connect(DB_PATH)
+        with conn:
+            self.write_audit(
+                conn,
+                admin["id"],
+                "bill.status_update",
+                "bill",
+                bill_id,
+                {"status": status, "briva": updated["briva"], "nim": updated["nim"]},
+            )
+        conn.close()
+        json_response(self, 200, {"success": True, "data": {"bill": bill_row_to_dict(updated)}})
+
     def handle_admin_import_preview(self) -> None:
         admin = self.require_admin("import")
         if not admin:
@@ -390,7 +537,7 @@ class SalutHandler(BaseHTTPRequestHandler):
             safe_name = sanitize_filename(filename)
             saved_path = IMPORT_DIR / f"{import_token}_{safe_name}"
             saved_path.write_bytes(content)
-            preview = preview_workbook(saved_path, DB_PATH)
+            preview = preview_workbook(saved_path, DB_PATH, source_file_name=safe_name)
 
             conn = connect(DB_PATH)
             with conn:
@@ -466,7 +613,8 @@ class SalutHandler(BaseHTTPRequestHandler):
 
         workbook = matches[0]
         try:
-            preview = preview_workbook(workbook, DB_PATH)
+            source_file_name = workbook.name[len(import_token) + 1 :]
+            preview = preview_workbook(workbook, DB_PATH, source_file_name=source_file_name)
             if preview["critical_rows"]:
                 workbook.unlink(missing_ok=True)
                 json_response(
@@ -494,7 +642,6 @@ class SalutHandler(BaseHTTPRequestHandler):
                     },
                 )
                 return
-            source_file_name = workbook.name[len(import_token) + 1 :]
             result = import_workbook(
                 workbook,
                 DB_PATH,
@@ -553,7 +700,7 @@ class SalutHandler(BaseHTTPRequestHandler):
 
         conn = connect(DB_PATH)
         student = conn.execute(
-            "select id, nim, full_name, name_norm from students where nim = ?",
+            "select id, nim from students where nim = ?",
             (nim,),
         ).fetchone()
 
@@ -579,7 +726,7 @@ class SalutHandler(BaseHTTPRequestHandler):
             select briva, amount, period, bill_type, status, payment_method, instructions
             from bills
             where student_id = ?
-            order by period desc, created_at desc
+            order by period desc, created_at asc, briva asc
             """,
             (student["id"],),
         ).fetchall()
@@ -594,10 +741,10 @@ class SalutHandler(BaseHTTPRequestHandler):
                 "data": {
                     "student": {
                         "nim": student["nim"],
-                        "full_name": student["full_name"],
                     },
                     "bills": [
                         {
+                            "bill_label": f"Tagihan {index}" if len(bills) > 1 else bill["bill_type"],
                             "period": bill["period"],
                             "bill_type": bill["bill_type"],
                             "status": bill["status"],
@@ -607,7 +754,7 @@ class SalutHandler(BaseHTTPRequestHandler):
                             "briva": bill["briva"],
                             "instructions": bill["instructions"],
                         }
-                        for bill in bills
+                        for index, bill in enumerate(bills, start=1)
                     ],
                 },
                 "request_id": request_id,
