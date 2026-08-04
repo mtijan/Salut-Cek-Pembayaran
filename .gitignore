@@ -1,6 +1,8 @@
 # Dependencies
 node_modules/
 .pnpm-store/
+__pycache__/
+*.py[cod]
 
 # Build output
 .next/
@@ -9,13 +11,11 @@ dist/
 build/
 .vercel/
 
-# Local documentation
-docs/
-
 # Local environment and secrets
 .env
 .env.*
 !.env.example
+vps.txt
 *.pem
 *.key
 *.p12
@@ -27,6 +27,8 @@ exports/
 backups/
 encrypted_backups/
 sessions/
+Backend/data/imports/
+Backend/data/*.txt
 database.sqlite
 *.sqlite
 *.sqlite3

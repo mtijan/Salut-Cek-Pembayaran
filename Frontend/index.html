@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>SALUT Cek Pembayaran</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <section class="lookup-panel" aria-labelledby="page-title">
+        <div class="brand-row">
+          <div class="brand-mark" aria-hidden="true">S</div>
+          <div>
+            <p class="eyebrow">SALUT Awwabin</p>
+            <h1 id="page-title">Cek Pembayaran</h1>
+          </div>
+        </div>
+
+        <form id="lookup-form" class="lookup-form" autocomplete="off">
+          <label for="name">Nama mahasiswa</label>
+          <input id="name" name="name" type="text" placeholder="Contoh: Syahla Taqiyyah" required />
+
+          <label for="nim">NIM</label>
+          <input id="nim" name="nim" type="text" inputmode="numeric" placeholder="Contoh: 050117077" required />
+
+          <button type="submit" id="submit-button">
+            <span class="button-icon" aria-hidden="true">⌕</span>
+            <span>Cek Tagihan</span>
+          </button>
+        </form>
+
+        <p id="form-message" class="form-message" role="status"></p>
+      </section>
+
+      <section class="result-panel" aria-live="polite">
+        <div id="empty-state" class="empty-state">
+          <div class="receipt-visual" aria-hidden="true">
+            <span></span>
+            <span></span>
+            <span></span>
+          </div>
+          <h2>Data tagihan akan tampil di sini</h2>
+        </div>
+
+        <div id="result-state" class="result-state hidden">
+          <div class="result-header">
+            <div>
+              <p class="eyebrow">Mahasiswa</p>
+              <h2 id="student-name">-</h2>
+              <p id="student-nim" class="muted">-</p>
+            </div>
+            <span id="bill-status" class="status-pill">Belum lunas</span>
+          </div>
+
+          <div id="bill-list" class="bill-list"></div>
+        </div>
+      </section>
+    </main>
+
+    <template id="bill-template">
+      <article class="bill-item">
+        <div class="bill-top">
+          <div>
+            <p class="eyebrow bill-type"></p>
+            <h3 class="amount"></h3>
+          </div>
+          <span class="period"></span>
+        </div>
+
+        <div class="payment-box">
+          <div>
+            <p class="label-small">Nomor VA / BRIVA</p>
+            <p class="briva"></p>
+          </div>
+          <button type="button" class="copy-button" title="Salin nomor VA" aria-label="Salin nomor VA">
+            <span aria-hidden="true">⧉</span>
+          </button>
+        </div>
+
+        <p class="instructions"></p>
+      </article>
+    </template>
+
+    <script src="./app.js"></script>
+  </body>
+</html>

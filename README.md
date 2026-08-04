@@ -1,18 +1,18 @@
-# Salut Cek Pembayaran
+﻿# Salut Cek Pembayaran
 
 Aplikasi web untuk membantu mahasiswa Universitas Terbuka yang berafiliasi dengan SALUT Awwabin mengecek tagihan dan melihat instruksi pembayaran secara mandiri.
 
 ## Status
 
-Tahap saat ini adalah perencanaan dan desain software. Implementasi aplikasi belum dimulai.
+Rilis ini siap untuk deployment VPS setelah environment production dan reverse proxy dikonfigurasi. Backend, frontend publik, login admin, import workbook Excel, kontrol rate limit dasar, dan SQLite sudah dibuat.
 
 ## Target MVP
 
-- Mahasiswa dapat mencari tagihan menggunakan NIM dan faktor verifikasi tambahan.
-- Sistem menampilkan tagihan, status pembayaran, jatuh tempo, dan cara pembayaran.
-- Admin SALUT dapat mengelola data mahasiswa, tagihan, metode pembayaran, dan import data.
+- Mahasiswa dapat mencari tagihan menggunakan nama dan NIM.
+- Sistem menampilkan tagihan, status pembayaran, nomor BRIVA, dan cara pembayaran.
+- Admin SALUT dapat login dan mengimpor workbook tagihan yang disetujui.
 - Sistem mencatat audit penting seperti import data, login admin, dan pencarian tagihan.
-- Deployment awal menggunakan Vercel dan Supabase.
+- Deployment awal menggunakan VPS dan SQLite.
 
 ## Dokumentasi
 
@@ -41,12 +41,37 @@ Untuk membaca dokumentasi dalam tampilan yang lebih nyaman, buka file `docs/inde
 
 ## Rekomendasi Stack
 
-- Frontend dan API: Next.js di Vercel.
-- Database: Supabase Postgres.
-- Auth admin: Supabase Auth.
-- File import: Supabase Storage atau upload langsung melalui API route.
-- Security: RLS, server-side API, rate limit, CAPTCHA, audit log.
+- Backend: Python standard library HTTP server di VPS.
+- Frontend: HTML, CSS, dan JavaScript statis.
+- Database: SQLite.
+- Auth admin: session/password internal berbasis database.
+- File import: upload langsung melalui API route dan penyimpanan file mentah di Filesystem VPS bila diperlukan.
+- Security: pemeriksaan role server-side, prepared statement SQLite, rate limit, cookie aman di production, audit log, dan backup SQLite terjadwal.
+
+## Struktur Project
+
+| Folder | Isi |
+|---|---|
+| `Backend/` | API lookup, schema SQLite, importer Excel. |
+| `Frontend/` | Halaman cek pembayaran mahasiswa dan halaman admin import. |
+| `docs/` | Dokumentasi requirement, desain, deployment, dan runbook. |
+
+## Menjalankan Lokal
+
+```powershell
+python -m unittest Backend.test_core
+python .\Backend\import_excel.py
+python .\Backend\server.py
+```
+
+Buka `http://127.0.0.1:8000`, lalu coba data contoh:
+
+| Nama | NIM |
+|---|---|
+| `Syahla Taqiyyah` | `050117077` |
+
+Sebelum bootstrap admin pertama, set `ADMIN_BOOTSTRAP_EMAIL` dan `ADMIN_BOOTSTRAP_PASSWORD`. Untuk VPS juga wajib set `APP_ENV=production` dan `LOOKUP_HASH_SECRET`; lihat [template environment](Backend/.env.example) dan [panduan deployment](docs/09-deployment-plan.md).
 
 ## Catatan Keamanan
 
-NIM bukan rahasia kuat. Untuk mengurangi risiko orang lain menebak NIM, MVP direkomendasikan memakai faktor verifikasi tambahan seperti tanggal lahir atau 4 digit nomor HP. Data yang tampil di halaman publik harus dibatasi dan dimasking.
+NIM bukan rahasia kuat. Untuk mengurangi risiko orang lain menebak NIM, rilis ini memakai pasangan nama dan NIM, response error generik, lookup log ter-hash, rate limit 10 request per IP per 10 menit, dan output publik yang dibatasi.

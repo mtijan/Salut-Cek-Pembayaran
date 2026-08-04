@@ -1,0 +1,10 @@
+[Unit]
+Description=Backup SQLite Salut Cek Pembayaran
+
+[Service]
+Type=oneshot
+User=salut
+Group=salut
+UMask=0077
+WorkingDirectory=/opt/salut-cek-pembayaran
+ExecStart=/usr/bin/python3 /opt/salut-cek-pembayaran/Backend/backup_sqlite.py --source /var/lib/salut-cek-pembayaran/salut.sqlite --destination /var/backups/salut-cek-pembayaran

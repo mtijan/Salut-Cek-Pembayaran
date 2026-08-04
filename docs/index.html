@@ -1,0 +1,1578 @@
+﻿<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Salut Cek Pembayaran - Dokumentasi</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #f7f8fb;
+        --panel: #ffffff;
+        --ink: #1c2430;
+        --muted: #697384;
+        --line: #d9dee8;
+        --accent: #0f766e;
+        --accent-2: #1d4ed8;
+        --warn: #b45309;
+        --danger: #b91c1c;
+        --ok: #15803d;
+        --code: #eef2f7;
+        --shadow: 0 14px 34px rgba(24, 35, 55, 0.08);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html {
+        scroll-behavior: smooth;
+      }
+
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--ink);
+        font-family:
+          Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+          "Segoe UI", sans-serif;
+        line-height: 1.58;
+      }
+
+      a {
+        color: var(--accent-2);
+        text-decoration: none;
+      }
+
+      a:hover {
+        text-decoration: underline;
+      }
+
+      .layout {
+        display: grid;
+        grid-template-columns: 288px minmax(0, 1fr);
+        min-height: 100vh;
+      }
+
+      aside {
+        position: sticky;
+        top: 0;
+        height: 100vh;
+        overflow: auto;
+        border-right: 1px solid var(--line);
+        background: #ffffff;
+        padding: 24px 18px;
+      }
+
+      .brand {
+        display: grid;
+        gap: 4px;
+        margin-bottom: 22px;
+      }
+
+      .brand strong {
+        font-size: 18px;
+      }
+
+      .brand span {
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      nav {
+        display: grid;
+        gap: 4px;
+      }
+
+      nav a {
+        border-radius: 8px;
+        color: #2c3645;
+        display: block;
+        font-size: 14px;
+        padding: 8px 10px;
+      }
+
+      nav a:hover {
+        background: #eef7f6;
+        color: var(--accent);
+        text-decoration: none;
+      }
+
+      main {
+        min-width: 0;
+      }
+
+      header {
+        background: #ffffff;
+        border-bottom: 1px solid var(--line);
+        padding: 34px clamp(18px, 4vw, 54px);
+      }
+
+      header h1 {
+        font-size: clamp(30px, 4vw, 48px);
+        line-height: 1.08;
+        margin: 0 0 12px;
+      }
+
+      header p {
+        color: var(--muted);
+        font-size: 18px;
+        max-width: 880px;
+        margin: 0;
+      }
+
+      .content {
+        display: grid;
+        gap: 22px;
+        padding: 28px clamp(18px, 4vw, 54px) 58px;
+      }
+
+      section {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        box-shadow: var(--shadow);
+        padding: 24px;
+      }
+
+      h2 {
+        font-size: 25px;
+        line-height: 1.2;
+        margin: 0 0 14px;
+      }
+
+      h3 {
+        font-size: 18px;
+        margin: 24px 0 10px;
+      }
+
+      p {
+        margin: 0 0 12px;
+      }
+
+      .meta-grid,
+      .card-grid {
+        display: grid;
+        gap: 12px;
+      }
+
+      .meta-grid {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+      }
+
+      .card-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+
+      .metric,
+      .doc-card {
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 14px;
+        background: #fbfcfe;
+      }
+
+      .metric .label,
+      .doc-card span {
+        color: var(--muted);
+        display: block;
+        font-size: 13px;
+      }
+
+      .metric .value {
+        display: block;
+        font-size: 22px;
+        font-weight: 700;
+        margin-top: 4px;
+      }
+
+      .doc-card strong {
+        display: block;
+        font-size: 15px;
+        margin-bottom: 6px;
+      }
+
+      .table-wrap {
+        overflow: auto;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        margin: 12px 0 18px;
+      }
+
+      table {
+        border-collapse: collapse;
+        min-width: 720px;
+        width: 100%;
+      }
+
+      th,
+      td {
+        border-bottom: 1px solid var(--line);
+        padding: 10px 12px;
+        text-align: left;
+        vertical-align: top;
+      }
+
+      th {
+        background: #f1f5f9;
+        font-size: 13px;
+        letter-spacing: 0;
+      }
+
+      tr:last-child td {
+        border-bottom: 0;
+      }
+
+      code,
+      pre {
+        background: var(--code);
+        border-radius: 6px;
+        font-family:
+          "Cascadia Code", "SFMono-Regular", Consolas, "Liberation Mono",
+          monospace;
+      }
+
+      code {
+        padding: 2px 5px;
+      }
+
+      pre {
+        overflow: auto;
+        padding: 14px;
+      }
+
+      .badge {
+        border-radius: 999px;
+        display: inline-block;
+        font-size: 12px;
+        font-weight: 700;
+        padding: 3px 8px;
+      }
+
+      .must {
+        background: #dcfce7;
+        color: var(--ok);
+      }
+
+      .should {
+        background: #fef3c7;
+        color: var(--warn);
+      }
+
+      .risk {
+        background: #fee2e2;
+        color: var(--danger);
+      }
+
+      .diagram {
+        background: #fbfcfe;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        margin-top: 12px;
+        overflow: auto;
+        padding: 16px;
+      }
+
+      .mermaid {
+        min-width: 680px;
+      }
+
+      .source-list {
+        columns: 2;
+        gap: 28px;
+        margin: 0;
+        padding-left: 18px;
+      }
+
+      .source-list li {
+        break-inside: avoid;
+        margin-bottom: 8px;
+      }
+
+      footer {
+        color: var(--muted);
+        font-size: 13px;
+        padding: 0 clamp(18px, 4vw, 54px) 34px;
+      }
+
+      @media (max-width: 980px) {
+        .layout {
+          grid-template-columns: 1fr;
+        }
+
+        aside {
+          height: auto;
+          position: relative;
+        }
+
+        nav {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .meta-grid,
+        .card-grid {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+      }
+
+      @media (max-width: 640px) {
+        nav,
+        .meta-grid,
+        .card-grid {
+          grid-template-columns: 1fr;
+        }
+
+        section {
+          padding: 18px;
+        }
+
+        .source-list {
+          columns: 1;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="layout">
+      <aside>
+        <div class="brand">
+          <strong>Salut Cek Pembayaran</strong>
+          <span>Portal dokumentasi HTML</span>
+        </div>
+        <nav aria-label="Navigasi dokumentasi">
+          <a href="#overview">Ringkasan</a>
+          <a href="#standards">Standar</a>
+          <a href="#scope">Scope MVP</a>
+          <a href="#requirements">Requirement</a>
+          <a href="#architecture">Arsitektur</a>
+          <a href="#diagrams">Diagram</a>
+          <a href="#database">Database</a>
+          <a href="#api">API</a>
+          <a href="#security">Security</a>
+          <a href="#operations">Operasional</a>
+          <a href="#quality">Testing</a>
+          <a href="#deployment">Deployment</a>
+          <a href="#risks">Risiko</a>
+          <a href="#traceability">Traceability</a>
+          <a href="#sources">Dokumen Sumber</a>
+        </nav>
+      </aside>
+
+      <main>
+        <header>
+          <h1>Dokumentasi Pengembangan Software</h1>
+          <p>
+            Blueprint awal untuk web cek tagihan dan cara pembayaran mahasiswa
+            UT yang berafiliasi dengan SALUT Awwabin. Dokumen ini dirancang
+            agar mudah dibaca oleh pengelola, admin, developer, dan reviewer.
+          </p>
+        </header>
+
+        <div class="content">
+          <section id="overview">
+            <h2>Ringkasan</h2>
+            <div class="meta-grid">
+              <div class="metric">
+                <span class="label">Status</span>
+                <span class="value">Planning</span>
+              </div>
+              <div class="metric">
+                <span class="label">Target stack</span>
+                <span class="value">VPS + SQLite</span>
+              </div>
+              <div class="metric">
+                <span class="label">Dokumen sumber</span>
+                <span class="value">17 MD</span>
+              </div>
+              <div class="metric">
+                <span class="label">Kontrol utama</span>
+                <span class="value">Privacy first</span>
+              </div>
+            </div>
+            <p>
+              MVP berfokus pada pencarian tagihan, instruksi pembayaran, admin
+              dashboard, import data, audit log, dan hardening dasar. NIM tidak
+              diperlakukan sebagai rahasia kuat, sehingga lookup publik
+              direkomendasikan memakai nama sebagai pasangan NIM.
+            </p>
+          </section>
+
+          <section id="standards">
+            <h2>Standar Rujukan</h2>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Area</th>
+                    <th>Rujukan</th>
+                    <th>Penerapan</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>Software life cycle</td>
+                    <td>ISO/IEC/IEEE 12207:2026</td>
+                    <td>Fase conception, development, operation, maintenance, support, dan retirement.</td>
+                  </tr>
+                  <tr>
+                    <td>Requirements engineering</td>
+                    <td>ISO/IEC/IEEE 29148:2018</td>
+                    <td>Requirement ID, acceptance criteria, dan traceability.</td>
+                  </tr>
+                  <tr>
+                    <td>Product quality</td>
+                    <td>ISO/IEC 25010:2023</td>
+                    <td>Non-functional requirement dan quality attribute.</td>
+                  </tr>
+                  <tr>
+                    <td>Information security</td>
+                    <td>ISO/IEC 27001:2022</td>
+                    <td>Risk-based security control dan pengelolaan akses.</td>
+                  </tr>
+                  <tr>
+                    <td>Privacy risk</td>
+                    <td>NIST Privacy Framework</td>
+                    <td>Privacy by design dan minimisasi data.</td>
+                  </tr>
+                  <tr>
+                    <td>Web security</td>
+                    <td>OWASP ASVS 5.0</td>
+                    <td>Baseline kontrol keamanan aplikasi web dan API.</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <section id="scope">
+            <h2>Scope MVP</h2>
+            <div class="card-grid">
+              <div class="doc-card">
+                <strong>Public lookup</strong>
+                <span>nama plus NIM, hasil dimasking, rate limit.</span>
+              </div>
+              <div class="doc-card">
+                <strong>Tagihan</strong>
+                <span>Periode, jenis tagihan, nominal, status, BRIVA, dan instruksi.</span>
+              </div>
+              <div class="doc-card">
+                <strong>Cara bayar</strong>
+                <span>BRIVA dan instruksi pembayaran dari workbook sumber.</span>
+              </div>
+              <div class="doc-card">
+                <strong>Admin dashboard</strong>
+                <span>Login, preview workbook XLSX, dan commit import.</span>
+              </div>
+              <div class="doc-card">
+                <strong>Import data</strong>
+                <span>Workbook XLSX dengan preview perubahan, validasi kritis, dan konfirmasi nominal atau BRIVA.</span>
+              </div>
+              <div class="doc-card">
+                <strong>Auditability</strong>
+                <span>Audit log untuk login, import, dan perubahan data penting.</span>
+              </div>
+            </div>
+          </section>
+
+          <section id="requirements">
+            <h2>Requirement Utama</h2>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>ID</th>
+                    <th>Requirement</th>
+                    <th>Prioritas</th>
+                    <th>Acceptance Criteria</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>FR-001</td>
+                    <td>Mahasiswa dapat membuka halaman cek tagihan tanpa login.</td>
+                    <td><span class="badge must">Must</span></td>
+                    <td>Halaman publik tersedia dan dapat diakses.</td>
+                  </tr>
+                  <tr>
+                    <td>FR-003</td>
+                    <td>Sistem meminta nama sebagai pasangan NIM.</td>
+                    <td><span class="badge must">Must</span></td>
+                    <td>Form memiliki nama mahasiswa sesuai konfigurasi.</td>
+                  </tr>
+                  <tr>
+                    <td>FR-004</td>
+                    <td>Sistem menampilkan tagihan ditemukan.</td>
+                    <td><span class="badge must">Must</span></td>
+                    <td>Hasil memuat periode, jenis, nominal, status, BRIVA, dan instruksi.</td>
+                  </tr>
+                  <tr>
+                    <td>FR-008</td>
+                    <td>Admin dapat login.</td>
+                    <td><span class="badge must">Must</span></td>
+                    <td>Admin berhasil masuk menggunakan Internal Auth.</td>
+                  </tr>
+                  <tr>
+                    <td>FR-009</td>
+                    <td>Admin dapat upload workbook XLSX tagihan.</td>
+                    <td><span class="badge must">Must</span></td>
+                    <td>Preview membedakan data baru, tidak berubah, dan perubahan sensitif sebelum commit.</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <section id="architecture">
+            <h2>Arsitektur</h2>
+            <p>
+              Aplikasi menggunakan Frontend statis dan Backend Python di VPS.
+              SQLite dipakai sebagai database file, Internal Auth menangani
+              login admin, dan Filesystem VPS menyimpan file upload opsional.
+              Browser tidak membaca tabel sensitif secara langsung.
+            </p>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Komponen</th>
+                    <th>Tanggung Jawab</th>
+                    <th>Platform</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>Public Web</td>
+                    <td>Form cek tagihan dan halaman hasil.</td>
+                    <td>VPS</td>
+                  </tr>
+                  <tr>
+                    <td>Admin Web</td>
+                    <td>Dashboard pengelolaan data.</td>
+                    <td>VPS</td>
+                  </tr>
+                  <tr>
+                    <td>API Layer</td>
+                    <td>Validasi, rate limit, query server-side, masking.</td>
+                    <td>Python service</td>
+                  </tr>
+                  <tr>
+                    <td>Database</td>
+                    <td>Mahasiswa, tagihan, pembayaran, audit, konfigurasi.</td>
+                    <td>SQLite</td>
+                  </tr>
+                  <tr>
+                    <td>Auth</td>
+                    <td>Login admin dan session management.</td>
+                    <td>Internal Auth</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <section id="diagrams">
+            <h2>Diagram</h2>
+            <p>
+              Bagian ini memuat diagram analisis dan desain yang umum dipakai:
+              UML-style use case, sequence, class, component, deployment,
+              state diagram, ERD, DFD, activity, BPMN-style, C4, lifecycle,
+              privacy, recovery, CI/CD, dan information architecture.
+            </p>
+
+            <h3>System Context</h3>
+            <div class="diagram">
+              <pre class="mermaid">
+flowchart LR
+    Student[Mahasiswa UT SALUT Awwabin]
+    Admin[Admin SALUT]
+    SuperAdmin[Super Admin]
+    Web[Salut Cek Pembayaran Web]
+    VPS[VPS Hosting and API]
+    SQLite[(SQLite)]
+    Auth[Internal Auth]
+    Storage[Filesystem VPS]
+
+    Student -->|Cek tagihan| Web
+    Admin -->|Kelola data| Web
+    SuperAdmin -->|Kelola admin dan konfigurasi| Web
+    Web --> VPS
+    VPS -->|Query server-side| SQLite
+    VPS -->|Admin session| Auth
+    VPS -->|File import opsional| Storage
+              </pre>
+            </div>
+
+            <h3>Use Case Diagram</h3>
+            <div class="diagram">
+              <pre class="mermaid">
+flowchart TB
+    Student[Mahasiswa]
+    Admin[Admin]
+    SuperAdmin[Super Admin]
+
+    UC1((Cek tagihan))
+    UC2((Lihat cara pembayaran))
+    UC3((Login admin))
+    UC4((Kelola mahasiswa))
+    UC5((Kelola tagihan))
+    UC6((Import tagihan))
+    UC7((Kelola metode pembayaran))
+    UC8((Lihat audit log))
+    UC9((Kelola admin))
+    UC10((Kelola konfigurasi))
+
+    Student --> UC1
+    Student --> UC2
+    Admin --> UC3
+    Admin --> UC4
+    Admin --> UC5
+    Admin --> UC6
+    Admin --> UC7
+    Admin --> UC8
+    SuperAdmin --> UC9
+    SuperAdmin --> UC10
+    SuperAdmin --> UC8
+              </pre>
+            </div>
+
+            <h3>DFD Level 0</h3>
+            <div class="diagram">
+              <pre class="mermaid">
+flowchart LR
+    Student[Mahasiswa]
+    Admin[Admin SALUT]
+    System((Salut Cek Pembayaran))
+    StudentData[(Data Mahasiswa)]
+    BillData[(Data Tagihan)]
+    PaymentData[(Data Metode Pembayaran)]
+    AuditData[(Audit dan Lookup Log)]
+
+    Student -->|nama dan NIM| System
+    System -->|Tagihan dan instruksi pembayaran aman| Student
+    Admin -->|Data mahasiswa, tagihan, metode pembayaran, file import| System
+    System -->|Preview import, laporan, audit| Admin
+    System <--> StudentData
+    System <--> BillData
+    System <--> PaymentData
+    System --> AuditData
+              </pre>
+            </div>
+
+            <h3>DFD Level 1</h3>
+            <div class="diagram">
+              <pre class="mermaid">
+flowchart TD
+    Student[Mahasiswa]
+    Admin[Admin SALUT]
+    P1((1. Validasi Lookup Publik))
+    P2((2. Ambil Tagihan))
+    P3((3. Sesi Admin))
+    P4((4. Import Tagihan))
+    P5((5. Audit dan Logging))
+    D1[(students)]
+    D2[(bills)]
+    D3[(import_issues)]
+    D4[(admin_users dan admin_sessions)]
+    D5[(lookup_logs dan audit_logs)]
+
+    Student -->|NIM dan verifikasi| P1
+    P1 -->|Data valid| P2
+    P1 -->|Lookup attempt| P5
+    P2 <--> D1
+    P2 <--> D2
+    P2 -->|Response dimasking| Student
+
+    Admin -->|Login dan session| P3
+    P3 <--> D4
+    P3 --> P5
+
+    Admin -->|XLSX| P4
+    P4 <--> D3
+    P4 -->|Upsert valid rows| D1
+    P4 -->|Upsert valid rows| D2
+    P4 --> P5
+    P5 --> D5
+              </pre>
+            </div>
+
+            <h3>User Flow Mahasiswa</h3>
+            <div class="diagram">
+              <pre class="mermaid">
+flowchart TD
+    A[Buka halaman cek tagihan] --> B[Input NIM]
+    B --> C[Input nama]
+    C --> D{Format valid?}
+    D -->|Tidak| E[Tampilkan validasi form]
+    D -->|Ya| F[Kirim request lookup]
+    F --> G{Rate limit aman?}
+    G -->|Tidak| H[Tampilkan pesan coba lagi]
+    G -->|Ya| I{Data cocok?}
+    I -->|Tidak| J[Tampilkan pesan data tidak ditemukan]
+    I -->|Ya| K[Tampilkan identitas dimasking]
+    K --> L[Tampilkan tagihan]
+    L --> M[Tampilkan instruksi pembayaran]
+              </pre>
+            </div>
+
+            <h3>User Flow Admin Import</h3>
+            <div class="diagram">
+              <pre class="mermaid">
+flowchart TD
+    A[Admin login] --> B[Buka menu Import Tagihan]
+    B --> C[Upload CSV atau XLSX]
+    C --> D[Validasi struktur dan konflik file]
+    D --> E{Ada error?}
+    E -->|Ya| F[Tampilkan error per baris]
+    E -->|Tidak| G[Tampilkan preview perubahan]
+    G --> H{Perubahan nominal atau BRIVA?}
+    H -->|Ya| I{Admin setujui perubahan?}
+    I -->|Tidak| J[Batalkan import]
+    I -->|Ya| K[Buat batch import]
+    H -->|Tidak| K
+    K --> L[Simpan data baru atau pembaruan terkonfirmasi]
+    L --> M[Tulis audit log]
+    M --> N[Tampilkan hasil import]
+              </pre>
+            </div>
+
+            <h3>Sequence Diagram Lookup Tagihan</h3>
+            <div class="diagram">
+              <pre class="mermaid">
+sequenceDiagram
+    actor Student as Mahasiswa
+    participant UI as Frontend Public UI
+    participant API as API /api/lookup
+    participant DB as SQLite
+    participant Log as Audit/Lookup Log
+
+    Student->>UI: Input nama dan NIM
+    UI->>API: POST lookup
+    API->>API: Validasi format dan rate limit
+    API->>DB: Cari mahasiswa dan tagihan aktif
+    DB-->>API: Data mahasiswa dan tagihan
+    API->>API: Masking data pribadi
+    API->>Log: Simpan lookup log
+    API-->>UI: Response aman
+    UI-->>Student: Tampilkan tagihan dan cara bayar
+              </pre>
+            </div>
+
+            <h3>Sequence Diagram Admin Import</h3>
+            <div class="diagram">
+              <pre class="mermaid">
+sequenceDiagram
+    actor Admin
+    participant UI as Admin UI
+    participant API as Import API
+    participant Auth as Internal Auth
+    participant DB as SQLite
+    participant Storage as Filesystem VPS
+
+    Admin->>UI: Upload file
+    UI->>API: POST preview import
+    API->>Auth: Validasi session dan role
+    Auth-->>API: Authorized
+    API->>API: Parse dan validasi file
+    API-->>UI: Preview dan error rows
+    Admin->>UI: Confirm import
+    UI->>API: POST commit import
+    API->>Storage: Simpan file mentah opsional
+    API->>DB: Insert import batch
+    API->>DB: Upsert data mahasiswa dan tagihan
+    API->>DB: Insert audit log
+    API-->>UI: Hasil import
+              </pre>
+            </div>
+
+            <h3>ERD Ringkas</h3>
+            <div class="diagram">
+              <pre class="mermaid">
+erDiagram
+    STUDENTS ||--o{ BILLS : has
+    BILL_IMPORTS ||--o{ IMPORT_ROWS : contains
+    BILL_IMPORTS ||--o{ BILLS : creates_or_updates
+    PAYMENT_METHODS ||--o{ BILL_PAYMENT_METHODS : used_by
+    BILLS ||--o{ BILL_PAYMENT_METHODS : offers
+    ADMIN_USERS ||--o{ AUDIT_LOGS : performs
+    ADMIN_USERS ||--o{ BILL_IMPORTS : uploads
+
+    STUDENTS {
+        uuid id PK
+        text nim UK
+        text full_name
+        date name
+        text name
+        text status
+    }
+
+    BILLS {
+        uuid id PK
+        uuid student_id FK
+        text period
+        text bill_type
+        numeric amount
+        text status
+        date due_date
+    }
+
+    PAYMENT_METHODS {
+        uuid id PK
+        text method_type
+        text provider_name
+        text account_number
+        boolean is_active
+    }
+              </pre>
+            </div>
+
+            <h3>UML-style Class Diagram</h3>
+            <div class="diagram">
+              <pre class="mermaid">
+classDiagram
+    class Student {
+        +uuid id
+        +string nim
+        +string fullName
+        +date birthDate
+        +string phoneLast4
+        +string status
+    }
+
+    class Bill {
+        +uuid id
+        +string period
+        +string billType
+        +decimal amount
+        +decimal paidAmount
+        +string status
+        +date dueDate
+    }
+
+    class PaymentMethod {
+        +uuid id
+        +string methodType
+        +string providerName
+        +string accountNumber
+        +boolean isActive
+    }
+
+    class BillImport {
+        +uuid id
+        +string fileChecksum
+        +string status
+        +int totalRows
+        +commit()
+    }
+
+    class AdminUser {
+        +uuid id
+        +string email
+        +string role
+        +boolean isActive
+    }
+
+    class AuditLog {
+        +uuid id
+        +string action
+        +string entityType
+        +datetime createdAt
+    }
+
+    Student "1" --> "0..*" Bill
+    Bill "0..*" --> "0..*" PaymentMethod
+    BillImport "1" --> "0..*" Bill
+    AdminUser "1" --> "0..*" BillImport
+    AdminUser "1" --> "0..*" AuditLog
+              </pre>
+            </div>
+
+            <h3>Deployment Diagram</h3>
+            <div class="diagram">
+              <pre class="mermaid">
+flowchart LR
+    Browser[Browser Mahasiswa/Admin]
+    CDN[Nginx/Caddy reverse proxy]
+    Next[Python Backend and Static Frontend]
+    Env[environment file/server secrets di VPS]
+    DB[(SQLite)]
+    Auth[Internal Auth]
+    Storage[Filesystem VPS]
+    Logs[VPS app logs and audit logs]
+
+    Browser --> CDN
+    CDN --> Next
+    Next --> Env
+    Next --> DB
+    Next --> Auth
+    Next --> Storage
+    Next --> Logs
+              </pre>
+            </div>
+
+            <h3>UML-style Component Diagram</h3>
+            <div class="diagram">
+              <pre class="mermaid">
+flowchart LR
+    subgraph Client[Browser Client]
+        PublicUI[Public Lookup UI]
+        AdminUI[Admin Dashboard UI]
+    end
+
+    subgraph VPS[Backend and Frontend on VPS]
+        PublicAPI[Public Lookup API]
+        AdminAPI[Admin API]
+        ImportAPI[Import API]
+        Masking[Masking and Validation]
+        RateLimit[Rate Limit and CAPTCHA]
+    end
+
+    subgraph ServerData[Server Data Layer]
+        Auth[Internal Auth]
+        DB[(SQLite)]
+        Storage[File Uploads]
+    end
+
+    PublicUI --> PublicAPI
+    AdminUI --> AdminAPI
+    AdminUI --> ImportAPI
+    PublicAPI --> RateLimit
+    PublicAPI --> Masking
+    PublicAPI --> DB
+    AdminAPI --> Auth
+    AdminAPI --> DB
+    ImportAPI --> Auth
+    ImportAPI --> Storage
+    ImportAPI --> DB
+              </pre>
+            </div>
+
+            <h3>State Diagram Tagihan</h3>
+            <div class="diagram">
+              <pre class="mermaid">
+stateDiagram-v2
+    [*] --> draft
+    draft --> unpaid: publish
+    unpaid --> partial: partial payment noted
+    partial --> paid: fully paid
+    unpaid --> paid: fully paid
+    unpaid --> expired: past due and closed
+    partial --> expired: past due and closed
+    unpaid --> cancelled: admin cancels
+    partial --> cancelled: admin cancels
+    expired --> unpaid: admin reopens
+    cancelled --> unpaid: admin reactivates
+    paid --> [*]
+              </pre>
+            </div>
+
+            <h3>Security Flow</h3>
+            <div class="diagram">
+              <pre class="mermaid">
+flowchart TD
+    A[Request publik] --> B[Validasi input]
+    B --> C[CAPTCHA atau rate limit]
+    C --> D{Aman?}
+    D -->|Tidak| E[Reject 429]
+    D -->|Ya| F[Server-side lookup]
+    F --> G[Masking response]
+    G --> H[Tulis lookup log]
+    H --> I[Kirim response]
+
+    J[Request admin] --> K[Validasi internal session]
+    K --> L[Validasi role]
+    L --> M{Authorized?}
+    M -->|Tidak| N[Reject 401/403]
+    M -->|Ya| O[Execute action]
+    O --> P[Tulis audit log]
+              </pre>
+            </div>
+
+            <h3>Activity Diagram Lookup Tagihan</h3>
+            <div class="diagram">
+              <pre class="mermaid">
+flowchart TD
+    Start([Mulai]) --> Input[Mahasiswa isi nama dan NIM]
+    Input --> Validate{Format input valid?}
+    Validate -->|Tidak| Invalid[Tampilkan validasi form]
+    Validate -->|Ya| Rate{Rate limit aman?}
+    Rate -->|Tidak| Limited[Tampilkan pesan coba lagi]
+    Rate -->|Ya| Match{Data verifikasi cocok?}
+    Match -->|Tidak| NotFound[Tampilkan pesan generik]
+    Match -->|Ya| Fetch[Ambil tagihan dan metode pembayaran]
+    Fetch --> Mask[Masking data pribadi]
+    Mask --> Log[Tulis lookup log]
+    Log --> Result[Tampilkan hasil]
+    Invalid --> End([Selesai])
+    Limited --> End
+    NotFound --> End
+    Result --> End
+              </pre>
+            </div>
+
+            <h3>Activity Diagram Import Tagihan</h3>
+            <div class="diagram">
+              <pre class="mermaid">
+flowchart TD
+    Start([Mulai]) --> Login[Admin login]
+    Login --> Upload[Upload CSV atau XLSX]
+    Upload --> Parse[Parse file]
+    Parse --> Validate[Validasi header dan setiap baris]
+    Validate --> HasError{Ada error kritis?}
+    HasError -->|Ya| ErrorList[Tampilkan error per baris]
+    ErrorList --> Fix[Admin memperbaiki file]
+    Fix --> Upload
+    HasError -->|Tidak| Preview[Tampilkan preview]
+    Preview --> Confirm{Admin konfirmasi commit?}
+    Confirm -->|Tidak| Cancel[Batalkan import]
+    Confirm -->|Ya| Batch[Buat batch import]
+    Batch --> Upsert[Upsert mahasiswa dan tagihan]
+    Upsert --> Audit[Tulis audit log]
+    Audit --> Done[Tampilkan ringkasan hasil]
+    Cancel --> End([Selesai])
+    Done --> End
+              </pre>
+            </div>
+
+            <h3>BPMN-style Business Process Diagram</h3>
+            <p>Swimlane berikut merepresentasikan kolaborasi proses bisnis tingkat tinggi.</p>
+            <div class="diagram">
+              <pre class="mermaid">
+flowchart LR
+    subgraph Mahasiswa
+        M1[Butuh informasi tagihan] --> M2[Masukkan NIM dan verifikasi]
+        M3[Terima tagihan dan instruksi] --> M4[Lakukan pembayaran]
+    end
+
+    subgraph Sistem
+        S1[Validasi lookup] --> S2[Ambil dan masking data]
+        S2 --> S3[Tampilkan tagihan]
+    end
+
+    subgraph Admin
+        A1[Terima data tagihan] --> A2[Import atau perbarui data]
+        A2 --> A3[Monitor dan koreksi data]
+    end
+
+    A2 --> S1
+    M2 --> S1
+    S3 --> M3
+    M4 --> A3
+              </pre>
+            </div>
+
+            <h3>C4 Container Diagram</h3>
+            <div class="diagram">
+              <pre class="mermaid">
+flowchart TB
+    Student[Mahasiswa]
+    Admin[Admin SALUT]
+
+    subgraph System[Salut Cek Pembayaran]
+        Web[Static Frontend]
+        API[Python API Routes]
+        Import[Import Processor]
+    end
+
+    subgraph VPSData[Data and File Layer on VPS]
+        Auth[Internal Auth]
+        DB[(SQLite Database)]
+        Storage[(File Uploads)]
+    end
+
+    Student -->|HTTPS| Web
+    Admin -->|HTTPS| Web
+    Web -->|JSON over HTTPS| API
+    API -->|Validate internal admin session| Auth
+    API -->|Prepared SQL query| DB
+    API --> Import
+    Import -->|Read optional source file| Storage
+    Import -->|Upsert validated rows| DB
+              </pre>
+            </div>
+
+            <h3>Data Lifecycle Diagram</h3>
+            <div class="diagram">
+              <pre class="mermaid">
+flowchart LR
+    Source[File sumber tagihan] --> Preview[Parse dan preview]
+    Preview --> Commit[Commit batch terverifikasi]
+    Commit --> Active[(Database aktif)]
+    Active --> Lookup[Lookup publik dimasking]
+    Active --> Admin[Pengelolaan admin]
+    Lookup --> LookupLog[(Lookup log ter-hash)]
+    Admin --> AuditLog[(Audit log)]
+    Active --> Retention{Masa retensi berakhir?}
+    Retention -->|Belum| Active
+    Retention -->|Ya| Archive[Arsip sesuai kebijakan]
+    Archive --> Purge[Hapus secara terkendali]
+    LookupLog --> LogPurge[Hapus log sesuai retensi]
+    AuditLog --> AuditArchive[Arsip audit sesuai kebijakan]
+              </pre>
+            </div>
+
+            <h3>Data Privacy Flow Diagram</h3>
+            <div class="diagram">
+              <pre class="mermaid">
+flowchart TD
+    Raw[NIM, nama, nama, dan tagihan] --> Server[API server-side]
+    Server --> Verify[Verifikasi kecocokan data]
+    Server --> Mask[Masking nama dan identitas]
+    Server --> Hash[Hash NIM dan IP untuk log]
+    Verify --> Authorized{Kanal akses?}
+    Authorized -->|Publik terverifikasi| Public[Response minimal]
+    Authorized -->|Admin berizin| Admin[Data sesuai role]
+    Mask --> Public
+    Hash --> Logs[(Lookup logs)]
+    Admin --> Audit[(Audit logs)]
+              </pre>
+            </div>
+
+            <h3>Authentication and Authorization Flow</h3>
+            <div class="diagram">
+              <pre class="mermaid">
+sequenceDiagram
+    actor Admin
+    participant UI as Admin UI
+    participant Auth as Internal Auth
+    participant API as Admin API
+    participant DB as SQLite
+
+    Admin->>UI: Masukkan kredensial
+    UI->>Auth: Login email dan password
+    Auth-->>UI: Session token
+    UI->>API: Request dengan session
+    API->>Auth: Validasi session
+    Auth-->>API: User terautentikasi
+    API->>DB: Ambil role dan status admin
+    DB-->>API: Role dan is_active
+    API->>API: Periksa izin endpoint
+    alt Role diizinkan dan akun aktif
+        API-->>UI: Response berhasil
+    else Tidak diizinkan
+        API-->>UI: 401 atau 403
+    end
+              </pre>
+            </div>
+
+            <h3>Import Validation Decision Tree</h3>
+            <div class="diagram">
+              <pre class="mermaid">
+flowchart TD
+    File[File import] --> Type{Tipe dan ukuran file valid?}
+    Type -->|Tidak| Reject[Reject preview]
+    Type -->|Ya| Header{Header wajib lengkap?}
+    Header -->|Tidak| Reject
+    Header -->|Ya| Rows{Semua baris valid?}
+    Rows -->|Tidak| ShowErrors[Tampilkan error per baris]
+    Rows -->|Ya| Duplicate{Ada duplikasi atau konflik?}
+    Duplicate -->|Tidak| Preview[Siapkan preview]
+    Duplicate -->|Ya| Mode{Konflik dapat di-upsert?}
+    Mode -->|Tidak| ShowErrors
+    Mode -->|Ya| Preview
+    Preview --> Confirm{Admin konfirmasi?}
+    Confirm -->|Tidak| Cancel[Batalkan]
+    Confirm -->|Ya| Commit[Commit atomik]
+    Commit --> Audit[Tulis audit log]
+              </pre>
+            </div>
+
+            <h3>Backup and Recovery Flow</h3>
+            <div class="diagram">
+              <pre class="mermaid">
+flowchart TD
+    Incident[Insiden terdeteksi] --> Classify{Jenis insiden?}
+    Classify -->|Deploy bermasalah| Rollback[Rollback service VPS ke release sebelumnya]
+    Classify -->|Import data salah| Correct[Nonaktifkan batch dan koreksi data]
+    Classify -->|Database rusak| Restore[Restore file SQLite dari backup]
+    Classify -->|Secret bocor| Rotate[Rotasi secret dan restart service]
+    Rollback --> Verify[Verifikasi integritas dan smoke test]
+    Correct --> Verify
+    Restore --> Verify
+    Rotate --> Verify
+    Verify --> Healthy{Layanan sehat?}
+    Healthy -->|Tidak| Escalate[Eskalasi dan lanjutkan recovery]
+    Healthy -->|Ya| Report[Catat insiden dan tindak lanjut]
+    Escalate --> Classify
+              </pre>
+            </div>
+
+            <h3>CI/CD Pipeline Diagram</h3>
+            <div class="diagram">
+              <pre class="mermaid">
+flowchart LR
+    Branch[Feature branch] --> PR[Pull request]
+    PR --> Checks[Lint, test, dan build]
+    Checks --> Passed{Checks lulus?}
+    Passed -->|Tidak| Fix[Perbaiki perubahan]
+    Fix --> Branch
+    Passed -->|Ya| Staging[Deploy ke staging VPS]
+    Staging --> Review[Code review dan UAT]
+    Review --> Approved{Disetujui?}
+    Approved -->|Tidak| Fix
+    Approved -->|Ya| Merge[Merge ke main]
+    Merge --> Production[Deploy production ke VPS]
+    Production --> Smoke[Smoke test]
+    Smoke --> Release[Release notes dan monitoring]
+              </pre>
+            </div>
+
+            <h3>Sitemap / Information Architecture</h3>
+            <div class="diagram">
+              <pre class="mermaid">
+flowchart TD
+    Public[Area Publik] --> Lookup[Cek Tagihan]
+    Lookup --> Result[Hasil Tagihan]
+    Result --> Payment[Instruksi Pembayaran]
+    Public --> Help[Bantuan dan Kontak]
+
+    AdminArea[Area Admin] --> Login[Login Admin]
+    Login --> Dashboard[Dashboard]
+    Dashboard --> Students[Mahasiswa]
+    Dashboard --> Bills[Tagihan]
+    Dashboard --> Imports[Import Tagihan]
+    Dashboard --> Methods[Metode Pembayaran]
+    Dashboard --> Audit[Audit Log]
+    Dashboard --> Settings[Pengaturan]
+    Settings --> Users[Admin dan Role]
+              </pre>
+            </div>
+          </section>
+
+          <section id="database">
+            <h2>Database</h2>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Tabel</th>
+                    <th>Fungsi</th>
+                    <th>Catatan Penting</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td><code>students</code></td>
+                    <td>Data mahasiswa.</td>
+                    <td>NIM unique, nama dimasking pada response publik.</td>
+                  </tr>
+                  <tr>
+                    <td><code>bills</code></td>
+                    <td>Data tagihan.</td>
+                    <td>Rilis ini mengimpor status <code>unpaid</code>.</td>
+                  </tr>
+                  <tr>
+                    <td><code>import_issues</code></td>
+                    <td>Warning dan data tidak lengkap dari workbook.</td>
+                    <td>Sheet <code>Data Belum Lengkap</code> tidak tampil publik.</td>
+                  </tr>
+                  <tr>
+                    <td><code>admin_users</code> dan <code>admin_sessions</code></td>
+                    <td>Identitas admin dan session login.</td>
+                    <td>Token session disimpan dalam bentuk hash.</td>
+                  </tr>
+                  <tr>
+                    <td><code>lookup_logs</code></td>
+                    <td>Log pencarian publik.</td>
+                    <td>Simpan hash NIM/IP, bukan data mentah.</td>
+                  </tr>
+                  <tr>
+                    <td><code>audit_logs</code></td>
+                    <td>Audit perubahan admin.</td>
+                    <td>Mencatat login, logout, preview, dan commit import.</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <section id="api">
+            <h2>API Contract</h2>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Endpoint</th>
+                    <th>Method</th>
+                    <th>Tujuan</th>
+                    <th>Auth</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td><code>/api/lookup</code></td>
+                    <td>POST</td>
+                    <td>Cari tagihan berdasarkan nama dan NIM.</td>
+                    <td>Public + rate limit</td>
+                  </tr>
+                  <tr>
+                    <td><code>/api/admin/login</code></td>
+                    <td>POST</td>
+                    <td>Login admin dan membuat session.</td>
+                    <td>Admin</td>
+                  </tr>
+                  <tr>
+                    <td><code>/api/admin/me</code></td>
+                    <td>GET</td>
+                    <td>Mengambil profil session admin aktif.</td>
+                    <td>Admin</td>
+                  </tr>
+                  <tr>
+                    <td><code>/api/admin/logout</code></td>
+                    <td>POST</td>
+                    <td>Menghapus session admin aktif.</td>
+                    <td>Admin</td>
+                  </tr>
+                  <tr>
+                    <td><code>/api/admin/import/preview</code></td>
+                    <td>POST</td>
+                    <td>Validasi file import tanpa commit.</td>
+                    <td>Admin</td>
+                  </tr>
+                  <tr>
+                    <td><code>/api/admin/import/commit</code></td>
+                    <td>POST</td>
+                    <td>Simpan data import ke database.</td>
+                    <td>Admin</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <section id="security">
+            <h2>Security dan Privacy</h2>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>ID</th>
+                    <th>Kontrol</th>
+                    <th>Acceptance Criteria</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>SEC-001</td>
+                    <td>Secret tidak boleh berada di repository.</td>
+                    <td><code>.env*</code> diignore kecuali template aman.</td>
+                  </tr>
+                  <tr>
+                    <td>SEC-002</td>
+                    <td>Public lookup memakai verifikasi tambahan.</td>
+                    <td>Lookup tanpa verifikasi ditolak.</td>
+                  </tr>
+                  <tr>
+                    <td>SEC-003</td>
+                    <td>Response publik harus dimasking.</td>
+                    <td>Nama tidak pernah tampil penuh.</td>
+                  </tr>
+                  <tr>
+                    <td>SEC-004</td>
+                    <td>API admin memvalidasi role.</td>
+                    <td>Role tidak cukup ditolak 403.</td>
+                  </tr>
+                  <tr>
+                    <td>SEC-005</td>
+                    <td>Audit log wajib untuk perubahan penting.</td>
+                    <td>Create/update/delete/import menghasilkan audit log.</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <section id="operations">
+            <h2>Admin dan Operasional</h2>
+            <ol>
+              <li>Admin menyiapkan workbook XLSX dengan sheet yang disetujui.</li>
+              <li>Admin login ke dashboard.</li>
+              <li>Admin upload file tagihan.</li>
+              <li>Sistem menampilkan preview dan error per baris.</li>
+              <li>Admin memperbaiki data bila ada error kritis.</li>
+              <li>Admin commit import hanya saat tidak ada baris kritis dan perubahan nominal/BRIVA telah disetujui.</li>
+              <li>Sistem menyimpan data tagihan, issue import, dan audit log.</li>
+            </ol>
+          </section>
+
+          <section id="quality">
+            <h2>Testing dan Quality Plan</h2>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Level</th>
+                    <th>Scope</th>
+                    <th>Contoh</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>Unit</td>
+                    <td>Fungsi kecil.</td>
+                    <td>Validasi NIM, masking nama, parsing nominal.</td>
+                  </tr>
+                  <tr>
+                    <td>Integration</td>
+                    <td>API dan database.</td>
+                    <td>Lookup tagihan, admin update, import commit.</td>
+                  </tr>
+                  <tr>
+                    <td>E2E</td>
+                    <td>Flow pengguna.</td>
+                    <td>Mahasiswa cek tagihan, admin import file.</td>
+                  </tr>
+                  <tr>
+                    <td>Security</td>
+                    <td>Kontrol keamanan.</td>
+                    <td>Role check, rate limit, secret exposure, enumeration.</td>
+                  </tr>
+                  <tr>
+                    <td>UAT</td>
+                    <td>Validasi pengguna.</td>
+                    <td>Admin SALUT mencoba data nyata terbatas.</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <section id="deployment">
+            <h2>Deployment</h2>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Komponen</th>
+                    <th>Platform</th>
+                    <th>Catatan</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>Web app</td>
+                    <td>VPS</td>
+                    <td>Production dari branch <code>main</code>.</td>
+                  </tr>
+                  <tr>
+                    <td>API route</td>
+                    <td>Python service</td>
+                    <td>Server-side query ke SQLite.</td>
+                  </tr>
+                  <tr>
+                    <td>Database</td>
+                    <td>SQLite</td>
+                    <td>Prepared query, permission file, dan backup otomatis.</td>
+                  </tr>
+                  <tr>
+                    <td>Auth</td>
+                    <td>Internal Auth</td>
+                    <td>Admin login dan session.</td>
+                  </tr>
+                  <tr>
+                    <td>Storage</td>
+                    <td>Filesystem VPS</td>
+                    <td>Opsional untuk file import mentah.</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <section id="risks">
+            <h2>Risk Register Ringkas</h2>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>ID</th>
+                    <th>Risiko</th>
+                    <th>Score</th>
+                    <th>Mitigasi</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>RSK-001</td>
+                    <td>NIM ditebak untuk melihat tagihan orang lain.</td>
+                    <td><span class="badge risk">20</span></td>
+                    <td>nama, rate limit, masking.</td>
+                  </tr>
+                  <tr>
+                    <td>RSK-002</td>
+                    <td>Data import salah format.</td>
+                    <td><span class="badge risk">16</span></td>
+                    <td>Preview, validasi baris, template file.</td>
+                  </tr>
+                  <tr>
+                    <td>RSK-005</td>
+                    <td>kontrol akses server-side salah konfigurasi.</td>
+                    <td><span class="badge risk">15</span></td>
+                    <td>Test akses negatif dan review policy.</td>
+                  </tr>
+                  <tr>
+                    <td>RSK-011</td>
+                    <td>Abuse endpoint lookup.</td>
+                    <td><span class="badge risk">12</span></td>
+                    <td>Rate limit, CAPTCHA, monitoring lookup gagal.</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <section id="traceability">
+            <h2>Traceability</h2>
+            <p>
+              Setiap requirement utama dipetakan ke desain, tabel database, API,
+              dan test case. Matrix lengkap tersedia di dokumen sumber
+              <a href="12-traceability-matrix.md">Requirements Traceability Matrix</a>.
+            </p>
+            <pre><code>FR-004 -> docs/03-diagrams.md -> bills -> /api/lookup -> TC-005
+SEC-003 -> docs/06-security-privacy-design.md -> students.full_name -> /api/lookup -> ST-005
+FR-009 -> docs/07-admin-operations.md -> students/bills/import_issues -> /api/admin/import/* -> TC-014/TC-015</code></pre>
+          </section>
+
+          <section id="sources">
+            <h2>Dokumen Sumber</h2>
+            <ul class="source-list">
+              <li><a href="../README.md">README</a></li>
+              <li><a href="00-standards-and-methodology.md">Standar dan Metodologi</a></li>
+              <li><a href="01-product-requirements.md">Product Requirements</a></li>
+              <li><a href="02-system-design.md">System Design</a></li>
+              <li><a href="03-diagrams.md">Diagram Sistem</a></li>
+              <li><a href="04-database-design.md">Database Design</a></li>
+              <li><a href="05-api-contract.md">API Contract</a></li>
+              <li><a href="06-security-privacy-design.md">Security dan Privacy Design</a></li>
+              <li><a href="07-admin-operations.md">Admin dan Operasional</a></li>
+              <li><a href="08-test-quality-plan.md">Test dan Quality Plan</a></li>
+              <li><a href="09-deployment-plan.md">Deployment Plan</a></li>
+              <li><a href="10-project-management.md">Project Management Plan</a></li>
+              <li><a href="11-risk-register.md">Risk Register</a></li>
+              <li><a href="12-traceability-matrix.md">Traceability Matrix</a></li>
+              <li><a href="13-change-release-plan.md">Change dan Release Plan</a></li>
+              <li><a href="CHANGELOG.md">Changelog</a></li>
+              <li><a href="SECURITY.md">Security Policy</a></li>
+              <li><a href="RUNBOOK.md">Runbook</a></li>
+            </ul>
+          </section>
+        </div>
+
+        <footer>
+          Portal ini adalah tampilan HTML dari baseline dokumentasi. Dokumen
+          Markdown tetap menjadi sumber rinci dan harus diperbarui bersama kode.
+        </footer>
+      </main>
+    </div>
+
+    <script type="module">
+      import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs";
+
+      mermaid.initialize({
+        startOnLoad: true,
+        securityLevel: "strict",
+        theme: "default",
+        flowchart: { htmlLabels: false },
+      });
+    </script>
+  </body>
+</html>

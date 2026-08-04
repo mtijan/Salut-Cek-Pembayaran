@@ -1,0 +1,21 @@
+[Unit]
+Description=Salut Cek Pembayaran
+After=network.target
+
+[Service]
+Type=simple
+User=salut
+Group=salut
+WorkingDirectory=/opt/salut-cek-pembayaran
+EnvironmentFile=/etc/salut-cek-pembayaran.env
+ExecStart=/usr/bin/python3 /opt/salut-cek-pembayaran/Backend/server.py
+Restart=always
+RestartSec=5
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ReadWritePaths=/var/lib/salut-cek-pembayaran /var/backups/salut-cek-pembayaran
+
+[Install]
+WantedBy=multi-user.target

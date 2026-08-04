@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Admin SALUT</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="admin-shell">
+      <section class="admin-header">
+        <div>
+          <p class="eyebrow">SALUT Awwabin</p>
+          <h1>Admin Import Tagihan</h1>
+        </div>
+        <button type="button" id="logout-button" class="ghost-button hidden">Keluar</button>
+      </section>
+
+      <section id="login-card" class="lookup-panel admin-card">
+        <h2>Login Admin</h2>
+        <form id="login-form" class="lookup-form">
+          <label for="email">Email</label>
+          <input id="email" name="email" type="email" autocomplete="username" required />
+
+          <label for="password">Password</label>
+          <input id="password" name="password" type="password" autocomplete="current-password" required />
+
+          <button type="submit">Masuk</button>
+        </form>
+        <p id="login-message" class="form-message" role="status"></p>
+      </section>
+
+      <section id="import-card" class="lookup-panel admin-card hidden">
+        <div class="admin-card-title">
+          <div>
+            <p class="eyebrow">Upload Excel</p>
+            <h2>Preview dan Commit</h2>
+          </div>
+          <span id="admin-email" class="status-pill">Admin</span>
+        </div>
+
+        <form id="import-form" class="lookup-form">
+          <label for="excel-file">File tagihan</label>
+          <input id="excel-file" name="file" type="file" accept=".xlsx" required />
+          <button type="submit">Preview File</button>
+        </form>
+
+        <div id="preview-state" class="preview-state hidden">
+          <div class="summary-grid">
+            <div>
+              <span class="label-small">Valid</span>
+              <strong id="valid-count">0</strong>
+            </div>
+            <div>
+              <span class="label-small">Tagihan Baru</span>
+              <strong id="new-count">0</strong>
+            </div>
+            <div>
+              <span class="label-small">Tidak Berubah</span>
+              <strong id="unchanged-count">0</strong>
+            </div>
+            <div>
+              <span class="label-small">Akan Diperbarui</span>
+              <strong id="update-count">0</strong>
+            </div>
+            <div>
+              <span class="label-small">Nominal Berubah</span>
+              <strong id="amount-change-count">0</strong>
+            </div>
+            <div>
+              <span class="label-small">Kritis</span>
+              <strong id="critical-count">0</strong>
+            </div>
+            <div>
+              <span class="label-small">Issue</span>
+              <strong id="issue-count">0</strong>
+            </div>
+          </div>
+
+          <div id="change-state" class="hidden">
+            <h3>Perubahan yang terdeteksi</h3>
+            <div id="change-table" class="table-mini"></div>
+            <label id="confirm-updates-row" class="confirm-updates hidden">
+              <input id="confirm-updates" type="checkbox" />
+              <span>Saya sudah memeriksa perubahan nominal atau BRIVA dan menyetujui pembaruannya.</span>
+            </label>
+          </div>
+
+          <h3>Contoh data</h3>
+          <div id="sample-table" class="table-mini"></div>
+
+          <h3>Issue awal</h3>
+          <div id="error-list" class="error-list"></div>
+
+          <button type="button" id="commit-button">Commit Import</button>
+        </div>
+
+        <p id="import-message" class="form-message" role="status"></p>
+      </section>
+    </main>
+
+    <script src="./admin.js"></script>
+  </body>
+</html>
