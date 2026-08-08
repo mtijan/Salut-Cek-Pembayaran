@@ -64,7 +64,10 @@ body {
 .result-header,
 .bill-top,
 .payment-box,
-.bill-amount-row {
+.bill-amount-row,
+.total-bill-row,
+.amount-line,
+.va-item {
   display: flex;
   align-items: center;
 }
@@ -370,9 +373,44 @@ button {
   margin-bottom: 14px;
 }
 
-.bill-amount-row {
+.bill-section-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.amount-lines {
+  display: grid;
+  gap: 10px;
+}
+
+.amount-line {
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.amount-label {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.amount-value {
+  margin-left: auto;
+  color: var(--ink);
+  font-size: 18px;
+  font-weight: 900;
+}
+
+.total-bill-row {
   justify-content: space-between;
   gap: 16px;
+  margin-top: 16px;
+  padding: 14px;
+  border-radius: 8px;
+  background: var(--soft);
 }
 
 .bill-top {
@@ -384,6 +422,13 @@ button {
 .amount {
   margin-bottom: 0;
   font-size: 28px;
+  line-height: 1.1;
+}
+
+.total-amount {
+  margin-bottom: 0;
+  color: var(--ink);
+  font-size: 30px;
   line-height: 1.1;
 }
 
@@ -402,8 +447,26 @@ button {
 }
 
 .payment-box + .payment-box,
-.payment-box + .payment-section {
+.payment-box + .payment-section,
+.va-section + .payment-box {
   margin-top: 14px;
+}
+
+.va-section {
+  margin-bottom: 14px;
+}
+
+.va-list {
+  display: grid;
+  gap: 10px;
+}
+
+.va-item {
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px;
+  border-radius: 8px;
+  background: var(--soft);
 }
 
 .briva {
@@ -421,8 +484,9 @@ button {
 }
 
 .copy-button {
-  width: 44px;
-  min-width: 44px;
+  width: auto;
+  min-width: 70px;
+  padding: 0 14px;
   background: var(--panel);
   color: var(--brand);
   border: 1px solid #b9d7d2;
@@ -510,9 +574,16 @@ button {
   .result-header,
   .bill-top,
   .payment-box,
-  .bill-amount-row {
+  .bill-amount-row,
+  .total-bill-row,
+  .amount-line,
+  .va-item {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .amount-value {
+    margin-left: 0;
   }
 
   .info-list div {

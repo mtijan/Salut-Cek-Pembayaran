@@ -21,6 +21,16 @@ function showEmpty() {
   billList.replaceChildren();
 }
 
+function rupiah(value) {
+  return `Rp ${Number(value || 0).toLocaleString("id-ID")}`;
+}
+
+function setStatusPill(node, status) {
+  node.textContent = status === "paid" ? "Lunas" : "Belum lunas";
+  node.classList.toggle("is-paid", status === "paid");
+  node.classList.toggle("is-unpaid", status !== "paid");
+}
+
 function renderResult(data) {
   emptyState.classList.add("hidden");
   resultState.classList.remove("hidden");
@@ -32,25 +42,65 @@ function renderResult(data) {
   const bills = data.bills || [];
   billList.replaceChildren();
 
-  for (const bill of bills) {
-    const item = billTemplate.content.cloneNode(true);
-    item.querySelector(".amount").textContent = bill.amount_formatted;
-    item.querySelector(".briva").textContent = bill.briva;
-    item.querySelector(".account-name").textContent = data.student.full_name || "-";
+  const item = billTemplate.content.cloneNode(true);
+  const amountLines = item.querySelector(".amount-lines");
+  const vaList = item.querySelector(".va-list");
+  const total = bills.reduce((sum, bill) => sum + Number(bill.amount || 0), 0);
+  const hasUnpaidBill = bills.some((bill) => bill.status === "unpaid");
+  const totalStatus = item.querySelector(".total-status");
 
-    const statusText = item.querySelector(".bill-status-text");
-    statusText.textContent = bill.status === "paid" ? "Lunas" : "Belum lunas";
-    statusText.classList.toggle("is-paid", bill.status === "paid");
-    statusText.classList.toggle("is-unpaid", bill.status !== "paid");
+  item.querySelector(".bill-section-title").textContent = bills.length > 1 ? "Informasi Tagihan" : "Informasi Tagihan";
+  item.querySelector(".total-amount").textContent = rupiah(total);
+  setStatusPill(totalStatus, hasUnpaidBill ? "unpaid" : "paid");
+  item.querySelector(".account-name").textContent = data.student.full_name || "-";
 
-    const copyButton = item.querySelector(".copy-button");
+  for (const [index, bill] of bills.entries()) {
+    const amountRow = document.createElement("div");
+    amountRow.className = "amount-line";
+
+    const amountLabel = document.createElement("span");
+    amountLabel.className = "amount-label";
+    amountLabel.textContent = bills.length > 1 ? bill.bill_label || `Tagihan ${index + 1}` : "Jumlah Tagihan";
+
+    const amountValue = document.createElement("strong");
+    amountValue.className = "amount-value";
+    amountValue.textContent = bill.amount_formatted || rupiah(bill.amount);
+
+    const statusText = document.createElement("span");
+    statusText.className = "bill-status-text status-pill";
+    setStatusPill(statusText, bill.status);
+
+    amountRow.append(amountLabel, amountValue, statusText);
+    amountLines.appendChild(amountRow);
+
+    const vaRow = document.createElement("div");
+    vaRow.className = "va-item";
+
+    const vaInfo = document.createElement("div");
+    const vaLabel = document.createElement("p");
+    vaLabel.className = "label-small";
+    vaLabel.textContent = bills.length > 1 ? bill.bill_label || `Tagihan ${index + 1}` : "Nomor VA";
+    const vaNumber = document.createElement("p");
+    vaNumber.className = "briva";
+    vaNumber.textContent = bill.briva || "-";
+    vaInfo.append(vaLabel, vaNumber);
+
+    const copyButton = document.createElement("button");
+    copyButton.type = "button";
+    copyButton.className = "copy-button";
+    copyButton.title = "Salin nomor VA";
+    copyButton.setAttribute("aria-label", `Salin nomor VA ${vaLabel.textContent}`);
+    copyButton.textContent = "Salin";
     copyButton.addEventListener("click", async () => {
       await navigator.clipboard.writeText(bill.briva);
       setMessage("Nomor VA disalin.");
     });
 
-    billList.appendChild(item);
+    vaRow.append(vaInfo, copyButton);
+    vaList.appendChild(vaRow);
   }
+
+  billList.appendChild(item);
 }
 
 form.addEventListener("submit", async (event) => {

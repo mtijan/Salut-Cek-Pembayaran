@@ -34,6 +34,13 @@ database.sqlite
 *.sqlite3
 *.db
 
+# Excel workbooks and temporary office files
+*.xls
+*.xlsx
+*.xlsm
+*.xlsb
+~$*
+
 # Logs
 logs/
 *.log

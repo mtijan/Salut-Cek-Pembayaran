@@ -66,7 +66,7 @@ Salut Cek Pembayaran adalah aplikasi web ringan untuk membantu mahasiswa UT yang
 | FR-001 | Mahasiswa dapat membuka halaman cek tagihan tanpa login. | Must | Halaman publik tersedia dan dapat diakses. |
 | FR-002 | Mahasiswa dapat memasukkan NIM. | Must | Input menerima NIM dengan format angka sesuai konfigurasi. |
 | FR-003 | Sistem mencari tagihan hanya menggunakan NIM. | Must | Form hanya meminta NIM; lookup berhasil bila NIM ditemukan pada data SALUT. |
-| FR-004 | Sistem menampilkan tagihan ditemukan. | Must | Hasil memuat jumlah tagihan, status, nomor VA/BRIVA, nama rekening VA, dan petunjuk pembayaran; bila satu NIM memiliki lebih dari satu tagihan, item tetap ditampilkan terpisah. |
+| FR-004 | Sistem menampilkan tagihan ditemukan. | Must | Hasil memuat rincian nominal per tagihan, total tagihan, status, nomor VA/BRIVA, nama rekening VA, dan petunjuk pembayaran; bila satu NIM memiliki lebih dari satu tagihan, nominal tampil sebagai `Tagihan 1`, `Tagihan 2`, dan seterusnya sebelum dijumlahkan. |
 | FR-005 | Sistem menampilkan informasi mahasiswa pada hasil lookup publik. | Must | Response dan UI publik menampilkan NIM, nama, program studi default, dan periode pembayaran bersama detail tagihan. |
 | FR-006 | Sistem menampilkan instruksi pembayaran aktif. | Must | Minimal satu metode pembayaran tampil jika ada tagihan belum lunas. |
 | FR-007 | Sistem menampilkan pesan data tidak ditemukan. | Must | Pesan tidak membocorkan apakah nama salah atau NIM tidak ada. |

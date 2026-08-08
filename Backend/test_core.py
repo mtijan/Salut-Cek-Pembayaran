@@ -24,9 +24,10 @@ class CoreBehaviorTests(unittest.TestCase):
     def test_workbook_preview_has_no_critical_rows(self) -> None:
         workbook = Path(__file__).resolve().parents[1] / "Data_Sinkron_BRIVA_UKT_2023_1_sd_2025_2.xlsx"
         preview = preview_workbook(workbook)
-        self.assertEqual(preview["valid_rows"], 408)
+        self.assertEqual(preview["valid_rows"], 409)
         self.assertEqual(preview["critical_rows"], 0)
-        self.assertEqual(preview["issue_rows"], 9)
+        self.assertEqual(preview["issue_rows"], 11)
+        self.assertEqual(preview["multiple_bill_rows"], 2)
 
     def test_rate_limiter_blocks_after_limit(self) -> None:
         limiter = RateLimiter()
@@ -202,6 +203,47 @@ class CoreBehaviorTests(unittest.TestCase):
             self.assertEqual(count, 2)
             self.assertEqual(briva_count, 2)
             self.assertEqual(source_files[0][0], "Tagihan tambahan bebas namanya.xlsx")
+
+    def test_duplicate_bill_import_backfills_legacy_row_without_source_number(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            temp = Path(temporary_directory)
+            database = temp / "salut.sqlite"
+            workbook = temp / "legacy-source.xlsx"
+            self._write_workbook(workbook, [("01006", "Fajar Hadi", "60001", 100000)])
+            import_workbook(workbook, database)
+
+            conn = sqlite3.connect(database)
+            conn.execute("update bills set source_row_number = null")
+            conn.commit()
+            conn.close()
+
+            self._write_workbook(
+                workbook,
+                [
+                    ("01006", "Fajar Hadi", "60001", 100000),
+                    ("01006", "Fajar Hadi", "60001", 100000),
+                ],
+            )
+
+            preview = preview_workbook(workbook, database)
+            self.assertEqual(preview["unchanged_rows"], 1)
+            self.assertEqual(preview["new_rows"], 1)
+            self.assertEqual(preview["multiple_bill_rows"], 2)
+
+            result = import_workbook(workbook, database)
+            self.assertEqual(result["created"], 1)
+            self.assertEqual(result["unchanged"], 1)
+
+            conn = sqlite3.connect(database)
+            count = conn.execute("select count(*) from bills where briva = '60001'").fetchone()[0]
+            source_rows = conn.execute("select source_row_number from bills where briva = '60001' order by source_row_number").fetchall()
+            conn.close()
+            self.assertEqual(count, 2)
+            self.assertEqual([row[0] for row in source_rows], [None, 3])
+
+            second_preview = preview_workbook(workbook, database)
+            self.assertEqual(second_preview["new_rows"], 0)
+            self.assertEqual(second_preview["unchanged_rows"], 2)
 
     def test_admin_bill_groups_and_status_update(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:

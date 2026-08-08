@@ -9,7 +9,7 @@ Rilis ini siap untuk deployment VPS setelah environment production dan reverse p
 ## Target MVP
 
 - Mahasiswa dapat mencari tagihan menggunakan NIM.
-- Sistem menampilkan tagihan, status pembayaran, nomor BRIVA, dan cara pembayaran; bila satu NIM punya beberapa tagihan, hasil tampil sebagai `Tagihan 1`, `Tagihan 2`, dan seterusnya.
+- Sistem menampilkan tagihan, status pembayaran, nomor BRIVA, dan cara pembayaran; bila satu NIM punya beberapa tagihan, nominal tampil sebagai `Tagihan 1`, `Tagihan 2`, dan seterusnya lalu dijumlahkan menjadi `Total Tagihan`.
 - Admin SALUT dapat login, mengimpor workbook tagihan dengan nama file apa pun selama struktur header sesuai template resmi, melihat data per nama file import, dan menandai status lunas/belum lunas.
 - Sistem mencatat audit penting seperti import data, login admin, dan pencarian tagihan.
 - Deployment awal menggunakan VPS dan SQLite.

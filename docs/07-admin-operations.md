@@ -46,7 +46,7 @@ Dokumen ini menjelaskan workflow admin, SOP operasional, dan tata cara menjaga d
 | Nominal bukan angka | Error kritis |
 | BRIVA kosong | Error kritis |
 | BRIVA yang sama dipakai untuk NIM berbeda | Error kritis; commit ditolak. |
-| NIM muncul lebih dari satu kali | Warning; disimpan sebagai beberapa tagihan, walaupun BRIVA sama, dan tampil sebagai `Tagihan 1`, `Tagihan 2`, dan seterusnya pada lookup publik. |
+| NIM muncul lebih dari satu kali | Warning; disimpan sebagai beberapa tagihan, walaupun BRIVA sama; lookup publik menampilkan nominal `Tagihan 1`, `Tagihan 2`, dan seterusnya lalu menjumlahkannya sebagai `Total Tagihan`. |
 | File sama di-upload ulang | Ditampilkan sebagai `Tidak Berubah`; tidak ada pembaruan database. |
 | Nominal pada BRIVA yang sama berubah | Ditampilkan dalam daftar perubahan; commit memerlukan persetujuan eksplisit admin. |
 | BRIVA berubah pada NIM dan periode yang sama | Ditampilkan sebagai penggantian BRIVA; commit memerlukan persetujuan eksplisit admin. |

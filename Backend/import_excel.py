@@ -195,6 +195,7 @@ def _analyze_workbook(
     requires_update_confirmation = False
     changes: list[dict[str, object]] = []
     actions: list[dict[str, object]] = []
+    used_existing_bill_ids: set[str] = set()
 
     for row in rows:
         nim = str(row["nim"])
@@ -202,10 +203,14 @@ def _analyze_workbook(
         amount = int(row["amount"])
         row_number = int(row["row_number"])
         existing_source_row = by_source_row.get(row_number)
-        matching_briva_rows = [candidate for candidate in by_briva.get(briva, []) if candidate["nim"] == nim and candidate["period"] == period]
+        matching_briva_rows = [
+            candidate
+            for candidate in by_briva.get(briva, [])
+            if candidate["nim"] == nim and candidate["period"] == period and str(candidate["id"]) not in used_existing_bill_ids
+        ]
         conflicting_briva_rows = [candidate for candidate in by_briva.get(briva, []) if candidate["nim"] != nim]
-        existing_briva = matching_briva_rows[0] if len(matching_briva_rows) == 1 else None
-        current_bills = by_nim.get(nim, [])
+        existing_briva = matching_briva_rows[0] if matching_briva_rows else None
+        current_bills = [candidate for candidate in by_nim.get(nim, []) if str(candidate["id"]) not in used_existing_bill_ids]
 
         if existing_source_row:
             if existing_source_row["nim"] != nim:
@@ -222,7 +227,8 @@ def _analyze_workbook(
                     },
                 )
                 continue
-            existing_briva = existing_source_row
+            if str(existing_source_row["id"]) not in used_existing_bill_ids:
+                existing_briva = existing_source_row
 
         if conflicting_briva_rows:
             critical_rows += 1
@@ -275,6 +281,7 @@ def _analyze_workbook(
             if not amount_changed and not name_changed:
                 unchanged_rows += 1
                 actions.append({"type": "unchanged", "row": row, "existing": existing_briva})
+                used_existing_bill_ids.add(str(existing_briva["id"]))
                 continue
 
             update_rows += 1
@@ -283,6 +290,7 @@ def _analyze_workbook(
                 requires_update_confirmation = True
             action = "update_amount" if amount_changed else "update_name"
             actions.append({"type": action, "row": row, "existing": existing_briva})
+            used_existing_bill_ids.add(str(existing_briva["id"]))
             if len(changes) < 10:
                 changes.append(
                     {
@@ -331,6 +339,7 @@ def _analyze_workbook(
         if int(existing["amount"]) != amount:
             amount_change_rows += 1
         actions.append({"type": "replace_briva", "row": row, "existing": existing})
+        used_existing_bill_ids.add(str(existing["id"]))
         if len(changes) < 10:
             changes.append(
                 {

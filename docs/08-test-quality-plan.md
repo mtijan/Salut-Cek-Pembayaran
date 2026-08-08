@@ -44,7 +44,7 @@ Mengacu pada ISO/IEC 25010:2023, kualitas produk dipantau melalui kategori berik
 | TC-008 | FR-007 | NIM tidak ditemukan. | Pesan generik tampil. |
 | TC-009 | FR-008 | Admin login valid. | Dashboard terbuka. |
 | TC-010 | FR-008 | Admin login invalid. | Login gagal dan aman. |
-| TC-011 | FR-009 | Upload workbook valid. | Preview 408 valid, 0 kritis, 9 warning. |
+| TC-011 | FR-009 | Upload workbook valid. | Preview 409 valid, 0 kritis, 11 warning, dan 2 baris multiple bill. |
 | TC-012 | FR-010 | Upload workbook dengan baris wajib kosong. | Commit ditolak tanpa upsert. |
 | TC-013 | FR-012 | Role `viewer` mencoba import. | Ditolak 403. |
 | TC-014 | FR-009 | Commit preview workbook valid. | Data tersimpan dan audit tercatat. |
@@ -57,7 +57,7 @@ Mengacu pada ISO/IEC 25010:2023, kualitas produk dipantau melalui kategori berik
 | TC-021 | FR-016 | BRIVA berubah untuk NIM/periode yang sama. | Preview menampilkan penggantian BRIVA; commit terkonfirmasi mempertahankan satu tagihan. |
 | TC-022 | FR-010 | BRIVA yang sama dipakai untuk NIM berbeda dalam satu workbook. | Preview kritis dan commit ditolak. |
 | TC-023 | FR-010 | Nominal tagihan `paid` berubah. | Preview kritis dan commit ditolak. |
-| TC-024 | FR-004 | Satu NIM memiliki dua tagihan, termasuk BRIVA yang sama. | Lookup menampilkan `Tagihan 1` dan `Tagihan 2`. |
+| TC-024 | FR-004 | Satu NIM memiliki dua tagihan, termasuk BRIVA yang sama. | Lookup menampilkan nominal `Tagihan 1` dan `Tagihan 2`, lalu menjumlahkannya sebagai `Total Tagihan`. |
 | TC-025 | FR-017 | Admin membuka dashboard setelah import. | Tabel tagihan tampil dikelompokkan berdasarkan nama file. |
 | TC-026 | FR-018 | Admin mencentang status lunas. | Status tagihan berubah menjadi `paid`; melepas centang mengubah ke `unpaid`. |
 

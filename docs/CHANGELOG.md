@@ -12,6 +12,7 @@ Format mengikuti prinsip Keep a Changelog dan Semantic Versioning.
 - Preview import sekarang membedakan tagihan baru, tidak berubah, akan diperbarui, perubahan nominal, dan penggantian BRIVA.
 - Dashboard admin sekarang menampilkan tagihan terimport per nama file dan menyediakan checkbox status lunas/belum lunas.
 - Public lookup memberi label `Tagihan 1`, `Tagihan 2`, dan seterusnya bila satu NIM memiliki lebih dari satu tagihan.
+- Public lookup sekarang menjumlahkan beberapa nominal tagihan menjadi `Total Tagihan` sambil tetap menampilkan nominal masing-masing tagihan.
 - Endpoint admin untuk daftar tagihan terimport dan update status tagihan.
 - Konfirmasi eksplisit admin untuk perubahan nominal atau BRIVA, termasuk daftar contoh perubahan sebelum commit.
 - Validasi kritis untuk BRIVA yang sama pada NIM berbeda, konflik BRIVA lintas periode, dan perubahan tagihan berstatus `paid`.
@@ -21,7 +22,7 @@ Format mengikuti prinsip Keep a Changelog dan Semantic Versioning.
 - Diagram tambahan untuk DFD Level 0, DFD Level 1, UML-style class diagram, dan UML-style component diagram.
 - Paket diagram lanjutan untuk activity lookup/import, BPMN-style business process, C4 container, data lifecycle, data privacy, authentication dan authorization, keputusan validasi import, backup dan recovery, CI/CD, serta sitemap.
 - Implementasi awal `Backend/` dan `Frontend/` untuk lookup tagihan publik.
-- Importer Excel khusus workbook `Data_Sinkron_BRIVA_UKT_2023_1_sd_2025_2.xlsx` dengan 408 data lengkap dan 9 issue data belum lengkap.
+- Importer Excel khusus workbook `Data_Sinkron_BRIVA_UKT_2023_1_sd_2025_2.xlsx` dengan 409 data lengkap, 11 issue/warning, dan 2 baris multiple bill pada workbook saat ini.
 - Admin MVP untuk login, session cookie, upload Excel, preview import, commit import, dan audit log dasar.
 - Rate limit untuk lookup, login gagal, dan import; role check untuk import; validasi commit tanpa baris kritis; serta header keamanan respons.
 - Template environment production, konfigurasi Nginx/systemd, dan timer backup SQLite.

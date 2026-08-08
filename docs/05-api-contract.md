@@ -135,15 +135,15 @@ Response:
   "data": {
     "import_token": "imp_...",
     "file_name": "Data_Sinkron_BRIVA_UKT_2023_1_sd_2025_2.xlsx",
-    "valid_rows": 408,
+    "valid_rows": 409,
     "critical_rows": 0,
-    "issue_rows": 9,
-    "new_rows": 408,
+    "issue_rows": 11,
+    "new_rows": 409,
     "unchanged_rows": 0,
     "update_rows": 0,
     "amount_change_rows": 0,
     "briva_change_rows": 0,
-    "multiple_bill_rows": 0,
+    "multiple_bill_rows": 2,
     "duplicate_briva_conflict_rows": 0,
     "requires_update_confirmation": false,
     "sample": [],
@@ -172,8 +172,8 @@ Response:
 {
   "success": true,
   "data": {
-    "imported": 408,
-    "created": 408,
+    "imported": 409,
+    "created": 409,
     "updated": 0,
     "unchanged": 0,
     "issues": 9
@@ -194,7 +194,7 @@ Response:
     "groups": [
       {
         "file_name": "Data_Sinkron_BRIVA_UKT_2023_1_sd_2025_2.xlsx",
-        "total": 408,
+        "total": 409,
         "paid": 12,
         "unpaid": 396,
         "bills": []

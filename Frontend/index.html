@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>UNIVERSITAS TERBUKA SALUT AWWABIN - TANGERANG</title>
-    <link rel="stylesheet" href="./styles.css?v=logo-20260808-96" />
+    <link rel="stylesheet" href="./styles.css?v=total-bill-20260808" />
   </head>
   <body>
     <main class="app-shell">
@@ -78,25 +78,21 @@
     <template id="bill-template">
       <article class="bill-item">
         <section class="payment-section bill-info">
-          <h2>Informasi Tagihan</h2>
-          <div class="bill-amount-row">
+          <h2 class="bill-section-title">Informasi Tagihan</h2>
+          <div class="amount-lines"></div>
+          <div class="total-bill-row">
             <div>
-              <p class="label-small">Jumlah Tagihan</p>
-              <h3 class="amount"></h3>
+              <p class="label-small">Total Tagihan</p>
+              <h3 class="total-amount"></h3>
             </div>
-            <span class="bill-status-text status-pill">Belum lunas</span>
+            <span class="bill-status-text total-status status-pill">Belum lunas</span>
           </div>
         </section>
 
-        <div class="payment-box">
-          <div>
-            <p class="label-small">Nomor VA</p>
-            <p class="briva"></p>
-          </div>
-          <button type="button" class="copy-button" title="Salin nomor VA" aria-label="Salin nomor VA">
-            <span aria-hidden="true">📋</span>
-          </button>
-        </div>
+        <section class="payment-section va-section">
+          <h2>Nomor VA</h2>
+          <div class="va-list"></div>
+        </section>
 
         <div class="payment-box">
           <div>
@@ -117,6 +113,6 @@
       </article>
     </template>
 
-    <script src="./app.js"></script>
+    <script src="./app.js?v=total-bill-20260808"></script>
   </body>
 </html>

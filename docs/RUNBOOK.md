@@ -76,7 +76,7 @@ Lihat `docs/09-deployment-plan.md` untuk daftar environment variable. Jangan men
 | Lookup valid | Data contoh tampil aman. |
 | Lookup invalid | Pesan generik. |
 | Admin login | Dashboard tampil. |
-| Admin import preview | 408 valid dan 9 issue untuk workbook saat ini. |
+| Admin import preview | 409 valid, 11 issue, dan 2 multiple bill untuk workbook saat ini. |
 | Admin import commit | Import selesai dan audit tercatat. |
 | Audit log | Aksi login, preview, dan commit tercatat. |
 
