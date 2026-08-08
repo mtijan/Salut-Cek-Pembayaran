@@ -6,13 +6,13 @@ Runbook ini menjadi panduan cepat untuk menjalankan, memeriksa, dan menangani ma
 
 ## Status Saat Ini
 
-Aplikasi production aktif di `https://salutcektagihan.web.id` dengan backend Python standard library, frontend statis, importer XLSX, SQLite, rate limit in-memory, Nginx HTTPS, systemd, dan backup harian.
+Aplikasi production aktif di `https://salutcektagihan.web.id` dengan backend FastAPI/Uvicorn, frontend statis, importer XLSX, SQLite, rate limit in-memory, Nginx HTTPS, systemd, dan backup harian.
 
 ## Local Development
 
 ```powershell
 python .\Backend\import_excel.py
-python .\Backend\server.py
+python -m uvicorn Backend.app.main:app --host 127.0.0.1 --port 8000
 ```
 
 URL lokal: `http://127.0.0.1:8000`.

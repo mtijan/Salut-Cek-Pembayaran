@@ -6,8 +6,12 @@ import uuid
 from collections import Counter
 from pathlib import Path
 
-from db import DEFAULT_DB_PATH, connect, init_db
-from excel_reader import normalize_name, normalize_nim, normalize_text, read_sheet, read_sheet_headers
+try:
+    from Backend.db import DEFAULT_DB_PATH, connect, init_db
+    from Backend.excel_reader import normalize_name, normalize_nim, normalize_text, read_sheet, read_sheet_headers
+except ModuleNotFoundError:
+    from db import DEFAULT_DB_PATH, connect, init_db
+    from excel_reader import normalize_name, normalize_nim, normalize_text, read_sheet, read_sheet_headers
 
 DEFAULT_WORKBOOK = Path(__file__).resolve().parents[1] / "Data_Sinkron_BRIVA_UKT_2023_1_sd_2025_2.xlsx"
 DEFAULT_PERIOD = "UKT 2023.1 s/d 2025.2"

@@ -4,7 +4,9 @@ const submitButton = document.querySelector("#submit-button");
 const emptyState = document.querySelector("#empty-state");
 const resultState = document.querySelector("#result-state");
 const studentNim = document.querySelector("#student-nim");
-const billStatus = document.querySelector("#bill-status");
+const studentName = document.querySelector("#student-name");
+const studentProgram = document.querySelector("#student-program");
+const paymentPeriod = document.querySelector("#payment-period");
 const billList = document.querySelector("#bill-list");
 const billTemplate = document.querySelector("#bill-template");
 
@@ -23,21 +25,23 @@ function renderResult(data) {
   emptyState.classList.add("hidden");
   resultState.classList.remove("hidden");
   studentNim.textContent = data.student.nim || "-";
+  studentName.textContent = data.student.full_name || "-";
+  studentProgram.textContent = data.student.program_study || "-";
+  paymentPeriod.textContent = data.student.payment_period || "-";
 
   const bills = data.bills || [];
-  const hasUnpaidBill = bills.some((bill) => bill.status === "unpaid");
-  billStatus.textContent = hasUnpaidBill ? "Belum lunas" : "Lunas";
-  billStatus.classList.toggle("is-paid", !hasUnpaidBill);
-  billStatus.classList.toggle("is-unpaid", hasUnpaidBill);
   billList.replaceChildren();
 
   for (const bill of bills) {
     const item = billTemplate.content.cloneNode(true);
-    item.querySelector(".bill-type").textContent = bill.bill_label || bill.bill_type;
     item.querySelector(".amount").textContent = bill.amount_formatted;
-    item.querySelector(".period").textContent = bill.period;
     item.querySelector(".briva").textContent = bill.briva;
-    item.querySelector(".instructions").textContent = bill.instructions;
+    item.querySelector(".account-name").textContent = data.student.full_name || "-";
+
+    const statusText = item.querySelector(".bill-status-text");
+    statusText.textContent = bill.status === "paid" ? "Lunas" : "Belum lunas";
+    statusText.classList.toggle("is-paid", bill.status === "paid");
+    statusText.classList.toggle("is-unpaid", bill.status !== "paid");
 
     const copyButton = item.querySelector(".copy-button");
     copyButton.addEventListener("click", async () => {

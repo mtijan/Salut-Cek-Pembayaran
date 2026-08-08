@@ -4,8 +4,8 @@
 
 | Komponen | Platform |
 |---|---|
-| Web app | Python service di VPS |
-| API route | Python HTTP API di service yang sama |
+| Web app | FastAPI service di VPS |
+| API route | FastAPI route di service yang sama |
 | Database | SQLite file di storage VPS |
 | Auth | Internal auth berbasis database |
 | Storage | Filesystem VPS untuk upload/import opsional |
@@ -32,6 +32,8 @@
 | `ADMIN_BOOTSTRAP_PASSWORD` | Server only | Ya | Password admin awal sementara, wajib diganti setelah login pertama. |
 | `LOOKUP_HASH_SECRET` | Server | Ya | Salt/HMAC secret untuk hash NIM/IP logs. |
 | `TRUST_PROXY_HEADERS` | Server only | Tidak | Bernilai `true` hanya di belakang reverse proxy tepercaya. |
+| `DEFAULT_PROGRAM_STUDY` | Server only | Tidak | Label program studi default pada hasil lookup publik. |
+| `DEFAULT_PAYMENT_PERIOD_LABEL` | Server only | Tidak | Label periode pembayaran default pada hasil lookup publik. |
 
 ## Deployment Flow
 
@@ -42,12 +44,13 @@
 5. Reviewer memeriksa UI, API, migration, dan docs.
 6. Setelah disetujui, merge ke `main`.
 7. Developer/Ops pull release di VPS atau upload artifact.
-8. Salin `Backend/.env.example` ke `/etc/salut-cek-pembayaran.env`, isi seluruh secret, lalu atur permission `600`.
-9. Pasang unit dalam folder `deploy/`, Nginx, dan timer backup; aktifkan HTTPS di reverse proxy.
-10. Jalankan migration SQLite dengan backup sebelum perubahan skema.
-11. Restart service melalui systemd.
-12. Smoke test production dijalankan.
-13. Release notes diperbarui.
+8. Buat virtual environment, lalu install dependency dari `requirements.txt`.
+9. Salin `Backend/.env.example` ke `/etc/salut-cek-pembayaran.env`, isi seluruh secret, lalu atur permission `600`.
+10. Pasang unit dalam folder `deploy/`, Nginx, dan timer backup; aktifkan HTTPS di reverse proxy.
+11. Jalankan migration SQLite dengan backup sebelum perubahan skema.
+12. Restart service melalui systemd.
+13. Smoke test production dijalankan.
+14. Release notes diperbarui.
 
 ## Production Deployment
 

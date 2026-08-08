@@ -30,7 +30,7 @@ Aplikasi menggunakan arsitektur web single-server VPS:
 | Layer | Platform |
 |---|---|
 | Frontend | Static HTML/CSS/JS di VPS |
-| Server-side API | Python HTTP service |
+| Server-side API | FastAPI/Uvicorn service |
 | Database | SQLite |
 | Auth | Internal auth berbasis database |
 | Storage | Filesystem VPS |
@@ -77,7 +77,7 @@ Aplikasi menggunakan arsitektur web single-server VPS:
 |---|---|
 | Verifikasi | NIM. |
 | Error message | Pesan umum agar tidak membocorkan mana data yang salah. |
-| Identitas | Hasil publik hanya menampilkan NIM dan detail tagihan; nama mahasiswa tidak dikirim. |
+| Identitas | Hasil publik menampilkan NIM, nama, program studi default, periode pembayaran, dan detail tagihan setelah NIM ditemukan. |
 | Rate limit | Berdasarkan IP, device fingerprint ringan, dan hash NIM. |
 | Logging | Simpan hash NIM, hasil umum, waktu, dan metadata request terbatas. |
 

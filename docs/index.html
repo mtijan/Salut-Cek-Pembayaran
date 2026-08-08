@@ -449,7 +449,7 @@
             <div class="card-grid">
               <div class="doc-card">
                 <strong>Public lookup</strong>
-                <span>NIM-only, nama penuh setelah ditemukan, rate limit.</span>
+                <span>NIM-only, informasi pembayaran, rate limit.</span>
               </div>
               <div class="doc-card">
                 <strong>Tagihan</strong>
@@ -997,7 +997,7 @@ flowchart TD
     Rate -->|Ya| Match{NIM ditemukan?}
     Match -->|Tidak| NotFound[Tampilkan pesan generik]
     Match -->|Ya| Fetch[Ambil tagihan dan metode pembayaran]
-    Fetch --> Mask[Susun data tagihan dan nama penuh]
+    Fetch --> Mask[Susun informasi mahasiswa dan tagihan]
     Mask --> Log[Tulis lookup log]
     Log --> Result[Tampilkan hasil]
     Invalid --> End([Selesai])
@@ -1117,7 +1117,7 @@ flowchart TD
     Server --> Minimize[Batasi response publik]
     Server --> Hash[Hash NIM dan IP untuk log]
     Verify --> Authorized{Kanal akses?}
-    Authorized -->|Publik ditemukan| Public[Nama penuh dan data pembayaran]
+    Authorized -->|Publik ditemukan| Public[NIM, nama, dan data pembayaran]
     Authorized -->|Admin berizin| Admin[Data sesuai role]
     Minimize --> Public
     Hash --> Logs[(Lookup logs)]
@@ -1299,7 +1299,7 @@ flowchart TD
                   <tr>
                     <td><code>/api/lookup</code></td>
                     <td>POST</td>
-                    <td>Cari tagihan berdasarkan NIM.</td>
+                    <td>Cari tagihan dan identitas mahasiswa berdasarkan NIM.</td>
                     <td>Public + rate limit</td>
                   </tr>
                   <tr>
@@ -1373,8 +1373,8 @@ flowchart TD
                   </tr>
                   <tr>
                     <td>SEC-003</td>
-                    <td>Response publik tidak mengirim nama mahasiswa.</td>
-                    <td>Hasil publik hanya memuat NIM dan detail tagihan.</td>
+                    <td>Response publik hanya mengirim identitas dan data pembayaran yang diperlukan.</td>
+                    <td>Hasil publik memuat NIM, nama, program studi default, periode pembayaran, dan detail tagihan setelah NIM ditemukan.</td>
                   </tr>
                   <tr>
                     <td>SEC-004</td>
@@ -1539,7 +1539,7 @@ flowchart TD
               <a href="12-traceability-matrix.md">Requirements Traceability Matrix</a>.
             </p>
             <pre><code>FR-004 -> docs/03-diagrams.md -> bills -> /api/lookup -> TC-005
-SEC-003 -> docs/06-security-privacy-design.md -> /api/lookup tanpa nama mahasiswa -> ST-005
+SEC-003 -> docs/06-security-privacy-design.md -> /api/lookup informasi pembayaran publik -> ST-005
 FR-009 -> docs/07-admin-operations.md -> students/bills/import_issues -> /api/admin/import/* -> TC-014/TC-015</code></pre>
           </section>
 

@@ -26,7 +26,7 @@ Dokumen ini menetapkan desain keamanan dan privasi untuk melindungi data mahasis
 | TH-003 | Admin account takeover | Data tagihan diubah. | Password kuat, session expiry, audit log, role minimum, dan MFA bila ditambahkan. |
 | TH-004 | Import file salah | Data tagihan rusak. | Preview, validasi kritis, commit atomik, dan audit log. |
 | TH-005 | Injection | Query atau data rusak. | prepared statement SQLite atau ORM/query builder yang aman, validasi input. |
-| TH-006 | Excessive data exposure | Kebocoran data pribadi. | Response DTO dibatasi pada nama, NIM, dan data pembayaran yang diperlukan. |
+| TH-006 | Excessive data exposure | Kebocoran data pribadi. | Response DTO publik dibatasi pada NIM, nama, program studi default, periode pembayaran, dan data pembayaran yang diperlukan. |
 | TH-007 | Broken access control | Admin biasa mengubah konfigurasi super admin. | RBAC di API, middleware role check, dan test akses negatif. |
 | TH-008 | Log berisi data sensitif | Kebocoran lewat observability. | Hash NIM/IP, hindari logging request body penuh. |
 
@@ -34,7 +34,7 @@ Dokumen ini menetapkan desain keamanan dan privasi untuk melindungi data mahasis
 
 | Prinsip | Implementasi |
 |---|---|
-| Data minimization | Halaman publik hanya menampilkan data yang dibutuhkan untuk pembayaran. |
+| Data minimization | Halaman publik hanya menampilkan informasi mahasiswa dan tagihan yang dibutuhkan untuk pembayaran. |
 | Purpose limitation | Data digunakan untuk pengecekan tagihan SALUT Awwabin. |
 | Access limitation | Admin melihat data sesuai role. |
 | Retention limitation | File preview import yang tidak dipakai dibersihkan setelah 24 jam. Retensi lookup log ditetapkan oleh Ops. |
@@ -46,8 +46,8 @@ Dokumen ini menetapkan desain keamanan dan privasi untuk melindungi data mahasis
 | Data | Tampil Publik? | Bentuk |
 |---|---|---|
 | NIM | Ya | NIM yang dimasukkan user atau sebagian. |
-| Nama | Ya | Nama penuh setelah NIM ditemukan. |
-| Program studi | Opsional | Tampil bila dibutuhkan identifikasi. |
+| Nama | Ya | Nama penuh setelah NIM ditemukan, juga dipakai sebagai nama rekening VA. |
+| Program studi | Ya | Nilai default konfigurasi rilis ini. |
 | Nominal tagihan | Ya | Setelah verifikasi berhasil. |
 | Status tagihan | Ya | Setelah verifikasi berhasil. |
 | Nomor HP | Tidak | Tidak pernah tampil. |
@@ -94,7 +94,7 @@ Dokumen ini menetapkan desain keamanan dan privasi untuk melindungi data mahasis
 |---|---|---|
 | SEC-001 | Secret tidak boleh berada di repository. | `.env*` diignore kecuali `.env.example`; scan manual sebelum commit. |
 | SEC-002 | Public lookup harus memakai NIM. | Endpoint menolak lookup tanpa NIM. |
-| SEC-003 | Response publik tidak mengirim nama mahasiswa. | Hasil lookup hanya memuat NIM dan detail tagihan. |
+| SEC-003 | Response publik hanya mengirim identitas dan data pembayaran yang diperlukan. | Hasil lookup memuat NIM, nama, program studi default, periode pembayaran, dan detail tagihan setelah NIM ditemukan; alamat, email, dan HP tidak dikirim. |
 | SEC-004 | API admin harus memvalidasi role. | Request tanpa role sesuai ditolak 403. |
 | SEC-005 | Audit log wajib untuk perubahan data penting. | Create/update/delete/import menghasilkan audit log. |
 | SEC-006 | Error tidak membocorkan detail internal. | Response 500 hanya menampilkan request ID. |
@@ -119,7 +119,7 @@ Dokumen ini menetapkan desain keamanan dan privasi untuk melindungi data mahasis
 | Secret aplikasi hanya di environment VPS. | Implemented oleh template/service; verifikasi sebelum release. |
 | Password admin di-hash dengan algoritma kuat. | Implemented. |
 | Public endpoint punya rate limit. | Implemented. |
-| Public response nama penuh diuji. | Implemented. |
+| Public response informasi pembayaran diuji. | Implemented. |
 | Admin endpoint punya role check. | Implemented untuk import. |
 | Audit log diuji. | Implemented untuk login dan import. |
 | Dependency audit dijalankan. | Pending implementasi. |

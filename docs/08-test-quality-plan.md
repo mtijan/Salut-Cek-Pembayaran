@@ -39,7 +39,7 @@ Mengacu pada ISO/IEC 25010:2023, kualitas produk dipantau melalui kategori berik
 | TC-003 | FR-002 | Input NIM berisi huruf. | Validasi menolak. |
 | TC-004 | FR-003 | Submit tanpa NIM. | Request ditolak. |
 | TC-005 | FR-004 | NIM cocok. | Tagihan tampil. |
-| TC-006 | FR-005 | Hasil lookup valid. | Nama mahasiswa tampil penuh. |
+| TC-006 | FR-005 | Hasil lookup valid. | Response dan UI publik memuat informasi mahasiswa dan tagihan pembayaran. |
 | TC-007 | FR-006 | Ada metode pembayaran aktif. | Instruksi tampil. |
 | TC-008 | FR-007 | NIM tidak ditemukan. | Pesan generik tampil. |
 | TC-009 | FR-008 | Admin login valid. | Dashboard terbuka. |
@@ -69,7 +69,7 @@ Mengacu pada ISO/IEC 25010:2023, kualitas produk dipantau melalui kategori berik
 | ST-002 | Brute force lookup banyak NIM. | Kena rate limit. |
 | ST-003 | Login gagal berulang. | Percobaan berikutnya menerima 429. |
 | ST-004 | Viewer mengakses endpoint import. | Ditolak 403. |
-| ST-005 | Response lookup valid mengandung nama penuh. | Test lulus setelah NIM ditemukan. |
+| ST-005 | Response lookup valid mengandung informasi pembayaran yang dibutuhkan dan tidak mengandung alamat/email/HP. | Test lulus setelah NIM ditemukan. |
 | ST-006 | `.env` masuk Git. | Test/review gagal. |
 | ST-007 | File SQLite memiliki permission terlalu longgar. | Review/deploy gate gagal sampai permission dibatasi. |
 
@@ -99,6 +99,6 @@ Mengacu pada ISO/IEC 25010:2023, kualitas produk dipantau melalui kategori berik
 |---|---|
 | Unit test | `python -m unittest Backend.test_core`. |
 | E2E test | Smoke test HTTP melalui browser atau `curl`. |
-| Lint | `python -m py_compile Backend/*.py`. |
-| Dependency audit | Tidak ada dependency pihak ketiga pada rilis ini. |
+| Lint | `python -m py_compile Backend/*.py Backend/app/*.py`. |
+| Dependency audit | Review dependency Python di `requirements.txt`. |
 | Security review | OWASP ASVS checklist. |

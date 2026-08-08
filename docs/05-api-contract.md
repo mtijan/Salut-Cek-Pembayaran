@@ -3,7 +3,7 @@
 ## Prinsip API
 
 - Semua endpoint mengembalikan JSON.
-- Endpoint publik hanya menerima NIM dan tidak mengembalikan nama mahasiswa.
+- Endpoint publik hanya menerima NIM sebagai input dan mengembalikan informasi pembayaran yang dibutuhkan mahasiswa.
 - Endpoint import admin wajib autentikasi dan role check.
 - Error response tidak boleh membocorkan detail database atau secret.
 - Setiap response error menyertakan `request_id`.
@@ -54,7 +54,10 @@ Response 200:
   "success": true,
   "data": {
     "student": {
-      "nim": "050117077"
+      "nim": "050117077",
+      "full_name": "Syahla Taqiyyah",
+      "program_study": "S1 Ilmu Hukum",
+      "payment_period": "Semester Ganjil 2026"
     },
     "bills": [
       {
@@ -377,7 +380,7 @@ Query:
 | Field | Aturan |
 |---|---|
 | `nim` | Angka, panjang sesuai konfigurasi, trim whitespace. |
-| `name` | Tidak dipakai pada lookup publik rilis ini. |
+| `name` | Tidak dipakai sebagai input lookup publik rilis ini; nama berasal dari data import. |
 | `amount` | Angka >= 0, maksimal sesuai batas konfigurasi. |
 | `status` | Untuk endpoint status MVP hanya `paid` atau `unpaid`. |
 | `period` | Format konsisten, contoh `2026.1`. |

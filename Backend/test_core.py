@@ -4,18 +4,20 @@ import json
 import sys
 import sqlite3
 import tempfile
-import threading
 import unittest
-import urllib.request
 import zipfile
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import server
+from Backend.app import config as app_config
+from Backend.app.config import ROLE_PERMISSIONS
+from Backend.app.rate_limit import RateLimiter
+from Backend.app.services import list_imported_bill_groups, update_bill_status
 from import_excel import import_workbook, preview_workbook
 from db import connect, init_db
-from server import ROLE_PERMISSIONS, RateLimiter, SalutHandler, list_imported_bill_groups, update_bill_status
+from fastapi.testclient import TestClient
 
 
 class CoreBehaviorTests(unittest.TestCase):
@@ -80,31 +82,22 @@ class CoreBehaviorTests(unittest.TestCase):
                 )
             conn.close()
 
-            original_db_path = server.DB_PATH
-            httpd = server.ThreadingHTTPServer(("127.0.0.1", 0), SalutHandler)
-            server.DB_PATH = database
-            thread = threading.Thread(target=httpd.serve_forever, daemon=True)
-            thread.start()
+            original_db_path = app_config.DB_PATH
+            app_config.DB_PATH = database
             try:
-                body = json.dumps({"nim": "050117077", "full_name": "Tidak Dipakai"}).encode("utf-8")
-                request = urllib.request.Request(
-                    f"http://127.0.0.1:{httpd.server_port}/api/lookup",
-                    data=body,
-                    headers={"content-type": "application/json"},
-                    method="POST",
-                )
-                with urllib.request.urlopen(request, timeout=5) as response:
-                    result = json.loads(response.read().decode("utf-8"))
+                client = TestClient(server.app)
+                response = client.post("/api/lookup", json={"nim": "050117077", "full_name": "Tidak Dipakai"})
+                result = response.json()
             finally:
-                httpd.shutdown()
-                httpd.server_close()
-                thread.join(timeout=5)
-                server.DB_PATH = original_db_path
+                app_config.DB_PATH = original_db_path
 
+            self.assertEqual(response.status_code, 200)
             self.assertTrue(result["success"])
             self.assertEqual(result["data"]["student"]["nim"], "050117077")
-            self.assertNotIn("full_name", result["data"]["student"])
-            self.assertEqual(set(result["data"]["student"]), {"nim"})
+            self.assertEqual(result["data"]["student"]["full_name"], "Syahla Taqiyyah")
+            self.assertEqual(result["data"]["student"]["program_study"], "S1 Ilmu Hukum")
+            self.assertEqual(result["data"]["student"]["payment_period"], "Semester Ganjil 2026")
+            self.assertEqual(set(result["data"]["student"]), {"nim", "full_name", "program_study", "payment_period"})
             self.assertEqual([bill["bill_label"] for bill in result["data"]["bills"]], ["Tagihan 1", "Tagihan 2"])
 
     def test_reupload_is_unchanged_and_amount_update_requires_confirmation(self) -> None:

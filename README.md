@@ -4,7 +4,7 @@ Aplikasi web untuk membantu mahasiswa Universitas Terbuka yang berafiliasi denga
 
 ## Status
 
-Rilis ini siap untuk deployment VPS setelah environment production dan reverse proxy dikonfigurasi. Backend, frontend publik, login admin, import workbook Excel, kontrol rate limit dasar, dan SQLite sudah dibuat.
+Rilis ini siap untuk deployment VPS setelah environment production dan reverse proxy dikonfigurasi. Backend FastAPI, frontend publik, login admin, import workbook Excel, kontrol rate limit dasar, dan SQLite sudah dibuat.
 
 ## Target MVP
 
@@ -41,7 +41,7 @@ Untuk membaca dokumentasi dalam tampilan yang lebih nyaman, buka file `docs/inde
 
 ## Rekomendasi Stack
 
-- Backend: Python standard library HTTP server di VPS.
+- Backend: FastAPI dan Uvicorn di VPS.
 - Frontend: HTML, CSS, dan JavaScript statis.
 - Database: SQLite.
 - Auth admin: session/password internal berbasis database.
@@ -61,7 +61,7 @@ Untuk membaca dokumentasi dalam tampilan yang lebih nyaman, buka file `docs/inde
 ```powershell
 python -m unittest Backend.test_core
 python .\Backend\import_excel.py
-python .\Backend\server.py
+python -m uvicorn Backend.app.main:app --host 127.0.0.1 --port 8000
 ```
 
 Buka `http://127.0.0.1:8000`, lalu coba data contoh:
@@ -74,4 +74,4 @@ Sebelum bootstrap admin pertama, set `ADMIN_BOOTSTRAP_EMAIL` dan `ADMIN_BOOTSTRA
 
 ## Catatan Keamanan
 
-NIM bukan rahasia kuat. Berdasarkan feedback pengguna, rilis ini memakai lookup NIM-only dan tidak mengirim atau menampilkan nama mahasiswa di hasil publik. Risiko enumeration dikurangi dengan response error generik, lookup log ter-hash, rate limit 10 request per IP per 10 menit, dan monitoring lookup gagal.
+NIM bukan rahasia kuat. Lookup publik tetap hanya meminta NIM, lalu menampilkan nama mahasiswa, program studi default, periode pembayaran, dan detail BRIVA agar mahasiswa dapat memverifikasi tagihan. Risiko enumeration dikurangi dengan response error generik, lookup log ter-hash, rate limit 10 request per IP per 10 menit, dan monitoring lookup gagal.

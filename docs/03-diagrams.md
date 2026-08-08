@@ -465,7 +465,7 @@ flowchart TD
     Rate -->|Ya| Match{NIM ditemukan?}
     Match -->|Tidak| NotFound[Tampilkan pesan generik]
     Match -->|Ya| Fetch[Ambil tagihan dan metode pembayaran]
-    Fetch --> Mask[Susun data tagihan dan nama penuh]
+    Fetch --> Mask[Susun informasi mahasiswa dan tagihan]
     Mask --> Log[Tulis lookup log]
     Log --> Result[Tampilkan hasil]
     Invalid --> End([Selesai])
@@ -581,7 +581,7 @@ flowchart TD
     Server --> Minimize[Batasi response publik]
     Server --> Hash[Hash NIM dan IP untuk log]
     Verify --> Authorized{Kanal akses?}
-    Authorized -->|Publik ditemukan| Public[Nama penuh dan data pembayaran]
+    Authorized -->|Publik ditemukan| Public[NIM, nama, dan data pembayaran]
     Authorized -->|Admin berizin| Admin[Data sesuai role]
     Minimize --> Public
     Hash --> Logs[(Lookup logs)]

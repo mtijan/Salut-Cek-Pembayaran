@@ -66,8 +66,8 @@ Salut Cek Pembayaran adalah aplikasi web ringan untuk membantu mahasiswa UT yang
 | FR-001 | Mahasiswa dapat membuka halaman cek tagihan tanpa login. | Must | Halaman publik tersedia dan dapat diakses. |
 | FR-002 | Mahasiswa dapat memasukkan NIM. | Must | Input menerima NIM dengan format angka sesuai konfigurasi. |
 | FR-003 | Sistem mencari tagihan hanya menggunakan NIM. | Must | Form hanya meminta NIM; lookup berhasil bila NIM ditemukan pada data SALUT. |
-| FR-004 | Sistem menampilkan tagihan ditemukan. | Must | Hasil memuat periode, jenis tagihan, nominal, status, BRIVA, dan instruksi; bila satu NIM memiliki lebih dari satu tagihan, item diberi label `Tagihan 1`, `Tagihan 2`, dan seterusnya. |
-| FR-005 | Sistem tidak menampilkan nama mahasiswa pada hasil lookup publik. | Must | Response dan UI publik hanya memuat NIM serta detail tagihan. |
+| FR-004 | Sistem menampilkan tagihan ditemukan. | Must | Hasil memuat jumlah tagihan, status, nomor VA/BRIVA, nama rekening VA, dan petunjuk pembayaran; bila satu NIM memiliki lebih dari satu tagihan, item tetap ditampilkan terpisah. |
+| FR-005 | Sistem menampilkan informasi mahasiswa pada hasil lookup publik. | Must | Response dan UI publik menampilkan NIM, nama, program studi default, dan periode pembayaran bersama detail tagihan. |
 | FR-006 | Sistem menampilkan instruksi pembayaran aktif. | Must | Minimal satu metode pembayaran tampil jika ada tagihan belum lunas. |
 | FR-007 | Sistem menampilkan pesan data tidak ditemukan. | Must | Pesan tidak membocorkan apakah nama salah atau NIM tidak ada. |
 | FR-008 | Admin dapat login. | Must | Admin berhasil masuk menggunakan internal auth berbasis email, password hash, dan session server-side. |
@@ -89,7 +89,7 @@ Salut Cek Pembayaran adalah aplikasi web ringan untuk membantu mahasiswa UT yang
 | NFR-001 | Performance efficiency | Lookup tagihan cepat. | P95 kurang dari 3 detik. |
 | NFR-002 | Availability | Aplikasi tersedia untuk publik. | 99 persen pada fase MVP best effort. |
 | NFR-003 | Security | Secret tidak terekspos di frontend. | Secret aplikasi hanya di server environment. |
-| NFR-004 | Confidentiality | Data pribadi dibatasi. | Nama, alamat, email, dan HP tidak dikirim atau ditampilkan pada hasil lookup publik. |
+| NFR-004 | Confidentiality | Data pribadi dibatasi. | Hanya NIM, nama, program studi default, periode pembayaran, dan detail pembayaran yang dikirim setelah lookup berhasil; alamat, email, dan HP tidak dikirim atau ditampilkan pada halaman publik. |
 | NFR-005 | Integrity | Import tidak merusak data lama tanpa jejak. | Upload ulang yang sama tidak mengubah tagihan; perubahan nominal/BRIVA memerlukan konfirmasi dan audit log preview/commit. |
 | NFR-006 | Usability | Mahasiswa non-teknis mudah mengecek tagihan. | Form sederhana, pesan error jelas. |
 | NFR-007 | Maintainability | Skema dan API terdokumentasi. | Perubahan wajib memperbarui docs terkait. |
@@ -100,7 +100,7 @@ Salut Cek Pembayaran adalah aplikasi web ringan untuk membantu mahasiswa UT yang
 | Data | Kategori | Aturan |
 |---|---|---|
 | NIM | Personal identifier | Tidak dijadikan satu-satunya autentikasi jika memungkinkan. |
-| Nama mahasiswa | Personal data | Dipakai untuk import dan administrasi internal, tidak ditampilkan pada hasil lookup publik. |
+| Nama mahasiswa | Personal data | Ditampilkan setelah NIM ditemukan agar mahasiswa dapat memverifikasi nama rekening VA. |
 | Nominal tagihan | Financial data | Tampil hanya setelah verifikasi. |
 | NIM | Lookup data | Dipakai sebagai kunci pencarian dan dicatat di log dalam bentuk hash. |
 | Audit log | Operational data | Hanya admin berwenang. |

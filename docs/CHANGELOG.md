@@ -8,6 +8,7 @@ Format mengikuti prinsip Keep a Changelog dan Semantic Versioning.
 
 ### Added
 
+- Backend FastAPI/Uvicorn dengan struktur modul `Backend/app` untuk routing, konfigurasi, response, security, rate limit, dan service.
 - Preview import sekarang membedakan tagihan baru, tidak berubah, akan diperbarui, perubahan nominal, dan penggantian BRIVA.
 - Dashboard admin sekarang menampilkan tagihan terimport per nama file dan menyediakan checkbox status lunas/belum lunas.
 - Public lookup memberi label `Tagihan 1`, `Tagihan 2`, dan seterusnya bila satu NIM memiliki lebih dari satu tagihan.
@@ -29,9 +30,10 @@ Format mengikuti prinsip Keep a Changelog dan Semantic Versioning.
 ### Changed
 
 - UI admin import sekarang memberi validasi file, status upload/commit, pesan alasan saat commit belum siap, dan notifikasi hasil commit yang terlihat di dekat form.
+- Backend berpindah dari `http.server` manual ke FastAPI agar routing, upload, validasi, dan deployment lebih mudah dipelihara.
 - Import XLSX menerima nama file apa pun selama sheet dan header mengikuti struktur workbook resmi.
 - NIM yang muncul lebih dari sekali diperlakukan sebagai beberapa tagihan, termasuk saat BRIVA sama, bukan error kritis.
-- Public lookup hanya memakai NIM dan tidak lagi mengirim atau menampilkan nama mahasiswa; hasil publik hanya memuat NIM dan detail tagihan.
+- Public lookup tetap hanya memakai NIM sebagai input dan sekarang menampilkan format informasi pembayaran mahasiswa, termasuk nama, program studi default, periode pembayaran, jumlah tagihan, status, nomor VA, nama rekening VA, dan petunjuk pembayaran.
 - Status `Lunas` sekarang biru dan `Belum lunas` merah pada hasil publik dan tabel tagihan admin.
 - Upload ulang workbook yang sama tidak lagi menimpa data, mereset status tagihan, atau mengubah waktu pembaruan.
 - Mengubah target deployment MVP dari platform terkelola sebelumnya menjadi VPS + SQLite.
