@@ -60,6 +60,7 @@ Mengacu pada ISO/IEC 25010:2023, kualitas produk dipantau melalui kategori berik
 | TC-024 | FR-004 | Satu NIM memiliki dua tagihan, termasuk BRIVA yang sama. | Lookup menampilkan nominal `Tagihan 1` dan `Tagihan 2`, lalu menjumlahkannya sebagai `Total Tagihan`. |
 | TC-025 | FR-017 | Admin membuka dashboard setelah import. | Tabel tagihan tampil dikelompokkan berdasarkan nama file. |
 | TC-026 | FR-018 | Admin mencentang status lunas. | Status tagihan berubah menjadi `paid`; melepas centang mengubah ke `unpaid`. |
+| TC-027 | FR-014 | Admin menjalankan CRUD manual mahasiswa dan tagihan. | Create, list, update, dan delete mahasiswa/tagihan berhasil melalui API admin dan perubahan tercatat audit. |
 
 ## Security Test
 

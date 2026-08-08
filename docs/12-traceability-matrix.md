@@ -22,14 +22,14 @@ Traceability matrix menghubungkan requirement dengan desain, API, tabel database
 | FR-011 | Lookup logging. | `docs/06-security-privacy-design.md` | `lookup_logs` | `/api/lookup` | ST-002 | Implemented |
 | FR-012 | Role import admin. | `docs/06-security-privacy-design.md` | `admin_users` | Import Admin API | SEC-004 | Implemented |
 | FR-013 | Rate limit endpoint. | `docs/06-security-privacy-design.md` | `lookup_logs` | Lookup dan Import API | ST-002, ST-003 | Implemented |
-| FR-014 | CRUD manual dan export laporan. | `docs/07-admin-operations.md` | Future schema | Future Admin API | TBD | Deferred |
+| FR-014 | CRUD manual mahasiswa dan tagihan. | `docs/07-admin-operations.md` | `students`, `bills`, `audit_logs` | `/api/admin/students`, `/api/admin/bills` | TC-027 | Verified |
 | FR-017 | Tampilkan tagihan admin per file import. | `docs/07-admin-operations.md` | `bills.source_file` | `/api/admin/imported-bills` | TC-025 | Implemented |
 | FR-018 | Update status lunas/belum lunas. | `docs/07-admin-operations.md` | `bills.status`, `audit_logs` | `/api/admin/bills/status` | TC-026 | Implemented |
 | SEC-001 | Secret tidak masuk repo. | `docs/06-security-privacy-design.md` | N/A | N/A | ST-006 | Implemented secara konfigurasi; verifikasi release wajib |
 | SEC-002 | Lookup memakai NIM. | `docs/06-security-privacy-design.md` | `students` | `/api/lookup` | TC-004 | Implemented |
 | SEC-003 | Response publik hanya mengirim identitas dan data pembayaran yang diperlukan. | `docs/06-security-privacy-design.md` | `students` | `/api/lookup` | ST-005 | Implemented |
-| SEC-004 | Admin API role check. | `docs/06-security-privacy-design.md` | `admin_users` | Import Admin API | TC-016 | Implemented |
-| SEC-005 | Audit log perubahan penting. | `docs/06-security-privacy-design.md` | `audit_logs` | Admin API | TC-011, TC-012 | Implemented untuk login dan import |
+| SEC-004 | Admin API role check. | `docs/06-security-privacy-design.md` | `admin_users` | Import dan CRUD Admin API | TC-016, TC-027 | Implemented |
+| SEC-005 | Audit log perubahan penting. | `docs/06-security-privacy-design.md` | `audit_logs` | Admin API | TC-011, TC-012, TC-027 | Implemented untuk login, import, dan CRUD manual |
 | SEC-006 | Error aman. | `docs/06-security-privacy-design.md` | N/A | All API | TC-017 | Implemented untuk error API |
 | SEC-007 | Import file tervalidasi. | `docs/07-admin-operations.md` | `import_issues` | `/api/admin/import/*` | TC-015 | Implemented |
 | NFR-001 | Lookup P95 kurang dari 3 detik. | `docs/02-system-design.md` | Index `students`, `bills` | `/api/lookup` | TC-018 | Planned |

@@ -2,7 +2,7 @@
 
 Diagram menggunakan Mermaid agar dapat dirender di GitHub, VS Code, atau dokumentasi statis.
 
-> Diagram yang menyebut CRUD, `payment_methods`, atau `bill_imports` adalah target rilis lanjutan. Rilis deploy saat ini hanya mencakup lookup, login admin, dan import workbook XLSX; status aktual ada pada `docs/12-traceability-matrix.md`.
+> Diagram yang menyebut CRUD mahasiswa/tagihan kini mewakili fitur aktif. Diagram untuk `payment_methods`, `bill_imports`, dan konfigurasi lanjutan tetap target rilis berikutnya; status aktual ada pada `docs/12-traceability-matrix.md`.
 
 ## Daftar Diagram
 

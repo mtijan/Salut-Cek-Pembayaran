@@ -56,7 +56,7 @@ Salut Cek Pembayaran adalah aplikasi web ringan untuk membantu mahasiswa UT yang
 | S-OOS-003 | Notifikasi WhatsApp otomatis. |
 | S-OOS-004 | Rekonsiliasi bank otomatis. |
 | S-OOS-005 | Mobile app native. |
-| S-OOS-006 | CRUD manual penuh mahasiswa, tagihan, dan metode pembayaran selain update status lunas/belum lunas. |
+| S-OOS-006 | CRUD manual metode pembayaran dan konfigurasi lanjutan. |
 | S-OOS-007 | Jatuh tempo dan histori pembayaran, karena kolom tersebut tidak tersedia pada workbook saat ini. |
 
 ## Functional Requirements
@@ -77,7 +77,7 @@ Salut Cek Pembayaran adalah aplikasi web ringan untuk membantu mahasiswa UT yang
 | FR-011 | Sistem mencatat lookup publik. | Should | Log menyimpan waktu, hash NIM, dan hasil umum termasuk `rate_limited`. |
 | FR-012 | Admin dengan role yang tepat dapat mengimpor data. | Must | Role `admin` atau `super_admin` dapat import; `viewer` ditolak 403. |
 | FR-013 | Rate limit melindungi endpoint publik dan admin. | Must | Lookup dibatasi per IP; import dibatasi per admin. |
-| FR-014 | CRUD manual mahasiswa, tagihan, dan metode pembayaran. | Could | Dirilis setelah model data dan SOP koreksi disetujui. |
+| FR-014 | CRUD manual mahasiswa dan tagihan. | Must | Admin dapat tambah, cari, ubah, dan hapus mahasiswa/tagihan dari dashboard; metode pembayaran manual tetap fase berikutnya. |
 | FR-015 | Sistem dapat mengekspor laporan tagihan. | Could | Admin dapat mengunduh CSV sesuai filter. |
 | FR-017 | Admin dapat melihat tagihan terimport berdasarkan nama file. | Must | Dashboard admin mengelompokkan tagihan berdasarkan `source_file`. |
 | FR-018 | Admin dapat mengubah status lunas/belum lunas. | Must | Checkbox pada tabel admin mengubah `bills.status` antara `paid` dan `unpaid`, menulis audit log, serta menampilkan `Lunas` biru dan `Belum lunas` merah. |

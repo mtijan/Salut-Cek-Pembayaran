@@ -219,9 +219,31 @@ Request:
 
 `status` hanya menerima `paid` atau `unpaid`.
 
-## API Rilis Lanjutan (Belum Diimplementasikan)
+### `POST /api/admin/bills/due-date`
 
-Endpoint berikut adalah rancangan fase berikutnya dan tidak boleh dipanggil oleh frontend rilis ini.
+Mengubah batas aktif satu atau beberapa tagihan.
+
+Request satu tagihan:
+
+```json
+{
+  "bill_id": "uuid",
+  "due_date": "2026-08-25"
+}
+```
+
+Request massal:
+
+```json
+{
+  "bill_ids": ["uuid-1", "uuid-2"],
+  "due_date": "2026-08-25"
+}
+```
+
+## CRUD Manual Admin
+
+Semua endpoint CRUD manual memakai session admin dan permission `manage_data`.
 
 ### `GET /api/admin/students`
 
@@ -229,10 +251,8 @@ Query:
 
 | Parameter | Tipe | Keterangan |
 |---|---|---|
-| `q` | string | Cari NIM/nama. |
-| `status` | string | Filter status. |
-| `page` | number | Halaman. |
-| `page_size` | number | Jumlah data. |
+| `query` | string | Cari NIM atau nama. |
+| `limit` | number | Maksimal data, default 200, maksimal 500. |
 
 ### `POST /api/admin/students`
 
@@ -241,9 +261,7 @@ Request:
 ```json
 {
   "nim": "123456789",
-  "full_name": "Muhammad Adam",
-  "program_study": "Manajemen",
-  "status": "active"
+  "full_name": "Muhammad Adam"
 }
 ```
 
@@ -253,10 +271,14 @@ Request:
 
 ```json
 {
-  "full_name": "Muhammad Adam",
-  "reason": "Koreksi data dari admin."
+  "nim": "123456789",
+  "full_name": "Muhammad Adam"
 }
 ```
+
+### `DELETE /api/admin/students/{id}`
+
+Menghapus mahasiswa dan seluruh tagihan terkait melalui foreign key cascade. Aksi dicatat di audit log.
 
 ### `GET /api/admin/bills`
 
@@ -264,11 +286,8 @@ Query:
 
 | Parameter | Tipe | Keterangan |
 |---|---|---|
-| `nim` | string | Filter NIM. |
-| `period` | string | Filter periode. |
-| `status` | string | Filter status. |
-| `page` | number | Halaman. |
-| `page_size` | number | Jumlah data. |
+| `query` | string | Cari NIM, nama, BRIVA, periode, atau jenis tagihan. |
+| `limit` | number | Maksimal data, default 300, maksimal 500. |
 
 ### `POST /api/admin/bills`
 
@@ -276,12 +295,12 @@ Request:
 
 ```json
 {
-  "student_id": "uuid",
-  "period": "2026.1",
-  "bill_type": "Registrasi Mata Kuliah",
-  "description": "Tagihan semester 2026.1",
+  "nim": "123456789",
+  "full_name": "Muhammad Adam",
+  "briva": "178100023200040",
   "amount": 1250000,
-  "paid_amount": 0,
+  "period": "Semester Ganjil 2026",
+  "bill_type": "UKT BRIVA",
   "status": "unpaid",
   "due_date": "2026-08-31"
 }
@@ -293,11 +312,24 @@ Request:
 
 ```json
 {
+  "nim": "123456789",
+  "full_name": "Muhammad Adam",
+  "briva": "178100023200040",
+  "amount": 1250000,
+  "period": "Semester Ganjil 2026",
+  "bill_type": "UKT BRIVA",
   "status": "paid",
-  "paid_amount": 1250000,
-  "reason": "Pembayaran dikonfirmasi oleh admin."
+  "due_date": "2026-08-31"
 }
 ```
+
+### `DELETE /api/admin/bills/{id}`
+
+Menghapus satu tagihan. Aksi dicatat di audit log.
+
+## API Rilis Lanjutan (Belum Diimplementasikan)
+
+Endpoint berikut adalah rancangan fase berikutnya dan tidak boleh dipanggil oleh frontend rilis ini.
 
 ### `GET /api/admin/payment-methods`
 

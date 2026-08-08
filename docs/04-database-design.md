@@ -157,7 +157,7 @@ create table if not exists bills (
 
 ## Planned Extension
 
-Tabel berikut belum diimplementasikan dan akan ditambahkan saat dashboard admin CRUD dibuat:
+CRUD manual mahasiswa dan tagihan memakai tabel aktif `students`, `bills`, dan `audit_logs`. Tabel berikut belum diimplementasikan dan akan ditambahkan untuk konfigurasi lanjutan:
 
 | Tabel | Tujuan |
 |---|---|

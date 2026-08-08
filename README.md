@@ -53,7 +53,7 @@ Untuk membaca dokumentasi dalam tampilan yang lebih nyaman, buka file `docs/inde
 | Folder | Isi |
 |---|---|
 | `Backend/` | API lookup, schema SQLite, importer Excel. |
-| `Frontend/` | Halaman cek pembayaran mahasiswa dan halaman admin import. |
+| `Frontend/` | Halaman cek pembayaran mahasiswa dan dashboard admin import/CRUD manual. |
 | `docs/` | Dokumentasi requirement, desain, deployment, dan runbook. |
 
 ## Menjalankan Lokal

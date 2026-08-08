@@ -11,7 +11,7 @@ Dokumen ini mengatur cara proyek direncanakan, diprioritaskan, dieksekusi, dan d
 | M0 Documentation Baseline | Dokumen desain awal. | Semua dokumen inti tersedia. |
 | M1 Foundation | Backend Python, SQLite access layer, Frontend statis. | App berjalan lokal dan staging VPS. |
 | M2 Public Lookup | Form lookup dan API publik. | Lookup valid/invalid lulus test. |
-| M3 Admin Core | Login, dashboard, CRUD mahasiswa/tagihan/metode bayar. | Admin flow utama lulus. |
+| M3 Admin Core | Login, dashboard, CRUD mahasiswa/tagihan; metode bayar fase berikutnya. | Admin flow utama lulus. |
 | M4 Import | Preview dan commit workbook XLSX. | Import valid/kritis lulus. |
 | M5 Hardening | Security, performance, docs update. | Production readiness gate lulus. |
 | M6 Launch | Production deployment. | Smoke test dan UAT selesai. |

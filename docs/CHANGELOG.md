@@ -14,6 +14,8 @@ Format mengikuti prinsip Keep a Changelog dan Semantic Versioning.
 - Public lookup memberi label `Tagihan 1`, `Tagihan 2`, dan seterusnya bila satu NIM memiliki lebih dari satu tagihan.
 - Public lookup sekarang menjumlahkan beberapa nominal tagihan menjadi `Total Tagihan` sambil tetap menampilkan nominal masing-masing tagihan.
 - Endpoint admin untuk daftar tagihan terimport dan update status tagihan.
+- Endpoint admin CRUD manual untuk mahasiswa dan tagihan: list/search, create, update, delete, dan audit log.
+- Dashboard admin bagian `Kelola Manual` untuk tambah/edit/hapus mahasiswa dan tagihan tanpa import Excel.
 - Konfirmasi eksplisit admin untuk perubahan nominal atau BRIVA, termasuk daftar contoh perubahan sebelum commit.
 - Validasi kritis untuk BRIVA yang sama pada NIM berbeda, konflik BRIVA lintas periode, dan perubahan tagihan berstatus `paid`.
 - Baseline dokumentasi ISO-aligned untuk requirement, desain sistem, diagram, database, API, keamanan, operasi, testing, deployment, project management, risk register, traceability, dan release plan.
@@ -35,7 +37,7 @@ Format mengikuti prinsip Keep a Changelog dan Semantic Versioning.
 - Import XLSX menerima nama file apa pun selama sheet dan header mengikuti struktur workbook resmi.
 - NIM yang muncul lebih dari sekali diperlakukan sebagai beberapa tagihan, termasuk saat BRIVA sama, bukan error kritis.
 - Public lookup tetap hanya memakai NIM sebagai input dan sekarang menampilkan format informasi pembayaran mahasiswa, termasuk nama, program studi default, periode pembayaran, jumlah tagihan, status, nomor BRIVA, nama rekening BRIVA, dan petunjuk pembayaran.
-- Status `Lunas` sekarang biru dan `Belum lunas` merah pada hasil publik dan tabel tagihan admin.
+- Status `Lunas` pada hasil publik dipusatkan di header Informasi Mahasiswa dan memakai warna hijau; tabel admin tetap memakai indikator status lunas/belum lunas.
 - Upload ulang workbook yang sama tidak lagi menimpa data, mereset status tagihan, atau mengubah waktu pembaruan.
 - Mengubah target deployment MVP dari platform terkelola sebelumnya menjadi VPS + SQLite.
 - Menetapkan Internal Auth berbasis database, Filesystem VPS untuk import opsional, dan backup SQLite sebagai baseline operasional.

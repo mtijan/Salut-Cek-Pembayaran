@@ -53,14 +53,18 @@ Dokumen ini menjelaskan workflow admin, SOP operasional, dan tata cara menjaga d
 | Tagihan berstatus `paid` akan diubah | Error kritis; lakukan koreksi melalui prosedur manual berotorisasi. |
 | Lebih dari satu tagihan tersimpan untuk NIM/periode yang sama | Diizinkan; admin mengelola status masing-masing tagihan dari tabel per file. |
 
-## SOP Koreksi Tagihan Manual (Rilis Lanjutan)
+## SOP Kelola Data Manual
 
-1. Admin cari mahasiswa atau tagihan.
-2. Admin buka detail tagihan.
-3. Admin mengubah field yang diperlukan.
-4. Admin wajib mengisi alasan perubahan.
-5. Sistem menyimpan perubahan dan audit log.
-6. Admin memeriksa status akhir.
+1. Admin login ke dashboard.
+2. Admin membuka bagian `Kelola Manual`.
+3. Admin dapat menambah atau mengubah mahasiswa dengan NIM dan nama.
+4. Admin dapat menambah atau mengubah tagihan dengan NIM, nama, BRIVA, nominal, periode, jenis tagihan, status, dan batas aktif.
+5. Jika NIM pada form tagihan belum ada, sistem membuat mahasiswa baru; jika sudah ada, sistem memakai data mahasiswa tersebut.
+6. Admin dapat mencari data berdasarkan NIM, nama, BRIVA, periode, atau jenis tagihan.
+7. Admin dapat menghapus satu tagihan melalui tombol `Hapus` pada tabel tagihan.
+8. Admin dapat menghapus mahasiswa melalui tombol `Hapus` pada tabel mahasiswa; seluruh tagihan mahasiswa tersebut ikut terhapus karena relasi database memakai cascade.
+9. Setiap create, update, dan delete manual dicatat ke `audit_logs`.
+10. Admin memeriksa ulang hasil pada tabel manual dan tabel tagihan per file.
 
 ## SOP Kelola Metode Pembayaran
 
