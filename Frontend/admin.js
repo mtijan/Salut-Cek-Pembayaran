@@ -178,6 +178,11 @@ function renderImportedBills(groups) {
               <h3>${escapeHtml(group.file_name)}</h3>
               <p class="muted">${escapeHtml(group.total)} tagihan - ${escapeHtml(group.paid)} lunas - ${escapeHtml(group.unpaid)} belum lunas</p>
             </div>
+            <div class="bulk-due-date-bar">
+              <span class="label-small">Set Tanggal Semua:</span>
+              <input type="date" class="bulk-due-date-input" aria-label="Batas aktif massal untuk file ${escapeHtml(group.file_name)}" />
+              <button type="button" class="bulk-due-date-button ghost-button">Simpan Ke Semua</button>
+            </div>
           </div>
           <div class="table-mini">
             <table>
@@ -189,6 +194,7 @@ function renderImportedBills(groups) {
                   <th>BRIVA</th>
                   <th>Nominal</th>
                   <th>Periode</th>
+                  <th>Batas Aktif</th>
                   <th>Status</th>
                 </tr>
               </thead>
@@ -207,6 +213,12 @@ function renderImportedBills(groups) {
                         <td>${escapeHtml(bill.briva)}</td>
                         <td>${escapeHtml(bill.amount_formatted)}</td>
                         <td>${escapeHtml(bill.period)}</td>
+                        <td>
+                          <div class="due-date-cell-group">
+                            <input class="due-date-input" type="date" data-bill-id="${escapeHtml(bill.id)}" value="${escapeHtml(bill.due_date || "")}" aria-label="Pilih batas aktif untuk NIM ${escapeHtml(bill.nim)}" />
+                            <button type="button" class="save-due-date-button ghost-button" data-bill-id="${escapeHtml(bill.id)}">Simpan</button>
+                          </div>
+                        </td>
                         <td class="bill-status-text ${bill.status === "paid" ? "is-paid" : "is-unpaid"}">${bill.status === "paid" ? "Lunas" : "Belum lunas"}</td>
                       </tr>
                     `,
@@ -341,34 +353,111 @@ refreshBillsButton.addEventListener("click", loadImportedBills);
 
 billsState.addEventListener("change", async (event) => {
   const target = event.target;
-  if (!(target instanceof HTMLInputElement) || !target.classList.contains("status-toggle")) {
+  if (!(target instanceof HTMLInputElement)) {
     return;
   }
 
-  const billId = target.dataset.billId || "";
-  const status = target.checked ? "paid" : "unpaid";
-  target.disabled = true;
-  setText(billsMessage, "Menyimpan status tagihan...");
-  try {
-    await api("/api/admin/bills/status", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ bill_id: billId, status }),
-    });
-    const row = target.closest("tr");
-    const statusText = row.querySelector(".bill-status-text");
-    statusText.textContent = status === "paid" ? "Lunas" : "Belum lunas";
-    statusText.classList.toggle("is-paid", status === "paid");
-    statusText.classList.toggle("is-unpaid", status !== "paid");
-    target.classList.toggle("is-paid", status === "paid");
-    target.classList.toggle("is-unpaid", status !== "paid");
-    setText(billsMessage, "Status tagihan diperbarui.");
-    loadImportedBills();
-  } catch (error) {
-    target.checked = !target.checked;
-    setText(billsMessage, error.message, "error");
-  } finally {
-    target.disabled = false;
+  if (target.classList.contains("status-toggle")) {
+    const billId = target.dataset.billId || "";
+    const status = target.checked ? "paid" : "unpaid";
+    target.disabled = true;
+    setText(billsMessage, "Menyimpan status tagihan...");
+    try {
+      await api("/api/admin/bills/status", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ bill_id: billId, status }),
+      });
+      const row = target.closest("tr");
+      const statusText = row.querySelector(".bill-status-text");
+      statusText.textContent = status === "paid" ? "Lunas" : "Belum lunas";
+      statusText.classList.toggle("is-paid", status === "paid");
+      statusText.classList.toggle("is-unpaid", status !== "paid");
+      target.classList.toggle("is-paid", status === "paid");
+      target.classList.toggle("is-unpaid", status !== "paid");
+      setText(billsMessage, "Status tagihan diperbarui.");
+      loadImportedBills();
+    } catch (error) {
+      target.checked = !target.checked;
+      setText(billsMessage, error.message, "error");
+    } finally {
+      target.disabled = false;
+    }
+  } else if (target.classList.contains("due-date-input")) {
+    const billId = target.dataset.billId || "";
+    const dueDate = target.value;
+    target.disabled = true;
+    setText(billsMessage, "Menyimpan batas aktif pembayaran...");
+    try {
+      await api("/api/admin/bills/due-date", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ bill_id: billId, due_date: dueDate }),
+      });
+      setText(billsMessage, "Batas aktif pembayaran berhasil diperbarui.");
+    } catch (error) {
+      setText(billsMessage, error.message, "error");
+    } finally {
+      target.disabled = false;
+    }
+  }
+});
+
+billsState.addEventListener("click", async (event) => {
+  const target = event.target;
+  if (!(target instanceof HTMLButtonElement)) {
+    return;
+  }
+
+  if (target.classList.contains("save-due-date-button")) {
+    const billId = target.dataset.billId || "";
+    const container = target.closest(".due-date-cell-group");
+    const input = container ? container.querySelector(".due-date-input") : null;
+    const dueDate = input ? input.value : "";
+    target.disabled = true;
+    setText(billsMessage, "Menyimpan batas aktif pembayaran...");
+    try {
+      await api("/api/admin/bills/due-date", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ bill_id: billId, due_date: dueDate }),
+      });
+      setText(billsMessage, "Batas aktif pembayaran berhasil disimpan.");
+    } catch (error) {
+      setText(billsMessage, error.message, "error");
+    } finally {
+      target.disabled = false;
+    }
+  } else if (target.classList.contains("bulk-due-date-button")) {
+    const groupSection = target.closest(".file-bill-group");
+    if (!groupSection) return;
+    const bulkInput = groupSection.querySelector(".bulk-due-date-input");
+    const dueDate = bulkInput ? bulkInput.value : "";
+    const rowInputs = groupSection.querySelectorAll(".due-date-input");
+    const billIds = Array.from(rowInputs).map((input) => input.dataset.billId).filter(Boolean);
+
+    if (!billIds.length) {
+      setText(billsMessage, "Tidak ada tagihan untuk diperbarui.", "error");
+      return;
+    }
+
+    target.disabled = true;
+    setText(billsMessage, "Menyimpan batas aktif untuk semua tagihan...");
+    try {
+      const result = await api("/api/admin/bills/due-date", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ bill_ids: billIds, due_date: dueDate }),
+      });
+      for (const input of rowInputs) {
+        input.value = dueDate;
+      }
+      setText(billsMessage, `Batas aktif berhasil disimpan untuk ${result.data.updated_count || billIds.length} tagihan.`);
+    } catch (error) {
+      setText(billsMessage, error.message, "error");
+    } finally {
+      target.disabled = false;
+    }
   }
 });
 

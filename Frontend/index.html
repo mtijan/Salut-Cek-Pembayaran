@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>UNIVERSITAS TERBUKA SALUT AWWABIN - TANGERANG</title>
-    <link rel="stylesheet" href="./styles.css?v=student-status-20260808" />
+    <link rel="stylesheet" href="./styles.css?v=20260808-v2" />
   </head>
   <body>
     <main class="app-shell">
@@ -70,6 +70,10 @@
                 <dt>Periode Pembayaran</dt>
                 <dd id="payment-period">-</dd>
               </div>
+              <div>
+                <dt>Batas Aktif Pembayaran</dt>
+                <dd id="payment-due-date">-</dd>
+              </div>
             </dl>
           </section>
 
@@ -87,6 +91,10 @@
             <div>
               <p class="label-small">Total Tagihan</p>
               <h3 class="total-amount"></h3>
+            </div>
+            <div class="due-date-box hidden">
+              <p class="label-small">Batas Aktif Pembayaran</p>
+              <p class="due-date-value">-</p>
             </div>
           </div>
         </section>
@@ -109,12 +117,13 @@
             <li>Datang ke Kantor SALUT Awwabin.</li>
             <li>Transfer ke Bank BRI dengan Nomor Rekening BRIVA di atas. Pastikan nama penerima dan nominal pembayaran sudah benar.</li>
             <li>Lihat rincian tagihan melalui Aplikasi Smart BRI Billing (SBB).</li>
-            <li>Pembayaran BRIVA juga dapat dilakukan melalui kanal perbankan yang mendukung pembayaran virtual account, seperti ATM, mobile banking, atau internet banking. Gunakan nomor BRIVA yang tampil dan selalu cek nama penerima serta nominal sebelum konfirmasi.</li>
+            <li>Pembayaran dapat dilakukan dari berbagai bank, ATM, mobile banking, internet banking, atau kanal pembayaran digital lainnya</li>
+            <li>Biaya Pendidikan dapat dicicil sesuai kemampuan dan wajib lunas sebelum batas akhir pembayaran.</li>
           </ul>
         </section>
       </article>
     </template>
 
-    <script src="./app.js?v=student-status-20260808"></script>
+    <script src="./app.js?v=20260808-v2"></script>
   </body>
 </html>

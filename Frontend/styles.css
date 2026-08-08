@@ -794,6 +794,100 @@ button {
   color: #7c2d12;
 }
 
+.due-date-input {
+  width: 140px;
+  height: 32px;
+  padding: 2px 6px;
+  font-size: 13px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--panel);
+  color: var(--ink);
+}
+
+.due-date-input:focus {
+  border-color: var(--brand);
+  box-shadow: 0 0 0 2px rgba(15, 118, 110, 0.15);
+}
+
+.due-date-cell-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.save-due-date-button {
+  height: 32px;
+  padding: 0 10px;
+  font-size: 12px;
+  font-weight: 700;
+  border-radius: 6px;
+  background: var(--brand);
+  color: white;
+  border: 0;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.save-due-date-button:hover {
+  background: var(--brand-strong);
+}
+
+.bulk-due-date-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.bulk-due-date-input {
+  width: 140px;
+  height: 32px;
+  padding: 2px 6px;
+  font-size: 13px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--panel);
+  color: var(--ink);
+}
+
+.bulk-due-date-button {
+  height: 32px;
+  padding: 0 12px;
+  font-size: 12px;
+  font-weight: 700;
+  border-radius: 6px;
+  background: var(--brand);
+  color: white;
+  border: 0;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.bulk-due-date-button:hover {
+  background: var(--brand-strong);
+}
+
+.ghost-button {
+  background: transparent;
+  color: var(--brand);
+  border: 1px solid var(--brand);
+}
+
+.ghost-button:hover {
+  background: var(--soft);
+}
+
+.due-date-box {
+  text-align: right;
+}
+
+.due-date-value {
+  margin: 3px 0 0;
+  color: var(--ink);
+  font-size: 18px;
+  font-weight: 800;
+}
+
 #commit-button {
   margin-top: 18px;
   width: 100%;

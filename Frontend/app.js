@@ -7,6 +7,7 @@ const studentNim = document.querySelector("#student-nim");
 const studentName = document.querySelector("#student-name");
 const studentProgram = document.querySelector("#student-program");
 const paymentPeriod = document.querySelector("#payment-period");
+const paymentDueDate = document.querySelector("#payment-due-date");
 const paymentStatus = document.querySelector("#payment-status");
 const billList = document.querySelector("#bill-list");
 const billTemplate = document.querySelector("#bill-template");
@@ -39,6 +40,7 @@ function renderResult(data) {
   studentName.textContent = data.student.full_name || "-";
   studentProgram.textContent = data.student.program_study || "-";
   paymentPeriod.textContent = data.student.payment_period || "-";
+  paymentDueDate.textContent = data.student.due_date_formatted || "-";
 
   const bills = data.bills || [];
   billList.replaceChildren();
@@ -51,6 +53,18 @@ function renderResult(data) {
 
   item.querySelector(".bill-section-title").textContent = bills.length > 1 ? "Informasi Tagihan" : "Informasi Tagihan";
   item.querySelector(".total-amount").textContent = rupiah(total);
+
+  const dueDateBox = item.querySelector(".due-date-box");
+  const dueDateValue = item.querySelector(".due-date-value");
+  if (dueDateBox && dueDateValue) {
+    if (data.student.due_date_formatted) {
+      dueDateValue.textContent = data.student.due_date_formatted;
+      dueDateBox.classList.remove("hidden");
+    } else {
+      dueDateBox.classList.add("hidden");
+    }
+  }
+
   setStatusPill(paymentStatus, hasUnpaidBill ? "unpaid" : "paid");
   item.querySelector(".account-name").textContent = data.student.full_name || "-";
 
