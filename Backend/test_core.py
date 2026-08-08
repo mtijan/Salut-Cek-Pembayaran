@@ -22,11 +22,20 @@ from fastapi.testclient import TestClient
 
 class CoreBehaviorTests(unittest.TestCase):
     def test_workbook_preview_has_no_critical_rows(self) -> None:
-        workbook = Path(__file__).resolve().parents[1] / "Data_Sinkron_BRIVA_UKT_2023_1_sd_2025_2.xlsx"
-        preview = preview_workbook(workbook)
-        self.assertEqual(preview["valid_rows"], 409)
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            workbook = Path(temporary_directory) / "preview.xlsx"
+            self._write_workbook(
+                workbook,
+                [
+                    ("01001", "Ayu Sari", "12345", 100000),
+                    ("01001", "Ayu Sari", "12345", 125000),
+                ],
+            )
+            preview = preview_workbook(workbook)
+
+        self.assertEqual(preview["valid_rows"], 2)
         self.assertEqual(preview["critical_rows"], 0)
-        self.assertEqual(preview["issue_rows"], 11)
+        self.assertEqual(preview["issue_rows"], 2)
         self.assertEqual(preview["multiple_bill_rows"], 2)
 
     def test_rate_limiter_blocks_after_limit(self) -> None:
