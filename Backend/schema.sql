@@ -5,6 +5,9 @@ create table if not exists students (
   nim text not null unique,
   full_name text not null,
   name_norm text not null,
+  program_study text,
+  initial_registration text,
+  phone_number text,
   created_at text not null default (datetime('now')),
   updated_at text not null default (datetime('now'))
 );
