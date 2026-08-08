@@ -15,8 +15,17 @@ def normalize_text(value: object) -> str:
     return re.sub(r"\s+", " ", str(value or "").strip())
 
 
+def clean_excel_text(value: object) -> str:
+    """Remove Excel text markers without changing meaningful punctuation in the value."""
+    return normalize_text(value).lstrip("'`").strip()
+
+
 def normalize_name(value: object) -> str:
-    return normalize_text(value).casefold()
+    return clean_excel_text(value).casefold()
+
+
+def normalize_imported_name(value: object) -> str:
+    return clean_excel_text(value).upper()
 
 
 def normalize_nim(value: object) -> str:

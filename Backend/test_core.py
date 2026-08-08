@@ -295,6 +295,187 @@ class CoreBehaviorTests(unittest.TestCase):
             self.assertEqual(groups[0]["bills"][0]["due_date"], "2026-08-25")
             self.assertEqual(groups[0]["bills"][0]["due_date_formatted"], "25 Agustus 2026")
 
+    def test_current_customer_workbook_maps_profile_and_due_date(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            temp = Path(temporary_directory)
+            database = temp / "salut.sqlite"
+            workbook = temp / "customer_20260808.xlsx"
+            self._write_current_workbook(
+                workbook,
+                [
+                    (
+                        "01008", "Tara Utami", "UT Serang/2025-Ganjil", "'081234567890",
+                        "FST - Sistem Informasi", "'178100023200888", 1850000,
+                        "07 Agustus 2026 Pukul 11.59 WIB",
+                    ),
+                ],
+            )
+
+            preview = preview_workbook(workbook, database)
+            self.assertEqual(preview["valid_rows"], 1)
+            self.assertEqual(preview["critical_rows"], 0)
+            self.assertEqual(preview["sample"][0]["briva"], "178100023200888")
+            self.assertEqual(preview["sample"][0]["program_study"], "FST - Sistem Informasi")
+            self.assertEqual(import_workbook(workbook, database)["created"], 1)
+            self.assertEqual(import_workbook(workbook, database)["unchanged"], 1)
+
+            conn = sqlite3.connect(database)
+            student = conn.execute(
+                "select program_study, initial_registration, phone_number from students where nim = ?", ("01008",)
+            ).fetchone()
+            bill = conn.execute("select briva, period, due_date from bills").fetchone()
+            conn.close()
+            self.assertEqual(student, ("FST - Sistem Informasi", "UT Serang/2025-Ganjil", "081234567890"))
+            self.assertEqual(bill, ("178100023200888", "Semester Ganjil 2026", "07 Agustus 2026 Pukul 11.59 WIB"))
+
+            original_db_path = app_config.DB_PATH
+            app_config.DB_PATH = database
+            try:
+                response = TestClient(server.app).post("/api/lookup", json={"nim": "01008"})
+            finally:
+                app_config.DB_PATH = original_db_path
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(response.json()["data"]["student"]["program_study"], "FST - Sistem Informasi")
+            self.assertEqual(response.json()["data"]["student"]["due_date"], "07 Agustus 2026 Pukul 11.59 WIB")
+
+    def test_current_customer_workbook_skips_invalid_required_row(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            temp = Path(temporary_directory)
+            database = temp / "salut.sqlite"
+            workbook = temp / "customer_invalid_row.xlsx"
+            self._write_current_workbook(
+                workbook,
+                [
+                    ("01009", "Dina Putri", "UT Serang/2025-Ganjil", "'081234567891", "FST - Sistem Informasi", "'178100023200889", 1850000, "07 Agustus 2026 Pukul 11.59 WIB"),
+                    ("`", "Data Tidak Valid", "UT Serang/2025-Ganjil", "'081234567892", "FST - Sistem Informasi", "'178100023200890", 1850000, "07 Agustus 2026 Pukul 11.59 WIB"),
+                ],
+            )
+
+            preview = preview_workbook(workbook, database)
+            self.assertEqual(preview["valid_rows"], 1)
+            self.assertEqual(preview["critical_rows"], 0)
+            self.assertEqual(preview["issue_rows"], 1)
+            result = import_workbook(workbook, database)
+            self.assertEqual(result["created"], 1)
+            self.assertEqual(result["issues"], 1)
+
+            conn = sqlite3.connect(database)
+            issue = conn.execute("select row_number, note from import_issues").fetchone()
+            conn.close()
+            self.assertEqual(issue, (3, "Baris dilewati karena NIM, nama, BRIVA, atau nominal tidak valid."))
+            from Backend.app.services import list_import_issues
+            stored_issues = list_import_issues(database)
+            self.assertEqual(len(stored_issues), 1)
+            self.assertEqual(stored_issues[0]["row_number"], 3)
+
+    def test_current_customer_workbook_cleans_excel_markers_without_changing_due_date(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            temp = Path(temporary_directory)
+            database = temp / "salut.sqlite"
+            workbook = temp / "customer_markers.xlsx"
+            self._write_current_workbook(
+                workbook,
+                [
+                    (
+                        "`01010", "' Dini Putri", "`UT Serang/2025-Ganjil", "`0812-3456-7890",
+                        "'FST - Sistem Informasi", "`178100023200891", "Rp 1.850.000",
+                        "`07 Agustus 2026 Pukul 11.59 WIB",
+                    ),
+                ],
+            )
+
+            preview = preview_workbook(workbook, database)
+            self.assertEqual(preview["valid_rows"], 1)
+            self.assertEqual(preview["critical_rows"], 0)
+            self.assertEqual(import_workbook(workbook, database)["created"], 1)
+
+            conn = sqlite3.connect(database)
+            student = conn.execute(
+                "select nim, full_name, initial_registration, phone_number, program_study from students"
+            ).fetchone()
+            bill = conn.execute("select briva, amount, due_date from bills").fetchone()
+            conn.close()
+            self.assertEqual(student, ("01010", "DINI PUTRI", "UT Serang/2025-Ganjil", "081234567890", "FST - Sistem Informasi"))
+            self.assertEqual(bill, ("178100023200891", 1850000, "07 Agustus 2026 Pukul 11.59 WIB"))
+
+    def test_admin_manual_student_and_bill_crud_api(self) -> None:
+        from Backend.app.security import hash_password
+
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            database = Path(temporary_directory) / "salut.sqlite"
+            conn = connect(database)
+            init_db(conn)
+            with conn:
+                conn.execute(
+                    """
+                    insert into admin_users (id, email, password_hash, full_name, role)
+                    values (?, ?, ?, ?, ?)
+                    """,
+                    ("admin-1", "admin@example.test", hash_password("PasswordBaru123!"), "Admin Test", "admin"),
+                )
+            conn.close()
+
+            original_db_path = app_config.DB_PATH
+            app_config.DB_PATH = database
+            try:
+                client = TestClient(server.app)
+                login = client.post(
+                    "/api/admin/login",
+                    json={"email": "admin@example.test", "password": "PasswordBaru123!"},
+                )
+                self.assertEqual(login.status_code, 200)
+
+                created_student = client.post("/api/admin/students", json={"nim": "01007", "full_name": "Raka Putra"})
+                self.assertEqual(created_student.status_code, 200)
+                student_id = created_student.json()["data"]["student"]["id"]
+
+                updated_student = client.patch(
+                    f"/api/admin/students/{student_id}",
+                    json={"nim": "01007", "full_name": "Raka Putra Santoso"},
+                )
+                self.assertEqual(updated_student.status_code, 200)
+                self.assertEqual(updated_student.json()["data"]["student"]["full_name"], "Raka Putra Santoso")
+
+                created_bill = client.post(
+                    "/api/admin/bills",
+                    json={
+                        "nim": "01007",
+                        "full_name": "Raka Putra Santoso",
+                        "briva": "70001",
+                        "amount": 100000,
+                        "period": "Semester Ganjil 2026",
+                        "bill_type": "UKT BRIVA",
+                        "status": "unpaid",
+                    },
+                )
+                self.assertEqual(created_bill.status_code, 200)
+                bill_id = created_bill.json()["data"]["bill"]["id"]
+
+                updated_bill = client.patch(
+                    f"/api/admin/bills/{bill_id}",
+                    json={
+                        "nim": "01007",
+                        "full_name": "Raka Putra Santoso",
+                        "briva": "70001",
+                        "amount": 125000,
+                        "period": "Semester Ganjil 2026",
+                        "bill_type": "UKT BRIVA",
+                        "status": "paid",
+                        "due_date": "2026-08-25",
+                    },
+                )
+                self.assertEqual(updated_bill.status_code, 200)
+                self.assertEqual(updated_bill.json()["data"]["bill"]["status"], "paid")
+                self.assertEqual(updated_bill.json()["data"]["bill"]["amount"], 125000)
+
+                self.assertEqual(client.get("/api/admin/students").status_code, 200)
+                self.assertEqual(client.get("/api/admin/bills").status_code, 200)
+                self.assertEqual(client.get("/api/admin/import-issues").status_code, 200)
+                self.assertEqual(client.delete(f"/api/admin/bills/{bill_id}").status_code, 200)
+                self.assertEqual(client.delete(f"/api/admin/students/{student_id}").status_code, 200)
+            finally:
+                app_config.DB_PATH = original_db_path
+
     @staticmethod
     def _write_workbook(path: Path, rows: list[tuple[str, str, str, int]]) -> None:
         def inline(cell: str, value: str) -> str:
@@ -335,6 +516,42 @@ class CoreBehaviorTests(unittest.TestCase):
                 "xl/worksheets/sheet2.xml",
                 worksheet(["No.", "NIM", "Nama Mahasiswa", "BRIVA", "Jumlah", "Keterangan"], [], issue_sheet=True),
             )
+
+    @staticmethod
+    def _write_current_workbook(path: Path, rows: list[tuple[str, str, str, str, str, str, int, str]]) -> None:
+        def inline(cell: str, value: str) -> str:
+            return f'<c r="{cell}" t="inlineStr"><is><t>{value}</t></is></c>'
+
+        headers = ["NIM", "Nama", "Registrasi Awal", " No  Hp ", "Program Studi", "No Rek", "Jumlah", "Batas Pembayaran"]
+        columns = "ABCDEFGH"
+        header_cells = "".join(inline(f"{column}1", value) for column, value in zip(columns, headers))
+        data_rows = []
+        for index, row in enumerate(rows, start=2):
+            values = [str(value) for value in row]
+            cells = "".join(
+                f'<c r="{column}{index}"><v>{value}</v></c>' if column == "G" and value.isdigit() else inline(f"{column}{index}", value)
+                for column, value in zip(columns, values)
+            )
+            data_rows.append(f'<row r="{index}">{cells}</row>')
+
+        workbook = (
+            '<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" '
+            'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
+            '<sheets><sheet name="customer_20260808" sheetId="1" r:id="rId1"/></sheets></workbook>'
+        )
+        relationships = (
+            '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+            '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>'
+            '</Relationships>'
+        )
+        worksheet = (
+            '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+            f'<sheetData><row r="1">{header_cells}</row>{"".join(data_rows)}</sheetData></worksheet>'
+        )
+        with zipfile.ZipFile(path, "w") as archive:
+            archive.writestr("xl/workbook.xml", workbook)
+            archive.writestr("xl/_rels/workbook.xml.rels", relationships)
+            archive.writestr("xl/worksheets/sheet1.xml", worksheet)
 
 
 if __name__ == "__main__":

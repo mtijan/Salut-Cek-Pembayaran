@@ -7,7 +7,7 @@ from pathlib import Path
 
 from fastapi import Depends, FastAPI, File, Request, UploadFile
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 
 from Backend.app import config
 from Backend.app.rate_limit import RATE_LIMITER, RateLimiter
@@ -18,14 +18,24 @@ from Backend.app.services import (
     bill_row_to_dict,
     cleanup_stale_imports,
     create_admin_session,
+    create_bill,
+    create_student,
+    delete_bill,
     delete_admin_session,
+    delete_student,
     ensure_database,
     format_due_date,
     list_imported_bill_groups,
+    list_import_issues,
+    list_bills,
+    list_students,
     rupiah,
     sanitize_filename,
+    student_row_to_dict,
+    update_bill,
     update_bill_due_date,
     update_bill_status,
+    update_student,
     write_audit,
     write_lookup_log,
     find_admin_by_session,
@@ -131,7 +141,7 @@ async def lookup(request: Request) -> JSONResponse:
         return error_response(400, "VALIDATION_ERROR", "NIM wajib diisi.", req_id=req_id)
 
     conn = connect(config.DB_PATH)
-    student = conn.execute("select id, nim, full_name from students where nim = ?", (nim,)).fetchone()
+    student = conn.execute("select id, nim, full_name, program_study from students where nim = ?", (nim,)).fetchone()
     if not student:
         conn.close()
         write_lookup_log(nim, "", "not_found")
@@ -160,7 +170,7 @@ async def lookup(request: Request) -> JSONResponse:
                 "student": {
                     "nim": student["nim"],
                     "full_name": student["full_name"],
-                    "program_study": config.DEFAULT_PROGRAM_STUDY,
+                    "program_study": student["program_study"] or config.DEFAULT_PROGRAM_STUDY,
                     "payment_period": config.DEFAULT_PAYMENT_PERIOD_LABEL or (bills[0]["period"] if bills else ""),
                     "due_date": primary_due_date,
                     "due_date_formatted": format_due_date(primary_due_date),
@@ -309,6 +319,134 @@ async def admin_bill_due_date(request: Request, admin=Depends(require_admin("imp
     )
 
 
+@app.get("/api/admin/students")
+async def admin_students(request: Request, admin=Depends(require_admin("manage_data"))) -> JSONResponse:
+    if isinstance(admin, JSONResponse):
+        return admin
+    query = str(request.query_params.get("query") or "")
+    limit = int(request.query_params.get("limit") or 2000)
+    return success_response({"students": list_students(config.DB_PATH, query, limit)})
+
+
+@app.get("/api/admin/import-issues")
+async def admin_import_issues(request: Request, admin=Depends(require_admin("manage_data"))) -> JSONResponse:
+    if isinstance(admin, JSONResponse):
+        return admin
+    limit = int(request.query_params.get("limit") or 500)
+    return success_response({"issues": list_import_issues(config.DB_PATH, limit)})
+
+
+@app.post("/api/admin/students")
+async def admin_create_student(request: Request, admin=Depends(require_admin("manage_data"))) -> JSONResponse:
+    if isinstance(admin, JSONResponse):
+        return admin
+    payload = await read_json(request)
+    try:
+        student = create_student(config.DB_PATH, payload.get("nim"), payload.get("full_name"))
+    except ValueError as exc:
+        return error_response(400, "VALIDATION_ERROR", str(exc))
+
+    conn = connect(config.DB_PATH)
+    with conn:
+        write_audit(conn, admin["id"], "student.create", "student", student["id"], {"nim": student["nim"]})
+    conn.close()
+    return success_response({"student": student_row_to_dict(student)})
+
+
+@app.patch("/api/admin/students/{student_id}")
+async def admin_update_student(student_id: str, request: Request, admin=Depends(require_admin("manage_data"))) -> JSONResponse:
+    if isinstance(admin, JSONResponse):
+        return admin
+    payload = await read_json(request)
+    try:
+        student = update_student(config.DB_PATH, student_id, payload)
+    except ValueError as exc:
+        return error_response(400, "VALIDATION_ERROR", str(exc))
+    if not student:
+        return error_response(404, "NOT_FOUND", "Mahasiswa tidak ditemukan.")
+
+    conn = connect(config.DB_PATH)
+    with conn:
+        write_audit(conn, admin["id"], "student.update", "student", student_id, {"nim": student["nim"]})
+    conn.close()
+    return success_response({"student": student_row_to_dict(student)})
+
+
+@app.delete("/api/admin/students/{student_id}")
+async def admin_delete_student(student_id: str, admin=Depends(require_admin("manage_data"))) -> JSONResponse:
+    if isinstance(admin, JSONResponse):
+        return admin
+    student = delete_student(config.DB_PATH, student_id)
+    if not student:
+        return error_response(404, "NOT_FOUND", "Mahasiswa tidak ditemukan.")
+
+    conn = connect(config.DB_PATH)
+    with conn:
+        write_audit(conn, admin["id"], "student.delete", "student", student_id, {"nim": student["nim"]})
+    conn.close()
+    return success_response({"deleted": True, "student": student_row_to_dict(student)})
+
+
+@app.get("/api/admin/bills")
+async def admin_bills(request: Request, admin=Depends(require_admin("manage_data"))) -> JSONResponse:
+    if isinstance(admin, JSONResponse):
+        return admin
+    query = str(request.query_params.get("query") or "")
+    limit = int(request.query_params.get("limit") or 2000)
+    return success_response({"bills": list_bills(config.DB_PATH, query, limit)})
+
+
+@app.post("/api/admin/bills")
+async def admin_create_bill(request: Request, admin=Depends(require_admin("manage_data"))) -> JSONResponse:
+    if isinstance(admin, JSONResponse):
+        return admin
+    payload = await read_json(request)
+    try:
+        bill = create_bill(config.DB_PATH, payload)
+    except ValueError as exc:
+        return error_response(400, "VALIDATION_ERROR", str(exc))
+
+    conn = connect(config.DB_PATH)
+    with conn:
+        write_audit(conn, admin["id"], "bill.create", "bill", bill["id"], {"nim": bill["nim"], "briva": bill["briva"]})
+    conn.close()
+    return success_response({"bill": bill_row_to_dict(bill)})
+
+
+@app.patch("/api/admin/bills/{bill_id}")
+async def admin_update_bill(bill_id: str, request: Request, admin=Depends(require_admin("manage_data"))) -> JSONResponse:
+    if isinstance(admin, JSONResponse):
+        return admin
+    payload = await read_json(request)
+    try:
+        bill = update_bill(config.DB_PATH, bill_id, payload)
+    except ValueError as exc:
+        return error_response(400, "VALIDATION_ERROR", str(exc))
+    if not bill:
+        return error_response(404, "NOT_FOUND", "Tagihan tidak ditemukan.")
+
+    conn = connect(config.DB_PATH)
+    with conn:
+        write_audit(conn, admin["id"], "bill.update", "bill", bill_id, {"nim": bill["nim"], "briva": bill["briva"]})
+    conn.close()
+    return success_response({"bill": bill_row_to_dict(bill)})
+
+
+@app.delete("/api/admin/bills/{bill_id}")
+async def admin_delete_bill(bill_id: str, admin=Depends(require_admin("manage_data"))) -> JSONResponse:
+    if isinstance(admin, JSONResponse):
+        return admin
+    bill = delete_bill(config.DB_PATH, bill_id)
+    if not bill:
+        return error_response(404, "NOT_FOUND", "Tagihan tidak ditemukan.")
+
+    conn = connect(config.DB_PATH)
+    with conn:
+        write_audit(conn, admin["id"], "bill.delete", "bill", bill_id, {"nim": bill["nim"], "briva": bill["briva"]})
+    conn.close()
+    return success_response({"deleted": True, "bill": bill_row_to_dict(bill)})
+
+
 @app.post("/api/admin/import/preview")
 async def admin_import_preview(
     request: Request,
@@ -415,9 +553,11 @@ async def admin_import_commit(request: Request, admin=Depends(require_admin("imp
         return error_response(400, "IMPORT_COMMIT_FAILED", "Import tidak dapat disimpan. Periksa file dan coba lagi.")
 
 
-@app.get("/admin", include_in_schema=False)
-@app.get("/admin/", include_in_schema=False)
-async def admin_page() -> FileResponse:
+@app.get("/admin", include_in_schema=False, response_model=None)
+@app.get("/admin/", include_in_schema=False, response_model=None)
+async def admin_page(request: Request) -> FileResponse | RedirectResponse:
+    if request.url.query:
+        return RedirectResponse(url="/admin", status_code=303)
     return FileResponse(config.FRONTEND_DIR / "admin.html")
 
 

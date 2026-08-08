@@ -27,6 +27,6 @@ IMPORT_RETENTION_SECONDS = 24 * 60 * 60
 
 ROLE_PERMISSIONS = {
     "viewer": set(),
-    "admin": {"import"},
-    "super_admin": {"import"},
+    "admin": {"import", "manage_data"},
+    "super_admin": {"import", "manage_data"},
 }
