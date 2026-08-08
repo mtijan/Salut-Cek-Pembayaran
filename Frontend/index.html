@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>UNIVERSITAS TERBUKA SALUT AWWABIN - TANGERANG</title>
-    <link rel="stylesheet" href="./styles.css?v=total-bill-20260808" />
+    <link rel="stylesheet" href="./styles.css?v=student-status-20260808" />
   </head>
   <body>
     <main class="app-shell">
@@ -49,7 +49,10 @@
 
         <div id="result-state" class="result-state hidden">
           <section class="payment-section student-info" aria-labelledby="student-info-title">
-            <h2 id="student-info-title">Informasi Mahasiswa</h2>
+            <div class="student-info-heading">
+              <h2 id="student-info-title">Informasi Mahasiswa</h2>
+              <span id="payment-status" class="status-pill">Belum lunas</span>
+            </div>
             <dl class="info-list">
               <div>
                 <dt>NIM</dt>
@@ -85,18 +88,17 @@
               <p class="label-small">Total Tagihan</p>
               <h3 class="total-amount"></h3>
             </div>
-            <span class="bill-status-text total-status status-pill">Belum lunas</span>
           </div>
         </section>
 
         <section class="payment-section va-section">
-          <h2>Nomor VA</h2>
+          <h2>Nomor BRIVA</h2>
           <div class="va-list"></div>
         </section>
 
         <div class="payment-box">
           <div>
-            <p class="label-small">Nama Rekening VA</p>
+            <p class="label-small">Nama Rekening BRIVA</p>
             <p class="account-name"></p>
           </div>
         </div>
@@ -107,12 +109,12 @@
             <li>Datang ke Kantor SALUT Awwabin.</li>
             <li>Transfer ke Bank BRI dengan Nomor Rekening BRIVA di atas. Pastikan nama penerima dan nominal pembayaran sudah benar.</li>
             <li>Lihat rincian tagihan melalui Aplikasi Smart BRI Billing (SBB).</li>
-            <li>Pembayaran BRIVA juga dapat dilakukan melalui kanal perbankan yang mendukung pembayaran virtual account, seperti ATM, mobile banking, atau internet banking. Gunakan nomor VA yang tampil dan selalu cek nama penerima serta nominal sebelum konfirmasi.</li>
+            <li>Pembayaran BRIVA juga dapat dilakukan melalui kanal perbankan yang mendukung pembayaran virtual account, seperti ATM, mobile banking, atau internet banking. Gunakan nomor BRIVA yang tampil dan selalu cek nama penerima serta nominal sebelum konfirmasi.</li>
           </ul>
         </section>
       </article>
     </template>
 
-    <script src="./app.js?v=total-bill-20260808"></script>
+    <script src="./app.js?v=student-status-20260808"></script>
   </body>
 </html>

@@ -46,7 +46,7 @@ Dokumen ini menetapkan desain keamanan dan privasi untuk melindungi data mahasis
 | Data | Tampil Publik? | Bentuk |
 |---|---|---|
 | NIM | Ya | NIM yang dimasukkan user atau sebagian. |
-| Nama | Ya | Nama penuh setelah NIM ditemukan, juga dipakai sebagai nama rekening VA. |
+| Nama | Ya | Nama penuh setelah NIM ditemukan, juga dipakai sebagai nama rekening BRIVA. |
 | Program studi | Ya | Nilai default konfigurasi rilis ini. |
 | Nominal tagihan | Ya | Setelah verifikasi berhasil. |
 | Status tagihan | Ya | Setelah verifikasi berhasil. |

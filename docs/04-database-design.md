@@ -10,7 +10,7 @@ Data lookup mahasiswa memakai sheet `Data Sinkron` dengan kolom:
 |---|---|---|
 | `NIM` | `students.nim` | Unique key mahasiswa. |
 | `Nama Mahasiswa` | `students.full_name`, `students.name_norm` | Nama asli dan versi ternormalisasi untuk import serta administrasi internal. |
-| `BRIVA` | `bills.briva` | Nomor VA pembayaran. |
+| `BRIVA` | `bills.briva` | Nomor BRIVA pembayaran. |
 | `Jumlah` | `bills.amount` | Nominal tagihan dalam rupiah. |
 
 Sheet `Data Belum Lengkap` tidak dipakai untuk lookup publik dan dicatat ke `import_issues`.
@@ -44,7 +44,7 @@ Nama file workbook tidak menjadi syarat bisnis; file `.xlsx` dengan nama apa pun
 |---|---|---|---|
 | `id` | text | PK | UUID tagihan. |
 | `student_id` | text | FK `students.id` | Pemilik tagihan. |
-| `briva` | text | not null | Nomor VA/BRIVA. Nilai yang sama boleh muncul pada beberapa tagihan untuk NIM yang sama. |
+| `briva` | text | not null | Nomor BRIVA. Nilai yang sama boleh muncul pada beberapa tagihan untuk NIM yang sama. |
 | `amount` | integer | not null | Nominal tagihan dalam rupiah. |
 | `period` | text | not null | Periode data, default `UKT 2023.1 s/d 2025.2`. |
 | `bill_type` | text | not null | Jenis tagihan, default `UKT BRIVA`. |

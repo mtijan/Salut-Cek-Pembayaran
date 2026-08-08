@@ -33,8 +33,8 @@ Dokumen ini menjelaskan workflow admin, SOP operasional, dan tata cara menjaga d
 | Kolom | Wajib | Contoh | Catatan |
 |---|---|---|---|
 | `nim` | Ya | `123456789` | Unique key mahasiswa. |
-| `full_name` | Ya | `Muhammad Adam` | Digunakan untuk import, identifikasi admin, dan nama rekening VA pada hasil lookup publik. |
-| `briva` | Ya | `178100023200040` | Nomor VA pembayaran. |
+| `full_name` | Ya | `Muhammad Adam` | Digunakan untuk import, identifikasi admin, dan nama rekening BRIVA pada hasil lookup publik. |
+| `briva` | Ya | `178100023200040` | Nomor BRIVA pembayaran. |
 | `amount` | Ya | `1850000` | Nominal tagihan. |
 
 ## Validasi Import

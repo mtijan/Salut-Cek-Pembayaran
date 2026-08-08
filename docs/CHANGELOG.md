@@ -34,7 +34,7 @@ Format mengikuti prinsip Keep a Changelog dan Semantic Versioning.
 - Backend berpindah dari `http.server` manual ke FastAPI agar routing, upload, validasi, dan deployment lebih mudah dipelihara.
 - Import XLSX menerima nama file apa pun selama sheet dan header mengikuti struktur workbook resmi.
 - NIM yang muncul lebih dari sekali diperlakukan sebagai beberapa tagihan, termasuk saat BRIVA sama, bukan error kritis.
-- Public lookup tetap hanya memakai NIM sebagai input dan sekarang menampilkan format informasi pembayaran mahasiswa, termasuk nama, program studi default, periode pembayaran, jumlah tagihan, status, nomor VA, nama rekening VA, dan petunjuk pembayaran.
+- Public lookup tetap hanya memakai NIM sebagai input dan sekarang menampilkan format informasi pembayaran mahasiswa, termasuk nama, program studi default, periode pembayaran, jumlah tagihan, status, nomor BRIVA, nama rekening BRIVA, dan petunjuk pembayaran.
 - Status `Lunas` sekarang biru dan `Belum lunas` merah pada hasil publik dan tabel tagihan admin.
 - Upload ulang workbook yang sama tidak lagi menimpa data, mereset status tagihan, atau mengubah waktu pembaruan.
 - Mengubah target deployment MVP dari platform terkelola sebelumnya menjadi VPS + SQLite.

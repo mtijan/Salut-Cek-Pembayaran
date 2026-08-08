@@ -69,7 +69,7 @@ Response 200:
         "amount_formatted": "Rp 1.850.000",
         "payment_method": "BRIVA",
         "briva": "178100023200040",
-        "instructions": "Bayar melalui BRIVA BRI dengan nomor VA yang tampil."
+        "instructions": "Bayar melalui BRIVA BRI dengan nomor BRIVA yang tampil."
       }
     ]
   },

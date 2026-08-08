@@ -7,6 +7,7 @@ const studentNim = document.querySelector("#student-nim");
 const studentName = document.querySelector("#student-name");
 const studentProgram = document.querySelector("#student-program");
 const paymentPeriod = document.querySelector("#payment-period");
+const paymentStatus = document.querySelector("#payment-status");
 const billList = document.querySelector("#bill-list");
 const billTemplate = document.querySelector("#bill-template");
 
@@ -47,11 +48,10 @@ function renderResult(data) {
   const vaList = item.querySelector(".va-list");
   const total = bills.reduce((sum, bill) => sum + Number(bill.amount || 0), 0);
   const hasUnpaidBill = bills.some((bill) => bill.status === "unpaid");
-  const totalStatus = item.querySelector(".total-status");
 
   item.querySelector(".bill-section-title").textContent = bills.length > 1 ? "Informasi Tagihan" : "Informasi Tagihan";
   item.querySelector(".total-amount").textContent = rupiah(total);
-  setStatusPill(totalStatus, hasUnpaidBill ? "unpaid" : "paid");
+  setStatusPill(paymentStatus, hasUnpaidBill ? "unpaid" : "paid");
   item.querySelector(".account-name").textContent = data.student.full_name || "-";
 
   for (const [index, bill] of bills.entries()) {
@@ -66,11 +66,7 @@ function renderResult(data) {
     amountValue.className = "amount-value";
     amountValue.textContent = bill.amount_formatted || rupiah(bill.amount);
 
-    const statusText = document.createElement("span");
-    statusText.className = "bill-status-text status-pill";
-    setStatusPill(statusText, bill.status);
-
-    amountRow.append(amountLabel, amountValue, statusText);
+    amountRow.append(amountLabel, amountValue);
     amountLines.appendChild(amountRow);
 
     const vaRow = document.createElement("div");
@@ -79,7 +75,7 @@ function renderResult(data) {
     const vaInfo = document.createElement("div");
     const vaLabel = document.createElement("p");
     vaLabel.className = "label-small";
-    vaLabel.textContent = bills.length > 1 ? bill.bill_label || `Tagihan ${index + 1}` : "Nomor VA";
+    vaLabel.textContent = bills.length > 1 ? bill.bill_label || `Tagihan ${index + 1}` : "Nomor BRIVA";
     const vaNumber = document.createElement("p");
     vaNumber.className = "briva";
     vaNumber.textContent = bill.briva || "-";
@@ -88,12 +84,12 @@ function renderResult(data) {
     const copyButton = document.createElement("button");
     copyButton.type = "button";
     copyButton.className = "copy-button";
-    copyButton.title = "Salin nomor VA";
-    copyButton.setAttribute("aria-label", `Salin nomor VA ${vaLabel.textContent}`);
+    copyButton.title = "Salin nomor BRIVA";
+    copyButton.setAttribute("aria-label", `Salin nomor BRIVA ${vaLabel.textContent}`);
     copyButton.textContent = "Salin";
     copyButton.addEventListener("click", async () => {
       await navigator.clipboard.writeText(bill.briva);
-      setMessage("Nomor VA disalin.");
+      setMessage("Nomor BRIVA disalin.");
     });
 
     vaRow.append(vaInfo, copyButton);
