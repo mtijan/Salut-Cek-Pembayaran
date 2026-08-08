@@ -107,7 +107,7 @@ class CoreBehaviorTests(unittest.TestCase):
             self.assertEqual(result["data"]["student"]["full_name"], "Syahla Taqiyyah")
             self.assertEqual(result["data"]["student"]["program_study"], "S1 Ilmu Hukum")
             self.assertEqual(result["data"]["student"]["payment_period"], "Semester Ganjil 2026")
-            self.assertEqual(set(result["data"]["student"]), {"nim", "full_name", "program_study", "payment_period"})
+            self.assertEqual(set(result["data"]["student"]), {"nim", "full_name", "program_study", "payment_period", "due_date", "due_date_formatted"})
             self.assertEqual([bill["bill_label"] for bill in result["data"]["bills"]], ["Tagihan 1", "Tagihan 2"])
 
     def test_reupload_is_unchanged_and_amount_update_requires_confirmation(self) -> None:
@@ -273,6 +273,27 @@ class CoreBehaviorTests(unittest.TestCase):
             self.assertEqual(updated["status"], "paid")
             groups = list_imported_bill_groups(database)
             self.assertEqual(groups[0]["paid"], 1)
+
+    def test_admin_bill_due_date_update(self) -> None:
+        from Backend.app.services import update_bill_due_date, format_due_date
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            temp = Path(temporary_directory)
+            database = temp / "salut.sqlite"
+            workbook = temp / "batch-due.xlsx"
+            self._write_workbook(workbook, [("01006", "Siti Aminah", "50002", 200000)])
+            import_workbook(workbook, database)
+
+            groups = list_imported_bill_groups(database)
+            bill_id = groups[0]["bills"][0]["id"]
+
+            updated = update_bill_due_date(database, [bill_id], "2026-08-25")
+            self.assertTrue(len(updated) > 0)
+            self.assertEqual(updated[0]["due_date"], "2026-08-25")
+            self.assertEqual(format_due_date("2026-08-25"), "25 Agustus 2026")
+
+            groups = list_imported_bill_groups(database)
+            self.assertEqual(groups[0]["bills"][0]["due_date"], "2026-08-25")
+            self.assertEqual(groups[0]["bills"][0]["due_date_formatted"], "25 Agustus 2026")
 
     @staticmethod
     def _write_workbook(path: Path, rows: list[tuple[str, str, str, int]]) -> None:

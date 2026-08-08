@@ -19,6 +19,7 @@ create table if not exists bills (
   status text not null default 'unpaid',
   payment_method text not null default 'BRIVA',
   instructions text not null,
+  due_date text,
   source_file text not null,
   source_row_number integer,
   created_at text not null default (datetime('now')),

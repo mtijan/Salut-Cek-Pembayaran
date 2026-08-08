@@ -27,6 +27,7 @@ def connect(db_path: str | Path = DEFAULT_DB_PATH) -> sqlite3.Connection:
 def init_db(conn: sqlite3.Connection) -> None:
     conn.executescript(SCHEMA_PATH.read_text(encoding="utf-8"))
     migrate_bills_for_duplicate_briva(conn)
+    migrate_bills_for_due_date(conn)
     conn.execute("create index if not exists idx_bills_source_file_row on bills(source_file, source_row_number)")
 
 
@@ -37,6 +38,12 @@ def _table_sql(conn: sqlite3.Connection, table: str) -> str:
 
 def _table_columns(conn: sqlite3.Connection, table: str) -> set[str]:
     return {str(row["name"]) for row in conn.execute(f"pragma table_info({table})").fetchall()}
+
+
+def migrate_bills_for_due_date(conn: sqlite3.Connection) -> None:
+    columns = _table_columns(conn, "bills")
+    if "due_date" not in columns:
+        conn.execute("alter table bills add column due_date text")
 
 
 def migrate_bills_for_duplicate_briva(conn: sqlite3.Connection) -> None:
@@ -62,6 +69,7 @@ def migrate_bills_for_duplicate_briva(conn: sqlite3.Connection) -> None:
               status text not null default 'unpaid',
               payment_method text not null default 'BRIVA',
               instructions text not null,
+              due_date text,
               source_file text not null,
               source_row_number integer,
               created_at text not null default (datetime('now')),
@@ -70,13 +78,14 @@ def migrate_bills_for_duplicate_briva(conn: sqlite3.Connection) -> None:
             """
         )
         source_row_expression = "source_row_number" if not needs_source_row else "null"
+        due_date_expression = "due_date" if "due_date" in columns else "null"
         conn.execute(
             f"""
             insert into bills_new
               (id, student_id, briva, amount, period, bill_type, status, payment_method,
-               instructions, source_file, source_row_number, created_at, updated_at)
+               instructions, due_date, source_file, source_row_number, created_at, updated_at)
             select id, student_id, briva, amount, period, bill_type, status, payment_method,
-                   instructions, source_file, {source_row_expression}, created_at, updated_at
+                   instructions, {due_date_expression}, source_file, {source_row_expression}, created_at, updated_at
             from bills
             """
         )

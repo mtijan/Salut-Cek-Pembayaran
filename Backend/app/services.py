@@ -13,8 +13,40 @@ from Backend.db import connect, init_db
 from Backend.import_excel import DEFAULT_WORKBOOK, import_workbook
 
 
+MONTH_NAMES_ID = [
+    "",
+    "Januari",
+    "Februari",
+    "Maret",
+    "April",
+    "Mei",
+    "Juni",
+    "Juli",
+    "Agustus",
+    "September",
+    "Oktober",
+    "November",
+    "Desember",
+]
+
+
 def rupiah(value: int) -> str:
     return "Rp " + f"{value:,}".replace(",", ".")
+
+
+def format_due_date(due_date_str: str | None) -> str:
+    if not due_date_str:
+        return ""
+    cleaned = str(due_date_str).strip()
+    try:
+        parts = cleaned.split("-")
+        if len(parts) == 3:
+            year, month, day = int(parts[0]), int(parts[1]), int(parts[2])
+            if 1 <= month <= 12 and 1 <= day <= 31:
+                return f"{day} {MONTH_NAMES_ID[month]} {year}"
+    except (ValueError, IndexError):
+        pass
+    return cleaned
 
 
 def sanitize_filename(filename: str) -> str:
@@ -76,6 +108,7 @@ def ensure_database() -> None:
 
 
 def bill_row_to_dict(row: sqlite3.Row) -> dict[str, object]:
+    due_date = row["due_date"] if "due_date" in row.keys() and row["due_date"] else ""
     return {
         "id": row["id"],
         "nim": row["nim"],
@@ -87,6 +120,8 @@ def bill_row_to_dict(row: sqlite3.Row) -> dict[str, object]:
         "amount_formatted": rupiah(int(row["amount"])),
         "payment_method": row["payment_method"],
         "briva": row["briva"],
+        "due_date": due_date,
+        "due_date_formatted": format_due_date(due_date),
         "source_file": row["source_file"],
         "source_row_number": row["source_row_number"],
     }
@@ -97,7 +132,7 @@ def list_imported_bill_groups(db_path: str | Path = config.DB_PATH) -> list[dict
     init_db(conn)
     rows = conn.execute(
         """
-        select b.id, b.briva, b.amount, b.period, b.bill_type, b.status, b.payment_method,
+        select b.id, b.briva, b.amount, b.period, b.bill_type, b.status, b.payment_method, b.due_date,
                b.source_file, b.source_row_number, s.nim, s.full_name
         from bills b
         join students s on s.id = b.student_id
@@ -135,7 +170,7 @@ def update_bill_status(db_path: str | Path, bill_id: str, status: str) -> sqlite
     with conn:
         row = conn.execute(
             """
-            select b.id, b.briva, b.amount, b.period, b.bill_type, b.status, b.payment_method,
+            select b.id, b.briva, b.amount, b.period, b.bill_type, b.status, b.payment_method, b.due_date,
                    b.source_file, b.source_row_number, s.nim, s.full_name
             from bills b
             join students s on s.id = b.student_id
@@ -149,7 +184,7 @@ def update_bill_status(db_path: str | Path, bill_id: str, status: str) -> sqlite
             conn.execute("update bills set status = ?, updated_at = datetime('now') where id = ?", (status, bill_id))
             updated = conn.execute(
                 """
-                select b.id, b.briva, b.amount, b.period, b.bill_type, b.status, b.payment_method,
+                select b.id, b.briva, b.amount, b.period, b.bill_type, b.status, b.payment_method, b.due_date,
                        b.source_file, b.source_row_number, s.nim, s.full_name
                 from bills b
                 join students s on s.id = b.student_id
@@ -161,6 +196,37 @@ def update_bill_status(db_path: str | Path, bill_id: str, status: str) -> sqlite
             updated = row
     conn.close()
     return updated
+
+
+def update_bill_due_date(db_path: str | Path, bill_ids: list[str], due_date: str | None) -> list[sqlite3.Row]:
+    if not bill_ids:
+        return []
+    due_date_str = str(due_date or "").strip()
+    if due_date_str:
+        parts = due_date_str.split("-")
+        if len(parts) != 3 or not all(p.isdigit() for p in parts):
+            raise ValueError("Format tanggal harus YYYY-MM-DD.")
+
+    conn = connect(db_path)
+    init_db(conn)
+    with conn:
+        placeholders = ",".join("?" for _ in bill_ids)
+        conn.execute(
+            f"update bills set due_date = ?, updated_at = datetime('now') where id in ({placeholders})",
+            (due_date_str or None, *bill_ids),
+        )
+        updated = conn.execute(
+            f"""
+            select b.id, b.briva, b.amount, b.period, b.bill_type, b.status, b.payment_method, b.due_date,
+                   b.source_file, b.source_row_number, s.nim, s.full_name
+            from bills b
+            join students s on s.id = b.student_id
+            where b.id in ({placeholders})
+            """,
+            (*bill_ids,),
+        ).fetchall()
+    conn.close()
+    return list(updated)
 
 
 def write_lookup_log(nim: str, name: str, result_type: str) -> None:

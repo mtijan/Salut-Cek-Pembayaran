@@ -20,9 +20,11 @@ from Backend.app.services import (
     create_admin_session,
     delete_admin_session,
     ensure_database,
+    format_due_date,
     list_imported_bill_groups,
     rupiah,
     sanitize_filename,
+    update_bill_due_date,
     update_bill_status,
     write_audit,
     write_lookup_log,
@@ -137,7 +139,7 @@ async def lookup(request: Request) -> JSONResponse:
 
     bills = conn.execute(
         """
-        select briva, amount, period, bill_type, status, payment_method, instructions
+        select briva, amount, period, bill_type, status, payment_method, instructions, due_date
         from bills
         where student_id = ?
         order by period desc, created_at asc, briva asc
@@ -146,6 +148,10 @@ async def lookup(request: Request) -> JSONResponse:
     ).fetchall()
     conn.close()
     write_lookup_log(nim, "", "found")
+
+    unpaid_due_dates = [b["due_date"] for b in bills if b["due_date"] and b["status"] == "unpaid"]
+    all_due_dates = [b["due_date"] for b in bills if b["due_date"]]
+    primary_due_date = unpaid_due_dates[0] if unpaid_due_dates else (all_due_dates[0] if all_due_dates else "")
 
     return JSONResponse(
         {
@@ -156,6 +162,8 @@ async def lookup(request: Request) -> JSONResponse:
                     "full_name": student["full_name"],
                     "program_study": config.DEFAULT_PROGRAM_STUDY,
                     "payment_period": config.DEFAULT_PAYMENT_PERIOD_LABEL or (bills[0]["period"] if bills else ""),
+                    "due_date": primary_due_date,
+                    "due_date_formatted": format_due_date(primary_due_date),
                 },
                 "bills": [
                     {
@@ -168,6 +176,8 @@ async def lookup(request: Request) -> JSONResponse:
                         "payment_method": bill["payment_method"],
                         "briva": bill["briva"],
                         "instructions": bill["instructions"],
+                        "due_date": bill["due_date"] or "",
+                        "due_date_formatted": format_due_date(bill["due_date"]),
                     }
                     for index, bill in enumerate(bills, start=1)
                 ],
@@ -253,6 +263,50 @@ async def admin_bill_status(request: Request, admin=Depends(require_admin("impor
         )
     conn.close()
     return success_response({"bill": bill_row_to_dict(updated)})
+
+
+@app.post("/api/admin/bills/due-date")
+async def admin_bill_due_date(request: Request, admin=Depends(require_admin("import"))) -> JSONResponse:
+    if isinstance(admin, JSONResponse):
+        return admin
+    payload = await read_json(request)
+    bill_ids = payload.get("bill_ids")
+    single_bill_id = str(payload.get("bill_id") or "").strip()
+    if isinstance(bill_ids, list):
+        target_ids = [str(i).strip() for i in bill_ids if str(i).strip()]
+    elif single_bill_id:
+        target_ids = [single_bill_id]
+    else:
+        target_ids = []
+
+    due_date = payload.get("due_date")
+    if not target_ids:
+        return error_response(400, "VALIDATION_ERROR", "ID tagihan wajib diisi.")
+    try:
+        updated_rows = update_bill_due_date(config.DB_PATH, target_ids, str(due_date) if due_date else "")
+    except ValueError as exc:
+        return error_response(400, "VALIDATION_ERROR", str(exc))
+    if not updated_rows:
+        return error_response(404, "NOT_FOUND", "Tagihan tidak ditemukan.")
+
+    conn = connect(config.DB_PATH)
+    with conn:
+        for updated in updated_rows:
+            write_audit(
+                conn,
+                admin["id"],
+                "bill.due_date_update",
+                "bill",
+                updated["id"],
+                {"due_date": updated["due_date"], "briva": updated["briva"], "nim": updated["nim"]},
+            )
+    conn.close()
+    return success_response(
+        {
+            "updated_count": len(updated_rows),
+            "bills": [bill_row_to_dict(row) for row in updated_rows],
+        }
+    )
 
 
 @app.post("/api/admin/import/preview")
