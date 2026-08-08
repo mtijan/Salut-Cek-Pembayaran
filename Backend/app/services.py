@@ -77,6 +77,10 @@ def cleanup_stale_imports() -> None:
     for workbook in config.IMPORT_DIR.glob("*.xlsx"):
         if workbook.stat().st_mtime < cutoff:
             workbook.unlink(missing_ok=True)
+    conn = connect(config.DB_PATH)
+    with conn:
+        conn.execute("delete from import_previews where expires_at <= datetime('now')")
+    conn.close()
 
 
 def ensure_database() -> None:
@@ -179,7 +183,7 @@ def ensure_student(conn: sqlite3.Connection, nim: object, full_name: object) -> 
     if not normalized_name:
         raise ValueError("Nama mahasiswa wajib diisi.")
 
-    row = conn.execute("select id, nim, full_name from students where nim = ?", (normalized_nim,)).fetchone()
+    row = conn.execute("select id, nim, full_name from students where nim = ? and deleted_at is null", (normalized_nim,)).fetchone()
     if row:
         if row["full_name"] != normalized_name:
             conn.execute(
@@ -206,15 +210,16 @@ def list_students(db_path: str | Path = config.DB_PATH, query: str = "", limit: 
     conn = connect(db_path)
     init_db(conn)
     params: list[object] = []
-    where = ""
+    where_clauses = ["s.deleted_at is null"]
     if search:
-        where = "where s.nim like ? or s.full_name like ?"
+        where_clauses.append("(s.nim like ? or s.full_name like ?)")
         params.extend([f"%{search}%", f"%{search}%"])
+    where = "where " + " and ".join(where_clauses)
     rows = conn.execute(
         f"""
         select s.id, s.nim, s.full_name, count(b.id) as bill_count, coalesce(sum(b.amount), 0) as total_amount
         from students s
-        left join bills b on b.student_id = s.id
+        left join bills b on b.student_id = s.id and b.deleted_at is null
         {where}
         group by s.id, s.nim, s.full_name
         order by s.nim asc
@@ -235,6 +240,13 @@ def create_student(db_path: str | Path, nim: object, full_name: object) -> sqlit
     finally:
         conn.close()
     return student
+
+
+def require_delete_reason(reason: str) -> str:
+    cleaned = normalize_text(reason)
+    if not cleaned:
+        raise ValueError("Alasan penghapusan wajib diisi.")
+    return cleaned
 
 
 def update_student(db_path: str | Path, student_id: str, payload: dict[str, object]) -> sqlite3.Row | None:
@@ -268,14 +280,30 @@ def update_student(db_path: str | Path, student_id: str, payload: dict[str, obje
         conn.close()
 
 
-def delete_student(db_path: str | Path, student_id: str) -> sqlite3.Row | None:
+def delete_student(db_path: str | Path, student_id: str, actor_id: str | None = None, reason: str = "") -> sqlite3.Row | None:
+    reason = require_delete_reason(reason)
     conn = connect(db_path)
     init_db(conn)
     try:
         with conn:
-            row = conn.execute("select id, nim, full_name from students where id = ?", (student_id,)).fetchone()
+            row = conn.execute("select id, nim, full_name from students where id = ? and deleted_at is null", (student_id,)).fetchone()
             if row:
-                conn.execute("delete from students where id = ?", (student_id,))
+                conn.execute(
+                    """
+                    update students
+                    set deleted_at = datetime('now'), deleted_by = ?, delete_reason = ?, updated_at = datetime('now')
+                    where id = ?
+                    """,
+                    (actor_id, reason, student_id),
+                )
+                conn.execute(
+                    """
+                    update bills
+                    set deleted_at = datetime('now'), deleted_by = ?, delete_reason = ?, updated_at = datetime('now')
+                    where student_id = ? and deleted_at is null
+                    """,
+                    (actor_id, reason, student_id),
+                )
         return row
     finally:
         conn.close()
@@ -287,10 +315,11 @@ def list_bills(db_path: str | Path = config.DB_PATH, query: str = "", limit: int
     conn = connect(db_path)
     init_db(conn)
     params: list[object] = []
-    where = ""
+    where_clauses = ["b.deleted_at is null", "s.deleted_at is null"]
     if search:
-        where = "where s.nim like ? or s.full_name like ? or b.briva like ? or b.period like ? or b.bill_type like ?"
+        where_clauses.append("(s.nim like ? or s.full_name like ? or b.briva like ? or b.period like ? or b.bill_type like ?)")
         params.extend([f"%{search}%", f"%{search}%", f"%{search}%", f"%{search}%", f"%{search}%"])
+    where = "where " + " and ".join(where_clauses)
     rows = conn.execute(
         f"""
         {joined_bill_select()}
@@ -372,7 +401,7 @@ def update_bill(db_path: str | Path, bill_id: str, payload: dict[str, object]) -
     init_db(conn)
     try:
         with conn:
-            current = conn.execute("select id from bills where id = ?", (bill_id,)).fetchone()
+            current = conn.execute("select id from bills where id = ? and deleted_at is null", (bill_id,)).fetchone()
             if not current:
                 return None
             student = ensure_student(conn, payload.get("nim"), payload.get("full_name"))
@@ -390,14 +419,22 @@ def update_bill(db_path: str | Path, bill_id: str, payload: dict[str, object]) -
         conn.close()
 
 
-def delete_bill(db_path: str | Path, bill_id: str) -> sqlite3.Row | None:
+def delete_bill(db_path: str | Path, bill_id: str, actor_id: str | None = None, reason: str = "") -> sqlite3.Row | None:
+    reason = require_delete_reason(reason)
     conn = connect(db_path)
     init_db(conn)
     try:
         with conn:
-            row = conn.execute(f"{joined_bill_select()} where b.id = ?", (bill_id,)).fetchone()
+            row = conn.execute(f"{joined_bill_select()} where b.id = ? and b.deleted_at is null", (bill_id,)).fetchone()
             if row:
-                conn.execute("delete from bills where id = ?", (bill_id,))
+                conn.execute(
+                    """
+                    update bills
+                    set deleted_at = datetime('now'), deleted_by = ?, delete_reason = ?, updated_at = datetime('now')
+                    where id = ?
+                    """,
+                    (actor_id, reason, bill_id),
+                )
         return row
     finally:
         conn.close()
@@ -412,6 +449,7 @@ def list_imported_bill_groups(db_path: str | Path = config.DB_PATH) -> list[dict
                b.source_file, b.source_row_number, s.nim, s.full_name
         from bills b
         join students s on s.id = b.student_id
+        where b.deleted_at is null and s.deleted_at is null
         order by b.source_file desc, s.nim asc, b.source_row_number asc, b.created_at asc, b.briva asc
         """
     ).fetchall()
@@ -450,7 +488,7 @@ def update_bill_status(db_path: str | Path, bill_id: str, status: str) -> sqlite
                    b.source_file, b.source_row_number, s.nim, s.full_name
             from bills b
             join students s on s.id = b.student_id
-            where b.id = ?
+            where b.id = ? and b.deleted_at is null and s.deleted_at is null
             """,
             (bill_id,),
         ).fetchone()
@@ -464,7 +502,7 @@ def update_bill_status(db_path: str | Path, bill_id: str, status: str) -> sqlite
                        b.source_file, b.source_row_number, s.nim, s.full_name
                 from bills b
                 join students s on s.id = b.student_id
-                where b.id = ?
+                where b.id = ? and b.deleted_at is null and s.deleted_at is null
                 """,
                 (bill_id,),
             ).fetchone()
@@ -488,7 +526,7 @@ def update_bill_due_date(db_path: str | Path, bill_ids: list[str], due_date: str
     with conn:
         placeholders = ",".join("?" for _ in bill_ids)
         conn.execute(
-            f"update bills set due_date = ?, updated_at = datetime('now') where id in ({placeholders})",
+            f"update bills set due_date = ?, updated_at = datetime('now') where deleted_at is null and id in ({placeholders})",
             (due_date_str or None, *bill_ids),
         )
         updated = conn.execute(
@@ -497,7 +535,7 @@ def update_bill_due_date(db_path: str | Path, bill_ids: list[str], due_date: str
                    b.source_file, b.source_row_number, s.nim, s.full_name
             from bills b
             join students s on s.id = b.student_id
-            where b.id in ({placeholders})
+            where b.deleted_at is null and s.deleted_at is null and b.id in ({placeholders})
             """,
             (*bill_ids,),
         ).fetchall()
@@ -533,6 +571,47 @@ def write_audit(
         """,
         (str(uuid.uuid4()), actor_id, action, entity_type, entity_id, json.dumps(metadata or {}, ensure_ascii=False)),
     )
+
+
+def store_import_preview(token: str, admin_id: str, file_name: str, stored_path: str | Path) -> None:
+    conn = connect(config.DB_PATH)
+    with conn:
+        conn.execute(
+            """
+            insert into import_previews (token, admin_id, file_name, stored_path, expires_at)
+            values (?, ?, ?, ?, datetime('now', ?))
+            on conflict(token) do update set
+              admin_id = excluded.admin_id,
+              file_name = excluded.file_name,
+              stored_path = excluded.stored_path,
+              expires_at = excluded.expires_at
+            """,
+            (token, admin_id, file_name, str(stored_path), f"+{config.IMPORT_RETENTION_SECONDS} seconds"),
+        )
+    conn.close()
+
+
+def get_import_preview_for_admin(token: str, admin: sqlite3.Row) -> sqlite3.Row | None:
+    conn = connect(config.DB_PATH)
+    row = conn.execute(
+        """
+        select token, admin_id, file_name, stored_path, expires_at
+        from import_previews
+        where token = ?
+          and expires_at > datetime('now')
+          and (? = 'super_admin' or admin_id = ?)
+        """,
+        (token, admin["role"], admin["id"]),
+    ).fetchone()
+    conn.close()
+    return row
+
+
+def delete_import_preview(token: str) -> None:
+    conn = connect(config.DB_PATH)
+    with conn:
+        conn.execute("delete from import_previews where token = ?", (token,))
+    conn.close()
 
 
 def authenticate_admin(email: str, password: str) -> sqlite3.Row | None:

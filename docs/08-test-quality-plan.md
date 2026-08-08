@@ -48,7 +48,7 @@ Mengacu pada ISO/IEC 25010:2023, kualitas produk dipantau melalui kategori berik
 | TC-012 | FR-010 | Upload workbook dengan baris wajib kosong. | Commit ditolak tanpa upsert. |
 | TC-013 | FR-012 | Role `viewer` mencoba import. | Ditolak 403. |
 | TC-014 | FR-009 | Commit preview workbook valid. | Data tersimpan dan audit tercatat. |
-| TC-015 | SEC-007 | Upload file bukan XLSX atau melebihi 5 MB. | Preview ditolak. |
+| TC-015 | SEC-007 | Upload file bukan XLSX, melebihi 5 MB compressed, XML rusak, hasil ekstraksi terlalu besar, atau worksheet terlalu banyak baris. | Preview ditolak dengan pesan aman. |
 | TC-016 | SEC-004 | Viewer mencoba import. | Ditolak 403. |
 | TC-017 | SEC-006 | Database error simulasi. | Response tidak bocor detail internal. |
 | TC-018 | NFR-001 | Lookup 100 request sampel. | P95 kurang dari target. |
@@ -61,6 +61,11 @@ Mengacu pada ISO/IEC 25010:2023, kualitas produk dipantau melalui kategori berik
 | TC-025 | FR-017 | Admin membuka dashboard setelah import. | Tabel tagihan tampil dikelompokkan berdasarkan nama file. |
 | TC-026 | FR-018 | Admin mencentang status lunas. | Status tagihan berubah menjadi `paid`; melepas centang mengubah ke `unpaid`. |
 | TC-027 | FR-014 | Admin menjalankan CRUD manual mahasiswa dan tagihan. | Create, list, update, dan delete mahasiswa/tagihan berhasil melalui API admin dan perubahan tercatat audit. |
+| TC-028 | SEC-004 | Request anonymous mengakses endpoint admin. | Ditolak `401 UNAUTHORIZED`. |
+| TC-029 | SEC-007 | Admin commit `import_token` invalid atau preview milik admin lain. | Token invalid ditolak `400`; preview milik admin lain tidak ditemukan untuk admin tersebut. |
+| TC-030 | FR-014 | Admin delete tanpa alasan. | Ditolak `400 VALIDATION_ERROR`; soft delete hanya berjalan bila alasan tersedia. |
+| TC-031 | FR-013 | Request lookup berulang dengan spoofed `X-Forwarded-For`. | Tetap kena rate limit karena app memakai IP reverse proxy tepercaya. |
+| TC-032 | SEC-006 | Public health check. | Response hanya memuat `status` dan `version`, tanpa jumlah data bisnis. |
 
 ## Security Test
 
@@ -73,6 +78,8 @@ Mengacu pada ISO/IEC 25010:2023, kualitas produk dipantau melalui kategori berik
 | ST-005 | Response lookup valid mengandung informasi pembayaran yang dibutuhkan dan tidak mengandung alamat/email/HP. | Test lulus setelah NIM ditemukan. |
 | ST-006 | `.env` masuk Git. | Test/review gagal. |
 | ST-007 | File SQLite memiliki permission terlalu longgar. | Review/deploy gate gagal sampai permission dibatasi. |
+| ST-008 | Header proxy dipalsukan untuk bypass lookup rate limit. | Tetap terkena `429` setelah batas request. |
+| ST-009 | Admin mencoba commit preview import milik admin lain. | Ditolak tanpa memproses file preview. |
 
 ## UAT Checklist
 
@@ -98,7 +105,7 @@ Mengacu pada ISO/IEC 25010:2023, kualitas produk dipantau melalui kategori berik
 
 | Kebutuhan | Tool |
 |---|---|
-| Unit test | `python -m unittest Backend.test_core`. |
+| Unit test | `python -m unittest Backend.test_core`; validasi terakhir 26 test lulus. |
 | E2E test | Smoke test HTTP melalui browser atau `curl`. |
 | Lint | `python -m py_compile Backend/*.py Backend/app/*.py`. |
 | Dependency audit | Review dependency Python di `requirements.txt`. |

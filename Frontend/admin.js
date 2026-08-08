@@ -717,13 +717,13 @@ manualCard.addEventListener("click", async (event) => {
   if (target.classList.contains("delete-bill-button")) {
     const billId = target.dataset.billId || "";
     const bill = billRows.find((item) => item.id === billId);
-    if (!bill || !confirm(`Hapus tagihan BRIVA ${bill.briva} untuk NIM ${bill.nim}?`)) {
-      return;
-    }
+    if (!bill) return;
+    const reason = prompt(`Hapus tagihan BRIVA ${bill.briva} untuk NIM ${bill.nim}?\nMasukkan alasan penghapusan:`, "Koreksi manual admin");
+    if (reason === null) return;
     target.disabled = true;
     setText(manualMessage, "Menghapus tagihan...");
     try {
-      await api(`/api/admin/bills/${encodeURIComponent(billId)}`, { method: "DELETE" });
+      await api(`/api/admin/bills/${encodeURIComponent(billId)}?reason=${encodeURIComponent(reason)}`, { method: "DELETE" });
       setText(manualMessage, "Tagihan berhasil dihapus.");
       alert("Tagihan berhasil dihapus.");
       await loadManualData();
@@ -792,13 +792,13 @@ manualCard.addEventListener("click", async (event) => {
   if (target.classList.contains("delete-student-button")) {
     const studentId = target.dataset.studentId || "";
     const student = studentRows.find((item) => item.id === studentId);
-    if (!student || !confirm(`Hapus mahasiswa ${student.nim} dan semua tagihannya?`)) {
-      return;
-    }
+    if (!student) return;
+    const reason = prompt(`Hapus mahasiswa ${student.nim} dan semua tagihannya?\nMasukkan alasan penghapusan:`, "Koreksi manual admin");
+    if (reason === null) return;
     target.disabled = true;
     setText(manualMessage, "Menghapus mahasiswa...");
     try {
-      await api(`/api/admin/students/${encodeURIComponent(studentId)}`, { method: "DELETE" });
+      await api(`/api/admin/students/${encodeURIComponent(studentId)}?reason=${encodeURIComponent(reason)}`, { method: "DELETE" });
       setText(manualMessage, "Mahasiswa berhasil dihapus.");
       alert("Mahasiswa berhasil dihapus.");
       resetStudentForm();

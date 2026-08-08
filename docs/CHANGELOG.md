@@ -8,6 +8,7 @@ Format mengikuti prinsip Keep a Changelog dan Semantic Versioning.
 
 ### Added
 
+- Health check sekarang menyertakan `release_id` non-rahasia agar versi code yang aktif di VPS dapat diverifikasi setelah deploy.
 - Backend FastAPI/Uvicorn dengan struktur modul `Backend/app` untuk routing, konfigurasi, response, security, rate limit, dan service.
 - Preview import sekarang membedakan tagihan baru, tidak berubah, akan diperbarui, perubahan nominal, dan penggantian BRIVA.
 - Dashboard admin sekarang menampilkan tagihan terimport per nama file dan menyediakan checkbox status lunas/belum lunas.
@@ -29,6 +30,10 @@ Format mengikuti prinsip Keep a Changelog dan Semantic Versioning.
 - Rate limit untuk lookup, login gagal, dan import; role check untuk import; validasi commit tanpa baris kritis; serta header keamanan respons.
 - Template environment production, konfigurasi Nginx/systemd, dan timer backup SQLite.
 - Deployment production VPS pada 2026-08-02 dengan HTTPS Let's Encrypt, service systemd, backup SQLite terjadwal, dan smoke test lookup/login.
+- Registry `import_previews` untuk mengikat token preview import ke admin pembuat preview sebelum commit.
+- Soft delete mahasiswa dan tagihan dengan `deleted_at`, `deleted_by`, dan alasan penghapusan.
+- Batas hardening XLSX: 20 MB per entry ZIP, 30 MB total uncompressed, dan 5.000 baris data per worksheet.
+- Test keamanan tambahan untuk spoofed proxy header, token import lintas admin, delete tanpa alasan, health check publik, dan workbook abnormal.
 
 ### Changed
 
@@ -42,12 +47,16 @@ Format mengikuti prinsip Keep a Changelog dan Semantic Versioning.
 - Mengubah target deployment MVP dari platform terkelola sebelumnya menjadi VPS + SQLite.
 - Menetapkan Internal Auth berbasis database, Filesystem VPS untuk import opsional, dan backup SQLite sebagai baseline operasional.
 - Menghapus seluruh kredensial default dari halaman admin dan bootstrap server.
+- Rate limit lookup di belakang reverse proxy sekarang memakai `X-Real-IP` tepercaya dari Nginx, bukan nilai `X-Forwarded-For` yang dapat dikirim client.
+- Health check publik sekarang hanya menampilkan status dan versi, bukan jumlah data mahasiswa/tagihan.
+- Dependency auth admin sekarang memakai exception handler terpusat sehingga endpoint admin tidak perlu guard manual.
 
 ### Security
 
 - Menetapkan prinsip bahwa Secret aplikasi dan akses database hanya boleh berada di server environment.
 - Menetapkan mitigasi NIM-only lookup melalui rate limit, pesan error generik, lookup log ter-hash, dan monitoring lookup gagal.
 - Menambahkan perhatian khusus untuk permission file SQLite, penyimpanan di luar webroot, dan uji restore backup.
+- Memperketat commit import agar token harus valid, aktif, dan dimiliki admin pembuat preview atau `super_admin`.
 
 ## [0.0.0] - 2026-08-01
 

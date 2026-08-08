@@ -121,6 +121,8 @@ Menghapus session admin aktif.
 
 Upload file Excel `.xlsx` dengan nama file apa pun, membaca sheet `Data Sinkron` dan `Data Belum Lengkap`, lalu mengembalikan ringkasan tanpa commit ke tabel tagihan. Struktur header wajib mengikuti workbook resmi: `Data Sinkron` memuat `NIM`, `Nama Mahasiswa`, `BRIVA`, dan `Jumlah`; `Data Belum Lengkap` juga memuat `Keterangan`.
 
+Upload dibatasi maksimal 5 MB compressed. Parser juga membatasi ukuran hasil ekstraksi: maksimal 20 MB per entry ZIP, 30 MB total uncompressed workbook, dan 5.000 baris data per worksheet.
+
 Form data:
 
 | Field | Tipe | Keterangan |
@@ -155,7 +157,7 @@ Response:
 
 ### `POST /api/admin/import/commit`
 
-Commit file Excel yang sudah dipreview ke SQLite. Commit ditolak bila `critical_rows` lebih dari 0. Bila preview mendeteksi perubahan nominal atau BRIVA, `confirm_updates` wajib bernilai `true`. Upload ulang data yang sama tidak memperbarui baris maupun status tagihan. Issue dari sheet `Data Belum Lengkap` dicatat sebagai warning dan tidak menghalangi baris valid. NIM yang muncul lebih dari satu kali disimpan sebagai beberapa tagihan, termasuk ketika BRIVA sama; BRIVA yang sama untuk NIM berbeda tetap menjadi konflik kritis.
+Commit file Excel yang sudah dipreview ke SQLite. `import_token` wajib mengikuti format `imp_[0-9a-f]{32}` dan harus terdaftar pada tabel `import_previews`. Commit hanya boleh dilakukan oleh admin yang membuat preview atau role `super_admin`. Commit ditolak bila `critical_rows` lebih dari 0. Bila preview mendeteksi perubahan nominal atau BRIVA, `confirm_updates` wajib bernilai `true`. Upload ulang data yang sama tidak memperbarui baris maupun status tagihan. Issue dari sheet `Data Belum Lengkap` dicatat sebagai warning dan tidak menghalangi baris valid. NIM yang muncul lebih dari satu kali disimpan sebagai beberapa tagihan, termasuk ketika BRIVA sama; BRIVA yang sama untuk NIM berbeda tetap menjadi konflik kritis.
 
 Request:
 
@@ -252,7 +254,7 @@ Query:
 | Parameter | Tipe | Keterangan |
 |---|---|---|
 | `query` | string | Cari NIM atau nama. |
-| `limit` | number | Maksimal data, default 200, maksimal 500. |
+| `limit` | number | Default 2000, maksimal 5000. Nilai non-angka ditolak `400 VALIDATION_ERROR`. |
 
 ### `POST /api/admin/students`
 
@@ -278,7 +280,7 @@ Request:
 
 ### `DELETE /api/admin/students/{id}`
 
-Menghapus mahasiswa dan seluruh tagihan terkait melalui foreign key cascade. Aksi dicatat di audit log.
+Soft delete mahasiswa dan seluruh tagihan aktif miliknya. Request wajib menyertakan alasan melalui query `reason` atau body JSON `{ "reason": "..." }`. Aksi dicatat di audit log dan data soft-deleted tidak tampil pada lookup publik maupun list admin aktif.
 
 ### `GET /api/admin/bills`
 
@@ -287,7 +289,7 @@ Query:
 | Parameter | Tipe | Keterangan |
 |---|---|---|
 | `query` | string | Cari NIM, nama, BRIVA, periode, atau jenis tagihan. |
-| `limit` | number | Maksimal data, default 300, maksimal 500. |
+| `limit` | number | Default 2000, maksimal 5000. Nilai non-angka ditolak `400 VALIDATION_ERROR`. |
 
 ### `POST /api/admin/bills`
 
@@ -325,7 +327,7 @@ Request:
 
 ### `DELETE /api/admin/bills/{id}`
 
-Menghapus satu tagihan. Aksi dicatat di audit log.
+Soft delete satu tagihan. Request wajib menyertakan alasan melalui query `reason` atau body JSON `{ "reason": "..." }`. Aksi dicatat di audit log dan tagihan soft-deleted tidak tampil pada lookup publik maupun list admin aktif.
 
 ## API Rilis Lanjutan (Belum Diimplementasikan)
 
@@ -367,7 +369,7 @@ Response:
 {
   "success": true,
   "data": {
-    "import_token": "tmp_...",
+    "import_token": "imp_0123456789abcdef0123456789abcdef",
     "total_rows": 100,
     "valid_rows": 98,
     "invalid_rows": 2,
@@ -390,7 +392,7 @@ Endpoint rencana untuk versi dashboard admin lebih lengkap. Implementasi MVP saa
 
 ```json
 {
-  "import_token": "tmp_...",
+  "import_token": "imp_0123456789abcdef0123456789abcdef",
   "mode": "upsert",
   "reason": "Import tagihan periode 2026.1"
 }
@@ -416,7 +418,10 @@ Query:
 | `amount` | Angka >= 0, maksimal sesuai batas konfigurasi. |
 | `status` | Untuk endpoint status MVP hanya `paid` atau `unpaid`. |
 | `period` | Format konsisten, contoh `2026.1`. |
-| `file` | XLSX, maksimal 5 MB. |
+| `file` | XLSX, maksimal 5 MB compressed; maksimal 20 MB per entry ZIP, 30 MB total uncompressed, dan 5.000 baris data per worksheet. |
+| `limit` | Query list admin harus angka; input non-angka menghasilkan `400 VALIDATION_ERROR`. |
+| `import_token` | Format `imp_[0-9a-f]{32}`, terdaftar pada preview aktif, dan dimiliki admin pembuat preview atau `super_admin`. |
+| `reason` | Wajib untuk soft delete mahasiswa dan tagihan. |
 
 ## Error Codes
 

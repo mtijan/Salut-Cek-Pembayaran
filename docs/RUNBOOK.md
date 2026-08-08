@@ -30,6 +30,7 @@ Lihat `docs/09-deployment-plan.md` untuk daftar environment variable. Jangan men
 | Check | Cara |
 |---|---|
 | Halaman publik | Buka URL aplikasi. |
+| API health | Pastikan `status`, `version`, dan `release_id` sesuai release yang direncanakan. |
 | API lookup | Jalankan lookup data contoh. |
 | Admin auth | Login sebagai admin test. |
 | Database | Cek koneksi SQLite dan migration status. |

@@ -471,10 +471,228 @@ class CoreBehaviorTests(unittest.TestCase):
                 self.assertEqual(client.get("/api/admin/students").status_code, 200)
                 self.assertEqual(client.get("/api/admin/bills").status_code, 200)
                 self.assertEqual(client.get("/api/admin/import-issues").status_code, 200)
-                self.assertEqual(client.delete(f"/api/admin/bills/{bill_id}").status_code, 200)
-                self.assertEqual(client.delete(f"/api/admin/students/{student_id}").status_code, 200)
+                self.assertEqual(client.delete(f"/api/admin/bills/{bill_id}?reason=test").status_code, 200)
+                self.assertEqual(client.delete(f"/api/admin/students/{student_id}?reason=test").status_code, 200)
             finally:
                 app_config.DB_PATH = original_db_path
+
+    def test_public_health_does_not_leak_counts(self) -> None:
+        client = TestClient(server.app)
+        response = client.get("/api/health")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response.json()["data"],
+            {"status": "ok", "version": "0.2.0", "release_id": app_config.RELEASE_ID},
+        )
+
+    def test_admin_limit_query_parameter_validation(self) -> None:
+        from Backend.app.security import hash_password
+
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            database = Path(temporary_directory) / "salut.sqlite"
+            conn = connect(database)
+            init_db(conn)
+            with conn:
+                conn.execute(
+                    "insert into admin_users (id, email, password_hash, role) values (?, ?, ?, ?)",
+                    ("admin-limit", "admin@limit.test", hash_password("Password123!"), "admin"),
+                )
+            conn.close()
+
+            original_db_path = app_config.DB_PATH
+            app_config.DB_PATH = database
+            try:
+                client = TestClient(server.app)
+                client.post("/api/admin/login", json={"email": "admin@limit.test", "password": "Password123!"})
+                res = client.get("/api/admin/students?limit=abc")
+                self.assertEqual(res.status_code, 400)
+                self.assertEqual(res.json()["error"]["code"], "VALIDATION_ERROR")
+            finally:
+                app_config.DB_PATH = original_db_path
+
+    def test_admin_import_commit_invalid_token(self) -> None:
+        from Backend.app.security import hash_password
+
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            database = Path(temporary_directory) / "salut.sqlite"
+            conn = connect(database)
+            init_db(conn)
+            with conn:
+                conn.execute(
+                    "insert into admin_users (id, email, password_hash, role) values (?, ?, ?, ?)",
+                    ("admin-imp", "admin@imp.test", hash_password("Password123!"), "admin"),
+                )
+            conn.close()
+
+            original_db_path = app_config.DB_PATH
+            app_config.DB_PATH = database
+            try:
+                client = TestClient(server.app)
+                client.post("/api/admin/login", json={"email": "admin@imp.test", "password": "Password123!"})
+                res = client.post("/api/admin/import/commit", json={"import_token": "imp_wildcard*"})
+                self.assertEqual(res.status_code, 400)
+                self.assertEqual(res.json()["error"]["code"], "VALIDATION_ERROR")
+            finally:
+                app_config.DB_PATH = original_db_path
+
+    def test_admin_import_commit_rejects_other_admin_preview(self) -> None:
+        from Backend.app.security import hash_password
+        from Backend.app.services import store_import_preview
+
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            temp = Path(temporary_directory)
+            database = temp / "salut.sqlite"
+            imports = temp / "imports"
+            imports.mkdir()
+            workbook = imports / "imp_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa_owner.xlsx"
+            self._write_workbook(workbook, [("01011", "Pemilik Preview", "81111", 100000)])
+
+            conn = connect(database)
+            init_db(conn)
+            with conn:
+                conn.execute(
+                    "insert into admin_users (id, email, password_hash, role) values (?, ?, ?, ?)",
+                    ("owner-admin", "owner@imp.test", hash_password("Password123!"), "admin"),
+                )
+                conn.execute(
+                    "insert into admin_users (id, email, password_hash, role) values (?, ?, ?, ?)",
+                    ("other-admin", "other@imp.test", hash_password("Password123!"), "admin"),
+                )
+            conn.close()
+
+            original_db_path = app_config.DB_PATH
+            original_import_dir = app_config.IMPORT_DIR
+            app_config.DB_PATH = database
+            app_config.IMPORT_DIR = imports
+            try:
+                store_import_preview("imp_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "owner-admin", "owner.xlsx", workbook)
+                client = TestClient(server.app)
+                client.post("/api/admin/login", json={"email": "other@imp.test", "password": "Password123!"})
+                res = client.post("/api/admin/import/commit", json={"import_token": "imp_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"})
+                self.assertEqual(res.status_code, 404)
+                self.assertTrue(workbook.exists())
+            finally:
+                app_config.DB_PATH = original_db_path
+                app_config.IMPORT_DIR = original_import_dir
+
+    def test_anonymous_admin_endpoints_rejected(self) -> None:
+        client = TestClient(server.app)
+        self.assertEqual(client.get("/api/admin/students").status_code, 401)
+        self.assertEqual(client.get("/api/admin/bills").status_code, 401)
+        self.assertEqual(client.get("/api/admin/imported-bills").status_code, 401)
+
+    def test_delete_requires_reason(self) -> None:
+        from Backend.app.security import hash_password
+
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            database = Path(temporary_directory) / "salut.sqlite"
+            conn = connect(database)
+            init_db(conn)
+            with conn:
+                conn.execute(
+                    "insert into admin_users (id, email, password_hash, role) values (?, ?, ?, ?)",
+                    ("admin-delete", "admin@delete.test", hash_password("Password123!"), "admin"),
+                )
+                conn.execute(
+                    "insert into students (id, nim, full_name, name_norm) values (?, ?, ?, ?)",
+                    ("student-delete", "01012", "Butuh Alasan", "butuh alasan"),
+                )
+                conn.execute(
+                    """
+                    insert into bills (id, student_id, briva, amount, period, bill_type, instructions, source_file)
+                    values (?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    ("bill-delete", "student-delete", "81212", 100000, "2026.1", "UKT BRIVA", "Bayar", "manual"),
+                )
+            conn.close()
+
+            original_db_path = app_config.DB_PATH
+            app_config.DB_PATH = database
+            try:
+                client = TestClient(server.app)
+                client.post("/api/admin/login", json={"email": "admin@delete.test", "password": "Password123!"})
+                bill_res = client.delete("/api/admin/bills/bill-delete")
+                student_res = client.delete("/api/admin/students/student-delete")
+                self.assertEqual(bill_res.status_code, 400)
+                self.assertEqual(student_res.status_code, 400)
+                self.assertEqual(bill_res.json()["error"]["code"], "VALIDATION_ERROR")
+            finally:
+                app_config.DB_PATH = original_db_path
+
+    def test_soft_delete_student_and_bill(self) -> None:
+        from Backend.app.services import create_student, create_bill, delete_student, delete_bill, list_students, list_bills
+
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            database = Path(temporary_directory) / "salut.sqlite"
+            conn = connect(database)
+            init_db(conn)
+            conn.close()
+
+            student = create_student(database, "050999888", "Mahasiswa Soft Delete")
+            bill = create_bill(database, {"nim": "050999888", "full_name": "Mahasiswa Soft Delete", "briva": "999888", "amount": 500000, "period": "2026.1"})
+
+            self.assertEqual(len(list_students(database)), 1)
+            self.assertEqual(len(list_bills(database)), 1)
+
+            deleted = delete_bill(database, bill["id"], actor_id="admin-1", reason="Salah entri")
+            self.assertIsNotNone(deleted)
+            self.assertEqual(len(list_bills(database)), 0)
+
+            deleted_st = delete_student(database, student["id"], actor_id="admin-1", reason="Pengunduran diri")
+            self.assertIsNotNone(deleted_st)
+            self.assertEqual(len(list_students(database)), 0)
+
+            conn = sqlite3.connect(database)
+            st_row = conn.execute("select deleted_at, delete_reason from students where id = ?", (student["id"],)).fetchone()
+            conn.close()
+            self.assertIsNotNone(st_row[0])
+            self.assertEqual(st_row[1], "Pengunduran diri")
+
+    def test_rate_limit_spoofed_proxy_header(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            database = Path(temporary_directory) / "salut.sqlite"
+            conn = connect(database)
+            init_db(conn)
+            conn.close()
+
+            original_db_path = app_config.DB_PATH
+            original_trust = app_config.TRUST_PROXY_HEADERS
+            app_config.DB_PATH = database
+            app_config.TRUST_PROXY_HEADERS = True
+            try:
+                client = TestClient(server.app)
+                for i in range(10):
+                    resp = client.post("/api/lookup", json={"nim": "000000"}, headers={"X-Forwarded-For": f"10.0.0.{i}"})
+                resp = client.post("/api/lookup", json={"nim": "000000"}, headers={"X-Forwarded-For": "10.0.0.99"})
+                self.assertEqual(resp.status_code, 429)
+            finally:
+                app_config.DB_PATH = original_db_path
+                app_config.TRUST_PROXY_HEADERS = original_trust
+
+    def test_malformed_xlsx_is_rejected_safely(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            workbook = Path(temporary_directory) / "malformed.xlsx"
+            with zipfile.ZipFile(workbook, "w") as archive:
+                archive.writestr("xl/workbook.xml", "<workbook>")
+                archive.writestr("xl/_rels/workbook.xml.rels", "<Relationships></Relationships>")
+            with self.assertRaisesRegex(ValueError, "Struktur XML file Excel tidak valid"):
+                preview_workbook(workbook)
+
+    def test_xlsx_uncompressed_size_limit(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            workbook = Path(temporary_directory) / "oversize.xlsx"
+            with zipfile.ZipFile(workbook, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+                archive.writestr("xl/workbook.xml", "a" * (20 * 1024 * 1024 + 1))
+            with self.assertRaisesRegex(ValueError, "melebihi batas maksimum 20 MB"):
+                preview_workbook(workbook)
+
+    def test_xlsx_row_limit(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            workbook = Path(temporary_directory) / "too-many-rows.xlsx"
+            rows = [(f"{100000 + index}", "Mahasiswa Banyak", f"88{index}", 100000) for index in range(5001)]
+            self._write_workbook(workbook, rows)
+            with self.assertRaisesRegex(ValueError, "Jumlah baris worksheet melebihi batas maksimum 5000"):
+                preview_workbook(workbook)
 
     @staticmethod
     def _write_workbook(path: Path, rows: list[tuple[str, str, str, int]]) -> None:

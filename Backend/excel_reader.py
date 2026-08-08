@@ -36,10 +36,32 @@ def _column_name(cell_ref: str) -> str:
     return re.sub(r"\d+", "", cell_ref)
 
 
+MAX_UNCOMPRESSED_FILE_BYTES = 20 * 1024 * 1024
+MAX_UNCOMPRESSED_TOTAL_BYTES = 30 * 1024 * 1024
+MAX_WORKSHEET_ROWS = 5000
+
+
+def _validate_zip_archive(zf: zipfile.ZipFile) -> None:
+    total_size = 0
+    for info in zf.infolist():
+        if info.file_size > MAX_UNCOMPRESSED_FILE_BYTES:
+            raise ValueError(f"File uncompressed '{info.filename}' melebihi batas maksimum 20 MB.")
+        total_size += info.file_size
+        if total_size > MAX_UNCOMPRESSED_TOTAL_BYTES:
+            raise ValueError("Total uncompressed size workbook melebihi batas maksimum 30 MB.")
+
+
+def _parse_xml(content: bytes) -> ET.Element:
+    try:
+        return ET.fromstring(content)
+    except ET.ParseError as exc:
+        raise ValueError("Struktur XML file Excel tidak valid.") from exc
+
+
 def _shared_strings(zf: zipfile.ZipFile) -> list[str]:
     if "xl/sharedStrings.xml" not in zf.namelist():
         return []
-    root = ET.fromstring(zf.read("xl/sharedStrings.xml"))
+    root = _parse_xml(zf.read("xl/sharedStrings.xml"))
     strings: list[str] = []
     for item in root.findall("a:si", NS):
         strings.append("".join(node.text or "" for node in item.findall(".//a:t", NS)))
@@ -56,13 +78,16 @@ def _cell_value(cell: ET.Element, shared: list[str]) -> str:
 
     raw = value_node.text or ""
     if cell.attrib.get("t") == "s" and raw:
-        return normalize_text(shared[int(raw)])
+        idx = int(raw)
+        if 0 <= idx < len(shared):
+            return normalize_text(shared[idx])
+        return ""
     return normalize_text(raw)
 
 
 def _sheet_targets(zf: zipfile.ZipFile) -> dict[str, str]:
-    workbook = ET.fromstring(zf.read("xl/workbook.xml"))
-    rels = ET.fromstring(zf.read("xl/_rels/workbook.xml.rels"))
+    workbook = _parse_xml(zf.read("xl/workbook.xml"))
+    rels = _parse_xml(zf.read("xl/_rels/workbook.xml.rels"))
     rel_targets = {
         rel.attrib["Id"]: rel.attrib["Target"].lstrip("/")
         for rel in rels.findall("p:Relationship", NS)
@@ -72,26 +97,37 @@ def _sheet_targets(zf: zipfile.ZipFile) -> dict[str, str]:
     for sheet in workbook.findall(".//a:sheet", NS):
         name = sheet.attrib["name"]
         rel_id = sheet.attrib[f"{{{REL_NS}}}id"]
-        target = rel_targets[rel_id]
-        if not target.startswith("xl/"):
-            target = f"xl/{target}"
-        sheets[name] = target
+        target = rel_targets.get(rel_id, "")
+        if target:
+            if not target.startswith("xl/"):
+                target = f"xl/{target}"
+            sheets[name] = target
     return sheets
 
 
+def _open_zip(path: str | Path) -> zipfile.ZipFile:
+    try:
+        zf = zipfile.ZipFile(Path(path))
+        _validate_zip_archive(zf)
+        return zf
+    except zipfile.BadZipFile as exc:
+        raise ValueError("File Excel rusak atau berformat tidak valid.") from exc
+
+
 def read_sheet(path: str | Path, sheet_name: str) -> list[dict[str, str]]:
-    workbook_path = Path(path)
-    with zipfile.ZipFile(workbook_path) as zf:
+    with _open_zip(path) as zf:
         shared = _shared_strings(zf)
         targets = _sheet_targets(zf)
         if sheet_name not in targets:
             available = ", ".join(targets)
             raise ValueError(f"Sheet '{sheet_name}' tidak ditemukan. Sheet tersedia: {available}")
 
-        root = ET.fromstring(zf.read(targets[sheet_name]))
+        root = _parse_xml(zf.read(targets[sheet_name]))
         rows = root.findall(".//a:sheetData/a:row", NS)
         if not rows:
             return []
+        if len(rows) - 1 > MAX_WORKSHEET_ROWS:
+            raise ValueError(f"Jumlah baris worksheet melebihi batas maksimum {MAX_WORKSHEET_ROWS}.")
 
         header_cells = {
             _column_name(cell.attrib["r"]): _cell_value(cell, shared)
@@ -110,15 +146,14 @@ def read_sheet(path: str | Path, sheet_name: str) -> list[dict[str, str]]:
 
 
 def read_sheet_headers(path: str | Path, sheet_name: str) -> list[str]:
-    workbook_path = Path(path)
-    with zipfile.ZipFile(workbook_path) as zf:
+    with _open_zip(path) as zf:
         shared = _shared_strings(zf)
         targets = _sheet_targets(zf)
         if sheet_name not in targets:
             available = ", ".join(targets)
             raise ValueError(f"Sheet '{sheet_name}' tidak ditemukan. Sheet tersedia: {available}")
 
-        root = ET.fromstring(zf.read(targets[sheet_name]))
+        root = _parse_xml(zf.read(targets[sheet_name]))
         rows = root.findall(".//a:sheetData/a:row", NS)
         if not rows:
             return []
@@ -126,5 +161,5 @@ def read_sheet_headers(path: str | Path, sheet_name: str) -> list[str]:
 
 
 def workbook_sheet_names(path: str | Path) -> list[str]:
-    with zipfile.ZipFile(Path(path)) as zf:
+    with _open_zip(path) as zf:
         return list(_sheet_targets(zf).keys())

@@ -1,5 +1,4 @@
-from __future__ import annotations
-
+import re
 import uuid
 from contextlib import asynccontextmanager
 from json import JSONDecodeError
@@ -22,15 +21,18 @@ from Backend.app.services import (
     create_student,
     delete_bill,
     delete_admin_session,
+    delete_import_preview,
     delete_student,
     ensure_database,
     format_due_date,
+    get_import_preview_for_admin,
     list_imported_bill_groups,
     list_import_issues,
     list_bills,
     list_students,
     rupiah,
     sanitize_filename,
+    store_import_preview,
     student_row_to_dict,
     update_bill,
     update_bill_due_date,
@@ -43,6 +45,13 @@ from Backend.app.services import (
 from Backend.db import connect
 from Backend.excel_reader import normalize_nim
 from Backend.import_excel import import_workbook, preview_workbook
+
+
+class AuthError(Exception):
+    def __init__(self, status_code: int, code: str, message: str) -> None:
+        self.status_code = status_code
+        self.code = code
+        self.message = message
 
 
 @asynccontextmanager
@@ -69,12 +78,28 @@ async def validation_exception_handler(_: Request, __: RequestValidationError) -
     return error_response(400, "VALIDATION_ERROR", "Data yang dikirim belum valid.")
 
 
+@app.exception_handler(AuthError)
+async def auth_exception_handler(_: Request, exc: AuthError) -> JSONResponse:
+    return error_response(exc.status_code, exc.code, exc.message)
+
+
 def client_ip(request: Request) -> str:
     if config.TRUST_PROXY_HEADERS:
-        forwarded = request.headers.get("x-forwarded-for", "")
-        if forwarded:
-            return forwarded.split(",", 1)[0].strip()
+        real_ip = request.headers.get("x-real-ip", "").strip()
+        if real_ip:
+            return real_ip
     return request.client.host if request.client else "unknown"
+
+
+def parse_limit(request: Request, default: int = 2000, max_limit: int = 5000) -> int:
+    raw = request.query_params.get("limit")
+    if raw is None or raw == "":
+        return default
+    try:
+        val = int(raw)
+    except ValueError:
+        raise ValueError("Query parameter limit harus berupa angka.")
+    return max(1, min(val, max_limit))
 
 
 def enforce_rate_limit(scope: str, key: str, limit: int, window_seconds: int) -> int | None:
@@ -101,9 +126,9 @@ def require_admin(permission: str | None = None):
     def dependency(request: Request):
         admin = current_admin(request)
         if not admin:
-            return error_response(401, "UNAUTHORIZED", "Silakan login sebagai admin.")
+            raise AuthError(401, "UNAUTHORIZED", "Silakan login sebagai admin.")
         if permission and permission not in config.ROLE_PERMISSIONS.get(admin["role"], set()):
-            return error_response(403, "FORBIDDEN", "Role Anda tidak memiliki akses untuk aksi ini.")
+            raise AuthError(403, "FORBIDDEN", "Role Anda tidak memiliki akses untuk aksi ini.")
         return admin
 
     return dependency
@@ -111,12 +136,7 @@ def require_admin(permission: str | None = None):
 
 @app.get("/api/health")
 async def health() -> JSONResponse:
-    conn = connect(config.DB_PATH)
-    students = conn.execute("select count(*) as total from students").fetchone()["total"]
-    bills = conn.execute("select count(*) as total from bills").fetchone()["total"]
-    issues = conn.execute("select count(*) as total from import_issues").fetchone()["total"]
-    conn.close()
-    return success_response({"status": "ok", "students": students, "bills": bills, "import_issues": issues})
+    return success_response({"status": "ok", "version": "0.2.0", "release_id": config.RELEASE_ID})
 
 
 @app.post("/api/lookup")
@@ -141,7 +161,7 @@ async def lookup(request: Request) -> JSONResponse:
         return error_response(400, "VALIDATION_ERROR", "NIM wajib diisi.", req_id=req_id)
 
     conn = connect(config.DB_PATH)
-    student = conn.execute("select id, nim, full_name, program_study from students where nim = ?", (nim,)).fetchone()
+    student = conn.execute("select id, nim, full_name, program_study from students where nim = ? and deleted_at is null", (nim,)).fetchone()
     if not student:
         conn.close()
         write_lookup_log(nim, "", "not_found")
@@ -151,7 +171,7 @@ async def lookup(request: Request) -> JSONResponse:
         """
         select briva, amount, period, bill_type, status, payment_method, instructions, due_date
         from bills
-        where student_id = ?
+        where student_id = ? and deleted_at is null
         order by period desc, created_at asc, briva asc
         """,
         (student["id"],),
@@ -226,8 +246,6 @@ async def admin_login(request: Request) -> JSONResponse:
 
 @app.get("/api/admin/me")
 async def admin_me(admin=Depends(require_admin())) -> JSONResponse:
-    if isinstance(admin, JSONResponse):
-        return admin
     return success_response({"email": admin["email"], "full_name": admin["full_name"], "role": admin["role"]})
 
 
@@ -240,15 +258,11 @@ async def admin_logout(request: Request) -> JSONResponse:
 
 @app.get("/api/admin/imported-bills")
 async def admin_imported_bills(admin=Depends(require_admin("import"))) -> JSONResponse:
-    if isinstance(admin, JSONResponse):
-        return admin
     return success_response({"groups": list_imported_bill_groups(config.DB_PATH)})
 
 
 @app.post("/api/admin/bills/status")
 async def admin_bill_status(request: Request, admin=Depends(require_admin("import"))) -> JSONResponse:
-    if isinstance(admin, JSONResponse):
-        return admin
     payload = await read_json(request)
     bill_id = str(payload.get("bill_id") or "").strip()
     status = str(payload.get("status") or "").strip().lower()
@@ -277,8 +291,6 @@ async def admin_bill_status(request: Request, admin=Depends(require_admin("impor
 
 @app.post("/api/admin/bills/due-date")
 async def admin_bill_due_date(request: Request, admin=Depends(require_admin("import"))) -> JSONResponse:
-    if isinstance(admin, JSONResponse):
-        return admin
     payload = await read_json(request)
     bill_ids = payload.get("bill_ids")
     single_bill_id = str(payload.get("bill_id") or "").strip()
@@ -321,25 +333,25 @@ async def admin_bill_due_date(request: Request, admin=Depends(require_admin("imp
 
 @app.get("/api/admin/students")
 async def admin_students(request: Request, admin=Depends(require_admin("manage_data"))) -> JSONResponse:
-    if isinstance(admin, JSONResponse):
-        return admin
     query = str(request.query_params.get("query") or "")
-    limit = int(request.query_params.get("limit") or 2000)
+    try:
+        limit = parse_limit(request, default=2000, max_limit=5000)
+    except ValueError as exc:
+        return error_response(400, "VALIDATION_ERROR", str(exc))
     return success_response({"students": list_students(config.DB_PATH, query, limit)})
 
 
 @app.get("/api/admin/import-issues")
 async def admin_import_issues(request: Request, admin=Depends(require_admin("manage_data"))) -> JSONResponse:
-    if isinstance(admin, JSONResponse):
-        return admin
-    limit = int(request.query_params.get("limit") or 500)
+    try:
+        limit = parse_limit(request, default=500, max_limit=2000)
+    except ValueError as exc:
+        return error_response(400, "VALIDATION_ERROR", str(exc))
     return success_response({"issues": list_import_issues(config.DB_PATH, limit)})
 
 
 @app.post("/api/admin/students")
 async def admin_create_student(request: Request, admin=Depends(require_admin("manage_data"))) -> JSONResponse:
-    if isinstance(admin, JSONResponse):
-        return admin
     payload = await read_json(request)
     try:
         student = create_student(config.DB_PATH, payload.get("nim"), payload.get("full_name"))
@@ -355,8 +367,6 @@ async def admin_create_student(request: Request, admin=Depends(require_admin("ma
 
 @app.patch("/api/admin/students/{student_id}")
 async def admin_update_student(student_id: str, request: Request, admin=Depends(require_admin("manage_data"))) -> JSONResponse:
-    if isinstance(admin, JSONResponse):
-        return admin
     payload = await read_json(request)
     try:
         student = update_student(config.DB_PATH, student_id, payload)
@@ -373,33 +383,37 @@ async def admin_update_student(student_id: str, request: Request, admin=Depends(
 
 
 @app.delete("/api/admin/students/{student_id}")
-async def admin_delete_student(student_id: str, admin=Depends(require_admin("manage_data"))) -> JSONResponse:
-    if isinstance(admin, JSONResponse):
-        return admin
-    student = delete_student(config.DB_PATH, student_id)
+async def admin_delete_student(student_id: str, request: Request, admin=Depends(require_admin("manage_data"))) -> JSONResponse:
+    reason = str(request.query_params.get("reason") or "").strip()
+    if not reason:
+        payload = await read_json(request)
+        reason = str(payload.get("reason") or "").strip()
+    try:
+        student = delete_student(config.DB_PATH, student_id, actor_id=admin["id"], reason=reason)
+    except ValueError as exc:
+        return error_response(400, "VALIDATION_ERROR", str(exc))
     if not student:
         return error_response(404, "NOT_FOUND", "Mahasiswa tidak ditemukan.")
 
     conn = connect(config.DB_PATH)
     with conn:
-        write_audit(conn, admin["id"], "student.delete", "student", student_id, {"nim": student["nim"]})
+        write_audit(conn, admin["id"], "student.delete", "student", student_id, {"nim": student["nim"], "reason": reason})
     conn.close()
     return success_response({"deleted": True, "student": student_row_to_dict(student)})
 
 
 @app.get("/api/admin/bills")
 async def admin_bills(request: Request, admin=Depends(require_admin("manage_data"))) -> JSONResponse:
-    if isinstance(admin, JSONResponse):
-        return admin
     query = str(request.query_params.get("query") or "")
-    limit = int(request.query_params.get("limit") or 2000)
+    try:
+        limit = parse_limit(request, default=2000, max_limit=5000)
+    except ValueError as exc:
+        return error_response(400, "VALIDATION_ERROR", str(exc))
     return success_response({"bills": list_bills(config.DB_PATH, query, limit)})
 
 
 @app.post("/api/admin/bills")
 async def admin_create_bill(request: Request, admin=Depends(require_admin("manage_data"))) -> JSONResponse:
-    if isinstance(admin, JSONResponse):
-        return admin
     payload = await read_json(request)
     try:
         bill = create_bill(config.DB_PATH, payload)
@@ -415,8 +429,6 @@ async def admin_create_bill(request: Request, admin=Depends(require_admin("manag
 
 @app.patch("/api/admin/bills/{bill_id}")
 async def admin_update_bill(bill_id: str, request: Request, admin=Depends(require_admin("manage_data"))) -> JSONResponse:
-    if isinstance(admin, JSONResponse):
-        return admin
     payload = await read_json(request)
     try:
         bill = update_bill(config.DB_PATH, bill_id, payload)
@@ -433,16 +445,21 @@ async def admin_update_bill(bill_id: str, request: Request, admin=Depends(requir
 
 
 @app.delete("/api/admin/bills/{bill_id}")
-async def admin_delete_bill(bill_id: str, admin=Depends(require_admin("manage_data"))) -> JSONResponse:
-    if isinstance(admin, JSONResponse):
-        return admin
-    bill = delete_bill(config.DB_PATH, bill_id)
+async def admin_delete_bill(bill_id: str, request: Request, admin=Depends(require_admin("manage_data"))) -> JSONResponse:
+    reason = str(request.query_params.get("reason") or "").strip()
+    if not reason:
+        payload = await read_json(request)
+        reason = str(payload.get("reason") or "").strip()
+    try:
+        bill = delete_bill(config.DB_PATH, bill_id, actor_id=admin["id"], reason=reason)
+    except ValueError as exc:
+        return error_response(400, "VALIDATION_ERROR", str(exc))
     if not bill:
         return error_response(404, "NOT_FOUND", "Tagihan tidak ditemukan.")
 
     conn = connect(config.DB_PATH)
     with conn:
-        write_audit(conn, admin["id"], "bill.delete", "bill", bill_id, {"nim": bill["nim"], "briva": bill["briva"]})
+        write_audit(conn, admin["id"], "bill.delete", "bill", bill_id, {"nim": bill["nim"], "briva": bill["briva"], "reason": reason})
     conn.close()
     return success_response({"deleted": True, "bill": bill_row_to_dict(bill)})
 
@@ -453,8 +470,6 @@ async def admin_import_preview(
     file: UploadFile = File(...),
     admin=Depends(require_admin("import")),
 ) -> JSONResponse:
-    if isinstance(admin, JSONResponse):
-        return admin
     retry_after = enforce_rate_limit("import_preview", admin["id"], 20, 60 * 60)
     if retry_after:
         return error_response(429, "RATE_LIMITED", "Terlalu banyak permintaan. Coba lagi nanti.", {"Retry-After": str(retry_after)})
@@ -478,6 +493,7 @@ async def admin_import_preview(
                 target.write(chunk)
 
         preview = preview_workbook(saved_path, config.DB_PATH, source_file_name=safe_name)
+        store_import_preview(import_token, admin["id"], safe_name, saved_path)
         conn = connect(config.DB_PATH)
         with conn:
             write_audit(
@@ -511,8 +527,6 @@ async def admin_import_preview(
 
 @app.post("/api/admin/import/commit")
 async def admin_import_commit(request: Request, admin=Depends(require_admin("import"))) -> JSONResponse:
-    if isinstance(admin, JSONResponse):
-        return admin
     retry_after = enforce_rate_limit("import_commit", admin["id"], 10, 60 * 60)
     if retry_after:
         return error_response(429, "RATE_LIMITED", "Terlalu banyak permintaan. Coba lagi nanti.", {"Retry-After": str(retry_after)})
@@ -520,19 +534,31 @@ async def admin_import_commit(request: Request, admin=Depends(require_admin("imp
     payload = await read_json(request)
     import_token = str(payload.get("import_token") or "")
     confirm_updates = payload.get("confirm_updates") is True
-    if not import_token.startswith("imp_"):
+    if not re.fullmatch(r"imp_[0-9a-f]{32}", import_token):
         return error_response(400, "VALIDATION_ERROR", "Token import tidak valid.")
 
-    matches = list(config.IMPORT_DIR.glob(f"{import_token}_*.xlsx"))
-    if not matches:
+    preview_record = get_import_preview_for_admin(import_token, admin)
+    if not preview_record:
         return error_response(404, "NOT_FOUND", "File preview import tidak ditemukan.")
 
-    workbook = matches[0]
+    workbook = Path(str(preview_record["stored_path"])).resolve()
+    import_root = config.IMPORT_DIR.resolve()
     try:
-        source_file_name = workbook.name[len(import_token) + 1 :]
+        workbook.relative_to(import_root)
+    except ValueError:
+        delete_import_preview(import_token)
+        return error_response(400, "VALIDATION_ERROR", "Token import tidak valid.")
+
+    if not workbook.exists():
+        delete_import_preview(import_token)
+        return error_response(404, "NOT_FOUND", "File preview import tidak ditemukan.")
+
+    try:
+        source_file_name = str(preview_record["file_name"])
         preview = preview_workbook(workbook, config.DB_PATH, source_file_name=source_file_name)
         if preview["critical_rows"]:
             workbook.unlink(missing_ok=True)
+            delete_import_preview(import_token)
             return error_response(400, "IMPORT_VALIDATION_FAILED", "Import dibatalkan karena ada baris kritis pada sheet Data Sinkron.")
         if preview["requires_update_confirmation"] and not confirm_updates:
             return error_response(
@@ -546,6 +572,7 @@ async def admin_import_commit(request: Request, admin=Depends(require_admin("imp
             write_audit(conn, admin["id"], "import.commit", "excel_import", import_token, {"file_name": workbook.name, **result})
         conn.close()
         workbook.unlink(missing_ok=True)
+        delete_import_preview(import_token)
         return success_response(result)
     except ValueError as exc:
         return error_response(400, "IMPORT_VALIDATION_FAILED", str(exc))

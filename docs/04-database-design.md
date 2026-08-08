@@ -35,6 +35,12 @@ Nama file workbook tidak menjadi syarat bisnis; file `.xlsx` dengan nama apa pun
 | `nim` | text | unique, not null | NIM mahasiswa. |
 | `full_name` | text | not null | Nama lengkap dari Excel. |
 | `name_norm` | text | not null | Nama ternormalisasi untuk match case-insensitive. |
+| `program_study` | text | nullable | Program studi dari workbook terbaru atau default aplikasi. |
+| `initial_registration` | text | nullable | Informasi registrasi awal dari workbook terbaru. |
+| `phone_number` | text | nullable | Nomor HP internal dari workbook terbaru, tidak tampil publik. |
+| `deleted_at` | text | nullable | Waktu soft delete. Data dengan nilai ini tidak tampil di lookup/list aktif. |
+| `deleted_by` | text | nullable | Admin yang melakukan soft delete. |
+| `delete_reason` | text | nullable | Alasan soft delete yang wajib diisi lewat API admin. |
 | `created_at` | text | not null | Waktu dibuat. |
 | `updated_at` | text | not null | Waktu diperbarui. |
 
@@ -51,8 +57,12 @@ Nama file workbook tidak menjadi syarat bisnis; file `.xlsx` dengan nama apa pun
 | `status` | text | not null | Status tagihan, `unpaid` atau `paid`; default `unpaid`. |
 | `payment_method` | text | not null | Metode pembayaran, default `BRIVA`. |
 | `instructions` | text | not null | Instruksi pembayaran yang tampil ke mahasiswa. |
+| `due_date` | text | nullable | Batas aktif pembayaran. |
 | `source_file` | text | not null | Nama file Excel sumber untuk grouping halaman admin. |
 | `source_row_number` | integer | nullable | Nomor baris Excel sumber untuk mencegah re-upload file yang sama menggandakan tagihan. |
+| `deleted_at` | text | nullable | Waktu soft delete. Data dengan nilai ini tidak tampil di lookup/list aktif. |
+| `deleted_by` | text | nullable | Admin yang melakukan soft delete. |
+| `delete_reason` | text | nullable | Alasan soft delete yang wajib diisi lewat API admin. |
 | `created_at` | text | not null | Waktu dibuat. |
 | `updated_at` | text | not null | Waktu diperbarui. |
 
@@ -81,13 +91,26 @@ Nama file workbook tidak menjadi syarat bisnis; file `.xlsx` dengan nama apa pun
 | `source_file` | text | not null | Nama file Excel sumber. |
 | `created_at` | text | not null | Waktu dicatat. |
 
+## Tabel `import_previews`
+
+| Kolom | Tipe | Constraint | Keterangan |
+|---|---|---|---|
+| `token` | text | PK | Token preview format `imp_[0-9a-f]{32}`. |
+| `admin_id` | text | FK `admin_users.id` | Admin pembuat preview. Commit hanya boleh oleh admin ini atau `super_admin`. |
+| `file_name` | text | not null | Nama file aman yang ditampilkan dan dipakai sebagai `source_file`. |
+| `stored_path` | text | not null | Path file preview di folder import server-side. |
+| `expires_at` | text | not null | Waktu kedaluwarsa preview. |
+| `created_at` | text | not null | Waktu preview dibuat. |
+
 ## Index
 
 | Tabel | Index |
 |---|---|
 | `students` | unique `nim`; index `nim`; index `name_norm`. |
-| `bills` | index `student_id`; index `source_file, source_row_number`. |
+| `students` | index `deleted_at`. |
+| `bills` | index `student_id`; index `source_file, source_row_number`; index `deleted_at`. |
 | `lookup_logs` | index `created_at`. |
+| `import_previews` | index `admin_id`; index `expires_at`. |
 
 ## SQL Utama
 
@@ -99,6 +122,12 @@ create table if not exists students (
   nim text not null unique,
   full_name text not null,
   name_norm text not null,
+  program_study text,
+  initial_registration text,
+  phone_number text,
+  deleted_at text,
+  deleted_by text,
+  delete_reason text,
   created_at text not null default (datetime('now')),
   updated_at text not null default (datetime('now'))
 );
@@ -113,10 +142,23 @@ create table if not exists bills (
   status text not null default 'unpaid',
   payment_method text not null default 'BRIVA',
   instructions text not null,
+  due_date text,
   source_file text not null,
   source_row_number integer,
+  deleted_at text,
+  deleted_by text,
+  delete_reason text,
   created_at text not null default (datetime('now')),
   updated_at text not null default (datetime('now'))
+);
+
+create table if not exists import_previews (
+  token text primary key,
+  admin_id text not null references admin_users(id) on delete cascade,
+  file_name text not null,
+  stored_path text not null,
+  expires_at text not null,
+  created_at text not null default (datetime('now'))
 );
 ```
 
@@ -157,7 +199,7 @@ create table if not exists bills (
 
 ## Planned Extension
 
-CRUD manual mahasiswa dan tagihan memakai tabel aktif `students`, `bills`, dan `audit_logs`. Tabel berikut belum diimplementasikan dan akan ditambahkan untuk konfigurasi lanjutan:
+CRUD manual mahasiswa dan tagihan memakai tabel aktif `students`, `bills`, dan `audit_logs`. Delete manual memakai soft delete melalui `deleted_at`, `deleted_by`, dan `delete_reason`; foreign key cascade hanya menjadi pelindung apabila data benar-benar dihapus pada operasi maintenance khusus. Tabel berikut belum diimplementasikan dan akan ditambahkan untuk konfigurasi lanjutan:
 
 | Tabel | Tujuan |
 |---|---|

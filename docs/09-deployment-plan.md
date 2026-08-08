@@ -32,6 +32,7 @@
 | `ADMIN_BOOTSTRAP_PASSWORD` | Server only | Ya | Password admin awal sementara, wajib diganti setelah login pertama. |
 | `LOOKUP_HASH_SECRET` | Server | Ya | Salt/HMAC secret untuk hash NIM/IP logs. |
 | `TRUST_PROXY_HEADERS` | Server only | Tidak | Bernilai `true` hanya di belakang reverse proxy tepercaya. |
+| `RELEASE_ID` | Server only | Tidak | Identitas release non-rahasia yang tampil pada `/api/health`; gunakan ID yang sama dengan commit rilis. |
 | `DEFAULT_PROGRAM_STUDY` | Server only | Tidak | Label program studi default pada hasil lookup publik. |
 | `DEFAULT_PAYMENT_PERIOD_LABEL` | Server only | Tidak | Label periode pembayaran default pada hasil lookup publik. |
 
@@ -105,7 +106,7 @@ Production aktif pada `https://salutcektagihan.web.id` sejak 2026-08-02 dengan N
 | Semua Must requirement rilis ini selesai. | Implemented, perlu UAT |
 | Role check server-side untuk import aktif dan diuji. | Implemented, perlu UAT |
 | Secret tersimpan di environment VPS dan tidak berada di webroot. | Verified 2026-08-02 |
-| Backup SQLite otomatis diuji restore. | Verified 2026-08-02 |
+| Backup SQLite otomatis dan restore uji. | Wajib diverifikasi pada setiap release backend |
 | Backup plan disetujui. | Pending |
 | Test utama lulus. | Local dan smoke test VPS verified; UAT admin pending |
 | UAT admin selesai. | Pending |

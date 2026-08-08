@@ -29,6 +29,7 @@ def init_db(conn: sqlite3.Connection) -> None:
     migrate_bills_for_duplicate_briva(conn)
     migrate_bills_for_due_date(conn)
     migrate_students_for_profile(conn)
+    migrate_soft_delete(conn)
     conn.execute("create index if not exists idx_bills_source_file_row on bills(source_file, source_row_number)")
 
 
@@ -103,3 +104,16 @@ def migrate_bills_for_duplicate_briva(conn: sqlite3.Connection) -> None:
         conn.execute("create index if not exists idx_bills_source_file_row on bills(source_file, source_row_number)")
     finally:
         conn.execute("pragma foreign_keys = on")
+
+
+def migrate_soft_delete(conn: sqlite3.Connection) -> None:
+    student_cols = _table_columns(conn, "students")
+    for col in ("deleted_at", "deleted_by", "delete_reason"):
+        if col not in student_cols:
+            conn.execute(f"alter table students add column {col} text")
+    bill_cols = _table_columns(conn, "bills")
+    for col in ("deleted_at", "deleted_by", "delete_reason"):
+        if col not in bill_cols:
+            conn.execute(f"alter table bills add column {col} text")
+    conn.execute("create index if not exists idx_students_deleted_at on students(deleted_at)")
+    conn.execute("create index if not exists idx_bills_deleted_at on bills(deleted_at)")

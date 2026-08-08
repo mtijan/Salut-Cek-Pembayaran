@@ -18,6 +18,7 @@ ADMIN_BOOTSTRAP_PASSWORD = os.environ.get("ADMIN_BOOTSTRAP_PASSWORD", "")
 TRUST_PROXY_HEADERS = os.environ.get("TRUST_PROXY_HEADERS", "").lower() == "true"
 DEFAULT_PROGRAM_STUDY = os.environ.get("DEFAULT_PROGRAM_STUDY", "S1 Ilmu Hukum")
 DEFAULT_PAYMENT_PERIOD_LABEL = os.environ.get("DEFAULT_PAYMENT_PERIOD_LABEL", "Semester Ganjil 2026")
+RELEASE_ID = os.environ.get("RELEASE_ID", "2026-08-08-audit-mitigations").strip()
 
 SESSION_COOKIE = "salut_admin_session"
 SESSION_TTL_HOURS = 8
