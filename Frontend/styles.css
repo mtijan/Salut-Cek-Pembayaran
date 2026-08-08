@@ -127,6 +127,10 @@ h1 span {
   font-weight: 900;
 }
 
+.title-main + .title-main {
+  margin-top: 2px;
+}
+
 .lookup-intro {
   margin: 0 0 14px;
 }
@@ -171,6 +175,37 @@ h2 {
   font-size: 15px;
   line-height: 1.2;
   text-transform: uppercase;
+}
+
+.bill-info-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.bill-info-heading h2 {
+  margin-bottom: 14px;
+}
+
+.bill-period {
+  display: grid;
+  gap: 3px;
+  margin: 0;
+  color: var(--ink);
+  text-align: right;
+}
+
+.bill-period span {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.bill-period strong {
+  font-size: 14px;
+  font-weight: 800;
 }
 
 .student-info {
@@ -242,7 +277,24 @@ input {
   outline: none;
 }
 
+select {
+  width: 100%;
+  height: 48px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 0 14px;
+  font: inherit;
+  color: var(--ink);
+  background: #fbfdfc;
+  outline: none;
+}
+
 input:focus {
+  border-color: var(--brand);
+  box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.16);
+}
+
+select:focus {
   border-color: var(--brand);
   box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.16);
 }
@@ -290,6 +342,11 @@ button {
 
 .form-message.error {
   color: #9a3412;
+}
+
+.form-message.warning {
+  color: #9a3412;
+  font-weight: 700;
 }
 
 .empty-state {
@@ -594,6 +651,7 @@ button {
   }
 
   .result-header,
+  .bill-info-heading,
   .bill-top,
   .payment-box,
   .bill-amount-row,
@@ -695,6 +753,139 @@ button {
 .preview-state h3 {
   margin: 18px 0 10px;
   font-size: 18px;
+}
+
+.manual-editor {
+  display: grid;
+  gap: 14px;
+  margin-top: 18px;
+}
+
+.manual-section {
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fbfdfc;
+}
+
+.manual-section-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+#manual-card h3 {
+  margin: 18px 0 10px;
+  font-size: 18px;
+}
+
+.manual-section-heading h3 {
+  margin: 0;
+}
+
+.compact-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.bill-form-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.form-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.compact-actions button {
+  height: 36px;
+  padding: 0 14px;
+  font-size: 13px;
+}
+
+#save-student-button,
+#save-bill-button {
+  background: var(--brand);
+  color: white;
+}
+
+#save-student-button:hover,
+#save-student-button:focus,
+#save-bill-button:hover,
+#save-bill-button:focus {
+  background: var(--brand-strong);
+}
+
+.form-actions button {
+  flex: 1 1 auto;
+}
+
+.admin-list-tools {
+  display: grid;
+  grid-template-columns: minmax(110px, 0.2fr) minmax(220px, 1fr);
+  gap: 10px;
+  align-items: center;
+  margin: 16px 0;
+}
+
+.search-control {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 112px;
+  gap: 10px;
+  align-items: center;
+}
+
+#manual-search-button {
+  background: var(--brand);
+  color: white;
+}
+
+#manual-search-button:hover,
+#manual-search-button:focus {
+  background: var(--brand-strong);
+}
+
+.row-actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: nowrap;
+  justify-content: flex-end;
+}
+
+.row-actions button {
+  height: 34px;
+  width: 34px;
+  padding: 0;
+  border-radius: 6px;
+  font-size: 17px;
+  line-height: 1;
+}
+
+.actions-column {
+  width: 108px;
+  min-width: 108px;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.icon-action-button {
+  min-width: 34px;
+}
+
+.danger-button {
+  width: auto;
+  border: 1px solid #fecaca;
+  background: #fff1f2;
+  color: #be123c;
+}
+
+.danger-button:hover,
+.danger-button:focus {
+  background: #ffe4e6;
 }
 
 .table-mini {
@@ -893,4 +1084,34 @@ button {
   width: 100%;
   background: var(--accent);
   color: white;
+}
+
+@media (max-width: 760px) {
+  .compact-form-grid,
+  .bill-form-grid,
+  .admin-list-tools,
+  .search-control {
+    grid-template-columns: 1fr;
+  }
+
+  .manual-section-heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .form-actions {
+    flex-direction: column;
+  }
+
+  .form-actions button {
+    width: 100%;
+  }
+
+  .row-actions {
+    flex-direction: row;
+  }
+
+  .row-actions button {
+    width: 34px;
+  }
 }

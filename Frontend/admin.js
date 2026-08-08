@@ -1,16 +1,25 @@
 const loginCard = document.querySelector("#login-card");
 const importCard = document.querySelector("#import-card");
+const manualCard = document.querySelector("#manual-card");
 const billsCard = document.querySelector("#bills-card");
 const loginForm = document.querySelector("#login-form");
 const importForm = document.querySelector("#import-form");
+const studentForm = document.querySelector("#student-form");
+const billForm = document.querySelector("#bill-form");
 const loginMessage = document.querySelector("#login-message");
 const importMessage = document.querySelector("#import-message");
+const manualMessage = document.querySelector("#manual-message");
 const billsMessage = document.querySelector("#bills-message");
 const logoutButton = document.querySelector("#logout-button");
 const adminEmail = document.querySelector("#admin-email");
 const fileInput = document.querySelector("#excel-file");
 const previewButton = importForm.querySelector("button[type='submit']");
+const refreshManualButton = document.querySelector("#refresh-manual-button");
 const refreshBillsButton = document.querySelector("#refresh-bills-button");
+const resetStudentButton = document.querySelector("#reset-student-button");
+const resetBillButton = document.querySelector("#reset-bill-button");
+const manualSearchForm = document.querySelector("#manual-search-form");
+const manualSearch = document.querySelector("#manual-search");
 const previewState = document.querySelector("#preview-state");
 const validCount = document.querySelector("#valid-count");
 const newCount = document.querySelector("#new-count");
@@ -27,11 +36,16 @@ const changeTable = document.querySelector("#change-table");
 const confirmUpdatesRow = document.querySelector("#confirm-updates-row");
 const confirmUpdates = document.querySelector("#confirm-updates");
 const billsState = document.querySelector("#bills-state");
+const studentsState = document.querySelector("#students-state");
+const manualBillsState = document.querySelector("#manual-bills-state");
+const importIssuesState = document.querySelector("#import-issues-state");
 
 let currentImportToken = "";
 let currentPreview = null;
 let isCommitting = false;
 let isUploading = false;
+let studentRows = [];
+let billRows = [];
 
 function setText(node, text, type = "") {
   node.textContent = text;
@@ -62,15 +76,18 @@ function refreshCommitState() {
 function showAdmin(user) {
   loginCard.classList.add("hidden");
   importCard.classList.remove("hidden");
+  manualCard.classList.remove("hidden");
   billsCard.classList.remove("hidden");
   logoutButton.classList.remove("hidden");
   adminEmail.textContent = user.email;
+  loadManualData();
   loadImportedBills();
 }
 
 function showLogin() {
   loginCard.classList.remove("hidden");
   importCard.classList.add("hidden");
+  manualCard.classList.add("hidden");
   billsCard.classList.add("hidden");
   logoutButton.classList.add("hidden");
   previewState.classList.add("hidden");
@@ -80,7 +97,13 @@ function showLogin() {
   isUploading = false;
   previewButton.disabled = false;
   billsState.replaceChildren();
+  studentsState.replaceChildren();
+  manualBillsState.replaceChildren();
+  importIssuesState.replaceChildren();
+  studentRows = [];
+  billRows = [];
   setText(billsMessage, "");
+  setText(manualMessage, "");
   refreshCommitState();
 }
 
@@ -112,13 +135,13 @@ function renderPreview(data) {
   sampleTable.innerHTML = `
     <table>
       <thead>
-        <tr><th>NIM</th><th>Nama</th><th>BRIVA</th><th>Jumlah</th></tr>
+        <tr><th>NIM</th><th>Nama</th><th>Program Studi</th><th>BRIVA</th><th>Jumlah</th><th>Batas Pembayaran</th></tr>
       </thead>
       <tbody>
         ${data.sample
           .map(
             (row) =>
-              `<tr><td>${escapeHtml(row.nim)}</td><td>${escapeHtml(row.full_name)}</td><td>${escapeHtml(row.briva)}</td><td>${rupiah(row.amount)}</td></tr>`,
+              `<tr><td>${escapeHtml(row.nim)}</td><td>${escapeHtml(row.full_name)}</td><td>${escapeHtml(row.program_study || "-")}</td><td>${escapeHtml(row.briva)}</td><td>${rupiah(row.amount)}</td><td>${escapeHtml(row.due_date || "-")}</td></tr>`,
           )
           .join("")}
       </tbody>
@@ -128,7 +151,8 @@ function renderPreview(data) {
   if (data.errors.length === 0) {
     errorList.innerHTML = `<p class="muted">Tidak ada issue pada preview.</p>`;
   } else {
-    errorList.innerHTML = data.errors
+    errorList.innerHTML = [...data.errors]
+      .sort((left, right) => (left.severity === "critical" ? -1 : 0) - (right.severity === "critical" ? -1 : 0))
       .map(
         (item) =>
           `<p><strong>${escapeHtml(item.sheet)} baris ${escapeHtml(item.row_number)}</strong><br />${escapeHtml(item.message)}</p>`,
@@ -161,6 +185,159 @@ function renderPreview(data) {
   confirmUpdatesRow.classList.toggle("hidden", !data.requires_update_confirmation);
   refreshCommitState();
   previewState.classList.remove("hidden");
+}
+
+function resetStudentForm() {
+  studentForm.reset();
+  document.querySelector("#student-id").value = "";
+  document.querySelector("#save-student-button").textContent = "Simpan";
+}
+
+function resetBillForm() {
+  billForm.reset();
+  document.querySelector("#bill-id").value = "";
+  document.querySelector("#bill-form-period").value = "Semester Ganjil 2026";
+  document.querySelector("#bill-form-type").value = "UKT BRIVA";
+  document.querySelector("#bill-form-status").value = "unpaid";
+  document.querySelector("#save-bill-button").textContent = "Simpan";
+}
+
+function renderStudents(students) {
+  if (!students.length) {
+    studentsState.innerHTML = `<p class="muted">Belum ada mahasiswa.</p>`;
+    return;
+  }
+
+  studentsState.innerHTML = `
+    <table>
+      <thead>
+        <tr><th>Mahasiswa</th><th>Tagihan</th><th>Total</th><th class="actions-column">Aksi</th></tr>
+      </thead>
+      <tbody>
+        ${students
+          .map(
+            (student) => `
+              <tr data-student-id="${escapeHtml(student.id)}">
+                <td><strong>${escapeHtml(student.full_name)}</strong><br /><span class="muted">${escapeHtml(student.nim)}</span></td>
+                <td>${escapeHtml(student.bill_count)}</td>
+                <td>${escapeHtml(student.total_amount_formatted)}</td>
+                <td class="actions-column">
+                  <div class="row-actions">
+                    <button type="button" class="icon-action-button edit-student-button ghost-button" data-student-id="${escapeHtml(student.id)}" title="Edit mahasiswa" aria-label="Edit mahasiswa ${escapeHtml(student.nim)}">✎</button>
+                    <button type="button" class="icon-action-button delete-student-button danger-button" data-student-id="${escapeHtml(student.id)}" title="Hapus mahasiswa" aria-label="Hapus mahasiswa ${escapeHtml(student.nim)}">×</button>
+                  </div>
+                </td>
+              </tr>
+            `,
+          )
+          .join("")}
+      </tbody>
+    </table>
+  `;
+}
+
+function renderManualBills(bills) {
+  if (!bills.length) {
+    manualBillsState.innerHTML = `<p class="muted">Belum ada tagihan.</p>`;
+    return;
+  }
+
+  manualBillsState.innerHTML = `
+    <table>
+      <thead>
+        <tr>
+          <th>Mahasiswa</th>
+          <th>BRIVA</th>
+          <th>Nominal</th>
+          <th>Periode</th>
+          <th>Jenis</th>
+          <th>Status</th>
+          <th>Batas Aktif</th>
+          <th class="actions-column">Aksi</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${bills
+          .map(
+            (bill) => `
+              <tr data-bill-id="${escapeHtml(bill.id)}">
+                <td><strong>${escapeHtml(bill.full_name)}</strong><br /><span class="muted">${escapeHtml(bill.nim)}</span></td>
+                <td>${escapeHtml(bill.briva)}</td>
+                <td>${escapeHtml(bill.amount_formatted)}</td>
+                <td>${escapeHtml(bill.period)}</td>
+                <td>${escapeHtml(bill.bill_type)}</td>
+                <td class="bill-status-text ${bill.status === "paid" ? "is-paid" : "is-unpaid"}">${bill.status === "paid" ? "Lunas" : "Belum lunas"}</td>
+                <td>${escapeHtml(bill.due_date_formatted || "-")}</td>
+                <td class="actions-column">
+                  <div class="row-actions">
+                    <button type="button" class="icon-action-button edit-bill-button ghost-button" data-bill-id="${escapeHtml(bill.id)}" title="Edit tagihan" aria-label="Edit tagihan BRIVA ${escapeHtml(bill.briva)}">✎</button>
+                    <button type="button" class="icon-action-button delete-bill-button danger-button" data-bill-id="${escapeHtml(bill.id)}" title="Hapus tagihan" aria-label="Hapus tagihan BRIVA ${escapeHtml(bill.briva)}">×</button>
+                  </div>
+                </td>
+              </tr>
+            `,
+          )
+          .join("")}
+      </tbody>
+    </table>
+  `;
+}
+
+function renderImportIssues(issues) {
+  if (!issues.length) {
+    importIssuesState.innerHTML = `<p class="muted">Tidak ada data yang perlu diperbaiki.</p>`;
+    return;
+  }
+
+  importIssuesState.innerHTML = `
+    <table>
+      <thead>
+        <tr><th>File</th><th>Sheet</th><th>Baris</th><th>NIM</th><th>Nama</th><th>BRIVA</th><th>Nominal</th><th>Catatan</th></tr>
+      </thead>
+      <tbody>
+        ${issues
+          .map(
+            (issue) => `
+              <tr>
+                <td>${escapeHtml(issue.source_file)}</td>
+                <td>${escapeHtml(issue.sheet_name)}</td>
+                <td>${escapeHtml(issue.row_number)}</td>
+                <td>${escapeHtml(issue.nim || "-")}</td>
+                <td>${escapeHtml(issue.full_name || "-")}</td>
+                <td>${escapeHtml(issue.briva || "-")}</td>
+                <td>${escapeHtml(issue.amount || "-")}</td>
+                <td>${escapeHtml(issue.note)}</td>
+              </tr>
+            `,
+          )
+          .join("")}
+      </tbody>
+    </table>
+  `;
+}
+
+async function loadManualData() {
+  const query = manualSearch.value.trim();
+  refreshManualButton.disabled = true;
+  setText(manualMessage, query ? `Mencari data "${query}"...` : "Memuat data manual...");
+  try {
+    const queryString = query ? `?query=${encodeURIComponent(query)}&limit=2000` : "?limit=2000";
+    const [studentsResult, billsResult, issuesResult] = await Promise.all([
+      api(`/api/admin/students${queryString}`),
+      api(`/api/admin/bills${queryString}`),
+      api("/api/admin/import-issues?limit=500"),
+    ]);
+    studentRows = studentsResult.data.students || [];
+    billRows = billsResult.data.bills || [];
+    renderStudents(studentRows);
+    renderManualBills(billRows);
+    renderImportIssues(issuesResult.data.issues || []);
+    setText(manualMessage, query ? `Hasil pencarian siap: ${studentRows.length} mahasiswa, ${billRows.length} tagihan.` : "Data manual siap.");
+  } catch (error) {
+    setText(manualMessage, error.message, "error");
+  } finally {
+    refreshManualButton.disabled = false;
+  }
 }
 
 function renderImportedBills(groups) {
@@ -296,7 +473,9 @@ importForm.addEventListener("submit", async (event) => {
         ? "Ada baris kritis. Perbaiki file sebelum import dapat di-commit."
         : result.data.requires_update_confirmation
           ? "Ada perubahan nominal atau BRIVA. Periksa daftar perubahan dan setujui sebelum commit."
-        : "Preview siap. Periksa ringkasan sebelum commit.",
+          : result.data.skipped_rows > 0
+            ? `Preview siap. ${result.data.skipped_rows} baris tidak valid akan dilewati dan perlu diperbaiki manual setelah commit.`
+            : "Preview siap. Periksa ringkasan sebelum commit.",
       result.data.critical_rows > 0 ? "error" : "",
     );
   } catch (error) {
@@ -338,7 +517,18 @@ commitButton.addEventListener("click", async () => {
     currentImportToken = "";
     currentPreview = null;
     importForm.reset();
-    setText(importMessage, `Import selesai: ${result.data.created} baru, ${result.data.updated} diperbarui, ${result.data.unchanged} tidak berubah, ${result.data.issues} issue dicatat.`);
+    const issueDetails = (result.data.issue_details || [])
+      .map((issue) => `${issue.sheet} baris ${issue.row_number}`)
+      .join(", ");
+    const importSummary = `Import selesai: ${result.data.created} baru, ${result.data.updated} diperbarui, ${result.data.unchanged} tidak berubah.`;
+    if (result.data.issues > 0) {
+      const notification = `${importSummary} ${result.data.issues} baris dilewati dan dicatat untuk perbaikan manual${issueDetails ? `: ${issueDetails}` : ""}.`;
+      setText(importMessage, notification, "warning");
+      alert(`${notification}\n\nPerbaiki data tersebut melalui Kelola Manual.`);
+    } else {
+      setText(importMessage, importSummary);
+    }
+    loadManualData();
     loadImportedBills();
   } catch (error) {
     setText(importMessage, error.message, "error");
@@ -347,6 +537,63 @@ commitButton.addEventListener("click", async () => {
     previewButton.disabled = false;
     refreshCommitState();
   }
+});
+
+studentForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const studentId = document.querySelector("#student-id").value;
+  const payload = Object.fromEntries(new FormData(studentForm));
+  delete payload.id;
+  setText(manualMessage, studentId ? "Menyimpan perubahan mahasiswa..." : "Menambah mahasiswa...");
+
+  try {
+    await api(studentId ? `/api/admin/students/${encodeURIComponent(studentId)}` : "/api/admin/students", {
+      method: studentId ? "PATCH" : "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    resetStudentForm();
+    setText(manualMessage, "Data mahasiswa berhasil disimpan.");
+    alert("Data mahasiswa berhasil disimpan.");
+    await loadManualData();
+    loadImportedBills();
+  } catch (error) {
+    setText(manualMessage, error.message, "error");
+  }
+});
+
+billForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const billId = document.querySelector("#bill-id").value;
+  const payload = Object.fromEntries(new FormData(billForm));
+  payload.nim = document.querySelector("#student-form-nim").value;
+  payload.full_name = document.querySelector("#student-form-name").value;
+  delete payload.id;
+  setText(manualMessage, billId ? "Menyimpan perubahan tagihan..." : "Menambah tagihan...");
+
+  try {
+    await api(billId ? `/api/admin/bills/${encodeURIComponent(billId)}` : "/api/admin/bills", {
+      method: billId ? "PATCH" : "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    resetBillForm();
+    setText(manualMessage, "Data tagihan berhasil disimpan.");
+    alert("Data tagihan berhasil disimpan.");
+    await loadManualData();
+    loadImportedBills();
+  } catch (error) {
+    setText(manualMessage, error.message, "error");
+  }
+});
+
+resetStudentButton.addEventListener("click", resetStudentForm);
+resetBillButton.addEventListener("click", resetBillForm);
+refreshManualButton.addEventListener("click", loadManualData);
+
+manualSearchForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  await loadManualData();
 });
 
 refreshBillsButton.addEventListener("click", loadImportedBills);
@@ -403,7 +650,7 @@ billsState.addEventListener("change", async (event) => {
   }
 });
 
-billsState.addEventListener("click", async (event) => {
+manualCard.addEventListener("click", async (event) => {
   const target = event.target;
   if (!(target instanceof HTMLButtonElement)) {
     return;
@@ -455,6 +702,111 @@ billsState.addEventListener("click", async (event) => {
       setText(billsMessage, `Batas aktif berhasil disimpan untuk ${result.data.updated_count || billIds.length} tagihan.`);
     } catch (error) {
       setText(billsMessage, error.message, "error");
+    } finally {
+      target.disabled = false;
+    }
+  }
+});
+
+manualCard.addEventListener("click", async (event) => {
+  const target = event.target;
+  if (!(target instanceof HTMLButtonElement)) {
+    return;
+  }
+
+  if (target.classList.contains("delete-bill-button")) {
+    const billId = target.dataset.billId || "";
+    const bill = billRows.find((item) => item.id === billId);
+    if (!bill || !confirm(`Hapus tagihan BRIVA ${bill.briva} untuk NIM ${bill.nim}?`)) {
+      return;
+    }
+    target.disabled = true;
+    setText(manualMessage, "Menghapus tagihan...");
+    try {
+      await api(`/api/admin/bills/${encodeURIComponent(billId)}`, { method: "DELETE" });
+      setText(manualMessage, "Tagihan berhasil dihapus.");
+      alert("Tagihan berhasil dihapus.");
+      await loadManualData();
+      loadImportedBills();
+    } catch (error) {
+      setText(manualMessage, error.message, "error");
+    } finally {
+      target.disabled = false;
+    }
+  }
+});
+
+manualCard.addEventListener("click", async (event) => {
+  const target = event.target;
+  if (!(target instanceof HTMLButtonElement)) {
+    return;
+  }
+
+  if (target.classList.contains("edit-bill-button")) {
+    const bill = billRows.find((item) => item.id === (target.dataset.billId || ""));
+    if (!bill) return;
+    if (!confirm(`Edit tagihan BRIVA ${bill.briva} untuk NIM ${bill.nim}?`)) {
+      return;
+    }
+    document.querySelector("#bill-id").value = bill.id;
+    document.querySelector("#student-id").value = "";
+    document.querySelector("#student-form-nim").value = bill.nim;
+    document.querySelector("#student-form-name").value = bill.full_name;
+    document.querySelector("#bill-form-briva").value = bill.briva;
+    document.querySelector("#bill-form-amount").value = bill.amount;
+    document.querySelector("#bill-form-period").value = bill.period;
+    document.querySelector("#bill-form-type").value = bill.bill_type;
+    document.querySelector("#bill-form-status").value = bill.status;
+    document.querySelector("#bill-form-due-date").value = bill.due_date || "";
+    document.querySelector("#save-bill-button").textContent = "Update";
+    manualCard.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+});
+
+manualCard.addEventListener("click", async (event) => {
+  const target = event.target;
+  if (!(target instanceof HTMLButtonElement)) {
+    return;
+  }
+
+  if (target.classList.contains("edit-student-button")) {
+    const student = studentRows.find((item) => item.id === (target.dataset.studentId || ""));
+    if (!student) return;
+    if (!confirm(`Edit data mahasiswa ${student.nim} - ${student.full_name}?`)) {
+      return;
+    }
+    document.querySelector("#student-id").value = student.id;
+    document.querySelector("#student-form-nim").value = student.nim;
+    document.querySelector("#student-form-name").value = student.full_name;
+    document.querySelector("#save-student-button").textContent = "Update";
+    manualCard.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+});
+
+manualCard.addEventListener("click", async (event) => {
+  const target = event.target;
+  if (!(target instanceof HTMLButtonElement)) {
+    return;
+  }
+
+  if (target.classList.contains("delete-student-button")) {
+    const studentId = target.dataset.studentId || "";
+    const student = studentRows.find((item) => item.id === studentId);
+    if (!student || !confirm(`Hapus mahasiswa ${student.nim} dan semua tagihannya?`)) {
+      return;
+    }
+    target.disabled = true;
+    setText(manualMessage, "Menghapus mahasiswa...");
+    try {
+      await api(`/api/admin/students/${encodeURIComponent(studentId)}`, { method: "DELETE" });
+      setText(manualMessage, "Mahasiswa berhasil dihapus.");
+      alert("Mahasiswa berhasil dihapus.");
+      resetStudentForm();
+      resetBillForm();
+      await loadManualData();
+      loadImportedBills();
+    } catch (error) {
+      setText(manualMessage, error.message, "error");
     } finally {
       target.disabled = false;
     }

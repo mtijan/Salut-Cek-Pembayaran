@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>UNIVERSITAS TERBUKA SALUT AWWABIN - TANGERANG</title>
-    <link rel="stylesheet" href="./styles.css?v=20260808-v2" />
+    <link rel="stylesheet" href="./styles.css?v=20260808-payment-layout" />
   </head>
   <body>
     <main class="app-shell">
@@ -14,7 +14,8 @@
           <div>
             <h1 id="page-title">
               <span class="title-kicker">UNIVERSITAS TERBUKA</span>
-              <span class="title-main">SALUT Awwabin Tangerang</span>
+              <span class="title-main">SALUT AWWABIN</span>
+              <span class="title-main">Tangerang - Banten</span>
             </h1>
           </div>
         </div>
@@ -66,14 +67,6 @@
                 <dt>Program Studi</dt>
                 <dd id="student-program">-</dd>
               </div>
-              <div>
-                <dt>Periode Pembayaran</dt>
-                <dd id="payment-period">-</dd>
-              </div>
-              <div>
-                <dt>Batas Aktif Pembayaran</dt>
-                <dd id="payment-due-date">-</dd>
-              </div>
             </dl>
           </section>
 
@@ -85,7 +78,10 @@
     <template id="bill-template">
       <article class="bill-item">
         <section class="payment-section bill-info">
-          <h2 class="bill-section-title">Informasi Tagihan</h2>
+          <div class="bill-info-heading">
+            <h2 class="bill-section-title">Informasi Tagihan</h2>
+            <p class="bill-period"><span>Periode Pembayaran</span><strong class="payment-period-inline">-</strong></p>
+          </div>
           <div class="amount-lines"></div>
           <div class="total-bill-row">
             <div>
@@ -117,13 +113,13 @@
             <li>Datang ke Kantor SALUT Awwabin.</li>
             <li>Transfer ke Bank BRI dengan Nomor Rekening BRIVA di atas. Pastikan nama penerima dan nominal pembayaran sudah benar.</li>
             <li>Lihat rincian tagihan melalui Aplikasi Smart BRI Billing (SBB).</li>
-            <li>Pembayaran dapat dilakukan dari berbagai bank, ATM, mobile banking, internet banking, atau kanal pembayaran digital lainnya</li>
+            <li>Pembayaran dapat dilakukan dari berbagai bank, ATM, mobile banking, internet banking, atau kanal pembayaran digital lainnya.</li>
             <li>Biaya Pendidikan dapat dicicil sesuai kemampuan dan wajib lunas sebelum batas akhir pembayaran.</li>
           </ul>
         </section>
       </article>
     </template>
 
-    <script src="./app.js?v=20260808-v2"></script>
+    <script src="./app.js?v=20260808-payment-layout"></script>
   </body>
 </html>

@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Admin SALUT</title>
-    <link rel="stylesheet" href="./styles.css?v=20260808-v2" />
+    <link rel="stylesheet" href="/styles.css?v=admin-table-layout-20260808" />
   </head>
   <body>
     <main class="admin-shell">
@@ -97,6 +97,98 @@
         </div>
       </section>
 
+      <section id="manual-card" class="lookup-panel admin-card hidden">
+        <div class="admin-card-title">
+          <div>
+            <p class="eyebrow">Kelola Manual</p>
+            <h2>Data Mahasiswa dan Tagihan</h2>
+          </div>
+          <button type="button" id="refresh-manual-button" class="ghost-button">Refresh</button>
+        </div>
+
+        <div class="manual-editor">
+          <form id="student-form" class="lookup-form manual-section">
+            <input id="student-id" name="id" type="hidden" />
+            <div class="manual-section-heading">
+              <h3>Mahasiswa</h3>
+              <div class="form-actions compact-actions">
+                <button type="submit" id="save-student-button">Simpan</button>
+                <button type="button" id="reset-student-button" class="ghost-button">Reset</button>
+              </div>
+            </div>
+            <div class="compact-form-grid">
+              <div>
+                <label for="student-form-nim">NIM</label>
+                <input id="student-form-nim" name="nim" type="text" inputmode="numeric" required />
+              </div>
+              <div>
+                <label for="student-form-name">Nama</label>
+                <input id="student-form-name" name="full_name" type="text" required />
+              </div>
+            </div>
+          </form>
+
+          <form id="bill-form" class="lookup-form manual-section">
+            <input id="bill-id" name="id" type="hidden" />
+            <div class="manual-section-heading">
+              <h3>Tagihan</h3>
+              <div class="form-actions compact-actions">
+                <button type="submit" id="save-bill-button">Simpan</button>
+                <button type="button" id="reset-bill-button" class="ghost-button">Reset</button>
+              </div>
+            </div>
+            <div class="compact-form-grid bill-form-grid">
+              <div>
+                <label for="bill-form-briva">Nomor BRIVA</label>
+                <input id="bill-form-briva" name="briva" type="text" inputmode="numeric" required />
+              </div>
+              <div>
+                <label for="bill-form-amount">Nominal</label>
+                <input id="bill-form-amount" name="amount" type="number" min="1" required />
+              </div>
+              <div>
+                <label for="bill-form-period">Periode</label>
+                <input id="bill-form-period" name="period" type="text" value="Semester Ganjil 2026" required />
+              </div>
+              <div>
+                <label for="bill-form-type">Jenis Tagihan</label>
+                <input id="bill-form-type" name="bill_type" type="text" value="UKT BRIVA" required />
+              </div>
+              <div>
+                <label for="bill-form-status">Status</label>
+                <select id="bill-form-status" name="status">
+                  <option value="unpaid">Belum lunas</option>
+                  <option value="paid">Lunas</option>
+                </select>
+              </div>
+              <div>
+                <label for="bill-form-due-date">Batas Aktif</label>
+                <input id="bill-form-due-date" name="due_date" type="date" />
+              </div>
+            </div>
+          </form>
+        </div>
+
+        <p id="manual-message" class="form-message" role="status"></p>
+
+        <form id="manual-search-form" class="admin-list-tools">
+          <label for="manual-search">Cari Data</label>
+          <div class="search-control">
+            <input id="manual-search" type="search" placeholder="NIM, nama, BRIVA, periode" />
+            <button type="submit" id="manual-search-button">Cari</button>
+          </div>
+        </form>
+
+        <h3>Data Perlu Diperbaiki</h3>
+        <div id="import-issues-state" class="table-mini"></div>
+
+        <h3>Mahasiswa</h3>
+        <div id="students-state" class="table-mini"></div>
+
+        <h3>Tagihan</h3>
+        <div id="manual-bills-state" class="table-mini"></div>
+      </section>
+
       <section id="bills-card" class="lookup-panel admin-card hidden">
         <div class="admin-card-title">
           <div>
@@ -110,6 +202,6 @@
       </section>
     </main>
 
-    <script src="./admin.js?v=20260808-v2"></script>
+    <script src="/admin.js?v=admin-import-issues-table-20260808"></script>
   </body>
 </html>

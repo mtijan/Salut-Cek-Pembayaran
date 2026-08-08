@@ -6,8 +6,6 @@ const resultState = document.querySelector("#result-state");
 const studentNim = document.querySelector("#student-nim");
 const studentName = document.querySelector("#student-name");
 const studentProgram = document.querySelector("#student-program");
-const paymentPeriod = document.querySelector("#payment-period");
-const paymentDueDate = document.querySelector("#payment-due-date");
 const paymentStatus = document.querySelector("#payment-status");
 const billList = document.querySelector("#bill-list");
 const billTemplate = document.querySelector("#bill-template");
@@ -39,8 +37,6 @@ function renderResult(data) {
   studentNim.textContent = data.student.nim || "-";
   studentName.textContent = data.student.full_name || "-";
   studentProgram.textContent = data.student.program_study || "-";
-  paymentPeriod.textContent = data.student.payment_period || "-";
-  paymentDueDate.textContent = data.student.due_date_formatted || "-";
 
   const bills = data.bills || [];
   billList.replaceChildren();
@@ -52,6 +48,7 @@ function renderResult(data) {
   const hasUnpaidBill = bills.some((bill) => bill.status === "unpaid");
 
   item.querySelector(".bill-section-title").textContent = bills.length > 1 ? "Informasi Tagihan" : "Informasi Tagihan";
+  item.querySelector(".payment-period-inline").textContent = data.student.payment_period || "-";
   item.querySelector(".total-amount").textContent = rupiah(total);
 
   const dueDateBox = item.querySelector(".due-date-box");
