@@ -7,6 +7,7 @@ import tempfile
 import unittest
 import zipfile
 from pathlib import Path
+from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
@@ -493,6 +494,16 @@ class CoreBehaviorTests(unittest.TestCase):
             response.json()["data"],
             {"status": "ok", "version": "0.2.0", "release_id": app_config.RELEASE_ID},
         )
+
+    def test_release_id_auto_follows_git_head(self) -> None:
+        with mock.patch.object(app_config, "_read_git_release_id", return_value="554ab37"):
+            self.assertEqual(app_config.resolve_release_id("auto"), "554ab37")
+            self.assertEqual(app_config.resolve_release_id("git"), "554ab37")
+
+    def test_release_id_manual_override_still_supported(self) -> None:
+        with mock.patch.object(app_config, "_read_git_release_id") as git_reader:
+            self.assertEqual(app_config.resolve_release_id("release-label"), "release-label")
+            git_reader.assert_not_called()
 
     def test_admin_limit_query_parameter_validation(self) -> None:
         from Backend.app.security import hash_password
