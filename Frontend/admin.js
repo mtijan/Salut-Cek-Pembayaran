@@ -1,7 +1,13 @@
+const loginShell = document.querySelector("#login-shell");
 const loginCard = document.querySelector("#login-card");
+const adminWorkspace = document.querySelector("#admin-workspace");
 const importCard = document.querySelector("#import-card");
+const studentsCard = document.querySelector("#students-card");
 const manualCard = document.querySelector("#manual-card");
 const billsCard = document.querySelector("#bills-card");
+const adminViewButtons = document.querySelectorAll("[data-admin-view]");
+const adminViewKicker = document.querySelector("#admin-view-kicker");
+const adminViewTitle = document.querySelector("#admin-view-title");
 const loginForm = document.querySelector("#login-form");
 const importForm = document.querySelector("#import-form");
 const studentForm = document.querySelector("#student-form");
@@ -11,6 +17,11 @@ const importMessage = document.querySelector("#import-message");
 const manualMessage = document.querySelector("#manual-message");
 const billsMessage = document.querySelector("#bills-message");
 const logoutButton = document.querySelector("#logout-button");
+const logoutButtonMobile = document.querySelector("#logout-button-mobile");
+const sidebarToggle = document.querySelector("#sidebar-toggle");
+const adminSidebar = document.querySelector("#admin-sidebar");
+const sidebarOverlay = document.querySelector("#sidebar-overlay");
+const adminMobileViewTitle = document.querySelector("#admin-mobile-view-title");
 const adminEmail = document.querySelector("#admin-email");
 const fileInput = document.querySelector("#excel-file");
 const previewButton = importForm.querySelector("button[type='submit']");
@@ -46,6 +57,14 @@ let isCommitting = false;
 let isUploading = false;
 let studentRows = [];
 let billRows = [];
+let activeAdminView = "upload";
+
+const adminViews = {
+  upload: { card: importCard, kicker: "Upload Excel", title: "Upload File" },
+  students: { card: studentsCard, kicker: "Data Akademik", title: "Data Mahasiswa" },
+  bills: { card: manualCard, kicker: "Pembayaran", title: "Tagihan Mahasiswa" },
+  files: { card: billsCard, kicker: "Riwayat Import", title: "Data Mahasiswa per File" },
+};
 
 function setText(node, text, type = "") {
   node.textContent = text;
@@ -73,23 +92,60 @@ function refreshCommitState() {
   commitButton.disabled = isCommitting;
 }
 
+function closeSidebar() {
+  if (!adminSidebar || !sidebarOverlay || !sidebarToggle) return;
+  adminSidebar.classList.remove("is-open");
+  sidebarOverlay.classList.remove("is-open");
+  sidebarToggle.setAttribute("aria-expanded", "false");
+}
+
+function openSidebar() {
+  if (!adminSidebar || !sidebarOverlay || !sidebarToggle) return;
+  adminSidebar.classList.add("is-open");
+  sidebarOverlay.classList.add("is-open");
+  sidebarToggle.setAttribute("aria-expanded", "true");
+}
+
+function toggleSidebar() {
+  if (adminSidebar?.classList.contains("is-open")) {
+    closeSidebar();
+  } else {
+    openSidebar();
+  }
+}
+
+function setAdminView(view) {
+  const selected = adminViews[view] || adminViews.upload;
+  activeAdminView = adminViews[view] ? view : "upload";
+  for (const item of Object.values(adminViews)) {
+    item.card.classList.toggle("hidden", item !== selected);
+  }
+  for (const button of adminViewButtons) {
+    button.classList.toggle("is-active", button.dataset.adminView === activeAdminView);
+  }
+  adminViewKicker.textContent = selected.kicker;
+  adminViewTitle.textContent = selected.title;
+  if (adminMobileViewTitle) {
+    adminMobileViewTitle.textContent = selected.title;
+  }
+  closeSidebar();
+}
+
 function showAdmin(user) {
+  if (loginShell) loginShell.classList.add("hidden");
   loginCard.classList.add("hidden");
-  importCard.classList.remove("hidden");
-  manualCard.classList.remove("hidden");
-  billsCard.classList.remove("hidden");
-  logoutButton.classList.remove("hidden");
+  adminWorkspace.classList.remove("hidden");
   adminEmail.textContent = user.email;
+  setAdminView(activeAdminView);
   loadManualData();
   loadImportedBills();
 }
 
 function showLogin() {
+  closeSidebar();
+  if (loginShell) loginShell.classList.remove("hidden");
   loginCard.classList.remove("hidden");
-  importCard.classList.add("hidden");
-  manualCard.classList.add("hidden");
-  billsCard.classList.add("hidden");
-  logoutButton.classList.add("hidden");
+  adminWorkspace.classList.add("hidden");
   previewState.classList.add("hidden");
   currentImportToken = "";
   currentPreview = null;
@@ -202,6 +258,14 @@ function resetBillForm() {
   document.querySelector("#save-bill-button").textContent = "Simpan";
 }
 
+function statusLabel(status) {
+  return { paid: "Lunas", partial: "Bayar sebagian", unpaid: "Belum lunas" }[status] || "Belum lunas";
+}
+
+function statusClass(status) {
+  return status === "paid" ? "is-paid" : status === "partial" ? "is-partial" : "is-unpaid";
+}
+
 function renderStudents(students) {
   if (!students.length) {
     studentsState.innerHTML = `<p class="muted">Belum ada mahasiswa.</p>`;
@@ -266,7 +330,7 @@ function renderManualBills(bills) {
                 <td>${escapeHtml(bill.amount_formatted)}</td>
                 <td>${escapeHtml(bill.period)}</td>
                 <td>${escapeHtml(bill.bill_type)}</td>
-                <td class="bill-status-text ${bill.status === "paid" ? "is-paid" : "is-unpaid"}">${bill.status === "paid" ? "Lunas" : "Belum lunas"}</td>
+                <td class="bill-status-text ${statusClass(bill.status)}">${statusLabel(bill.status)}</td>
                 <td>${escapeHtml(bill.due_date_formatted || "-")}</td>
                 <td class="actions-column">
                   <div class="row-actions">
@@ -340,73 +404,97 @@ async function loadManualData() {
   }
 }
 
+function formatImportedAt(value) {
+  if (!value) return "-";
+  const timestamp = new Date(`${String(value).replace(" ", "T")}Z`);
+  if (Number.isNaN(timestamp.getTime())) return String(value);
+  return new Intl.DateTimeFormat("id-ID", { dateStyle: "medium", timeStyle: "short" }).format(timestamp);
+}
+
 function renderImportedBills(groups) {
   if (!groups.length) {
-    billsState.innerHTML = `<p class="muted">Belum ada tagihan yang tersimpan.</p>`;
+    billsState.innerHTML = `<p class="muted">Belum ada file import yang tersimpan.</p>`;
     return;
   }
 
   billsState.innerHTML = groups
-    .map(
-      (group) => `
-        <section class="file-bill-group">
-          <div class="file-bill-header">
+    .map((group, index) => {
+      const version = String(groups.length - index).padStart(2, "0");
+      return `
+        <article class="file-record-card">
+          <header class="file-record-header">
             <div>
+              <span class="file-version">Versi import ${version}</span>
               <h3>${escapeHtml(group.file_name)}</h3>
-              <p class="muted">${escapeHtml(group.total)} tagihan - ${escapeHtml(group.paid)} lunas - ${escapeHtml(group.unpaid)} belum lunas</p>
+              <p class="muted">Diimport ${escapeHtml(formatImportedAt(group.imported_at))}</p>
             </div>
             <div class="bulk-due-date-bar">
-              <span class="label-small">Set Tanggal Semua:</span>
               <input type="date" class="bulk-due-date-input" aria-label="Batas aktif massal untuk file ${escapeHtml(group.file_name)}" />
               <button type="button" class="bulk-due-date-button ghost-button">Simpan Ke Semua</button>
             </div>
+          </header>
+
+          <dl class="file-record-metrics">
+            <div><dt>Mahasiswa</dt><dd>${escapeHtml(group.student_count)}</dd></div>
+            <div><dt>Tagihan</dt><dd>${escapeHtml(group.total)}</dd></div>
+            <div><dt>Total nominal</dt><dd>${escapeHtml(rupiah(group.total_amount))}</dd></div>
+          </dl>
+
+          <div class="file-status-summary" aria-label="Ringkasan status pembayaran">
+            <span class="status-summary is-paid">${escapeHtml(group.paid)} Lunas</span>
+            <span class="status-summary is-partial">${escapeHtml(group.partial)} Bayar sebagian</span>
+            <span class="status-summary is-unpaid">${escapeHtml(group.unpaid)} Belum lunas</span>
           </div>
-          <div class="table-mini">
-            <table>
-              <thead>
-                <tr>
-                  <th>Lunas</th>
-                  <th>NIM</th>
-                  <th>Nama</th>
-                  <th>BRIVA</th>
-                  <th>Nominal</th>
-                  <th>Periode</th>
-                  <th>Batas Aktif</th>
-                  <th>Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${group.bills
-                  .map(
-                    (bill) => `
-                      <tr data-bill-id="${escapeHtml(bill.id)}">
-                        <td>
-                          <input class="status-toggle ${bill.status === "paid" ? "is-paid" : "is-unpaid"}" type="checkbox" data-bill-id="${escapeHtml(bill.id)}" ${
-                            bill.status === "paid" ? "checked" : ""
-                          } aria-label="Tandai lunas untuk NIM ${escapeHtml(bill.nim)}" />
-                        </td>
-                        <td>${escapeHtml(bill.nim)}</td>
-                        <td>${escapeHtml(bill.full_name)}</td>
-                        <td>${escapeHtml(bill.briva)}</td>
-                        <td>${escapeHtml(bill.amount_formatted)}</td>
-                        <td>${escapeHtml(bill.period)}</td>
-                        <td>
-                          <div class="due-date-cell-group">
-                            <input class="due-date-input" type="date" data-bill-id="${escapeHtml(bill.id)}" value="${escapeHtml(bill.due_date || "")}" aria-label="Pilih batas aktif untuk NIM ${escapeHtml(bill.nim)}" />
-                            <button type="button" class="save-due-date-button ghost-button" data-bill-id="${escapeHtml(bill.id)}">Simpan</button>
-                          </div>
-                        </td>
-                        <td class="bill-status-text ${bill.status === "paid" ? "is-paid" : "is-unpaid"}">${bill.status === "paid" ? "Lunas" : "Belum lunas"}</td>
-                      </tr>
-                    `,
-                  )
-                  .join("")}
-              </tbody>
-            </table>
-          </div>
-        </section>
-      `,
-    )
+
+          <details class="file-record-details">
+            <summary>Rincian tagihan</summary>
+            <div class="table-mini">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Status</th>
+                    <th>NIM</th>
+                    <th>Nama</th>
+                    <th>BRIVA</th>
+                    <th>Nominal</th>
+                    <th>Periode</th>
+                    <th>Batas Aktif</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${group.bills
+                    .map(
+                      (bill) => `
+                        <tr data-bill-id="${escapeHtml(bill.id)}">
+                          <td>
+                            <select class="status-select ${statusClass(bill.status)}" data-bill-id="${escapeHtml(bill.id)}" aria-label="Pilih status tagihan untuk NIM ${escapeHtml(bill.nim)}">
+                              <option value="unpaid" ${bill.status === "unpaid" ? "selected" : ""}>Belum lunas</option>
+                              <option value="partial" ${bill.status === "partial" ? "selected" : ""}>Bayar sebagian</option>
+                              <option value="paid" ${bill.status === "paid" ? "selected" : ""}>Lunas</option>
+                            </select>
+                          </td>
+                          <td>${escapeHtml(bill.nim)}</td>
+                          <td>${escapeHtml(bill.full_name)}</td>
+                          <td>${escapeHtml(bill.briva)}</td>
+                          <td>${escapeHtml(bill.amount_formatted)}</td>
+                          <td>${escapeHtml(bill.period)}</td>
+                          <td>
+                            <div class="due-date-cell-group">
+                              <input class="due-date-input" type="date" data-bill-id="${escapeHtml(bill.id)}" value="${escapeHtml(bill.due_date || "")}" aria-label="Pilih batas aktif untuk NIM ${escapeHtml(bill.nim)}" />
+                              <button type="button" class="save-due-date-button ghost-button" data-bill-id="${escapeHtml(bill.id)}">Simpan</button>
+                            </div>
+                          </td>
+                        </tr>
+                      `,
+                    )
+                    .join("")}
+                </tbody>
+              </table>
+            </div>
+          </details>
+        </article>
+      `;
+    })
     .join("");
 }
 
@@ -524,7 +612,7 @@ commitButton.addEventListener("click", async () => {
     if (result.data.issues > 0) {
       const notification = `${importSummary} ${result.data.issues} baris dilewati dan dicatat untuk perbaikan manual${issueDetails ? `: ${issueDetails}` : ""}.`;
       setText(importMessage, notification, "warning");
-      alert(`${notification}\n\nPerbaiki data tersebut melalui Kelola Manual.`);
+      alert(`${notification}\n\nPerbaiki data tersebut melalui menu Data Mahasiswa atau Tagihan Mahasiswa.`);
     } else {
       setText(importMessage, importSummary);
     }
@@ -600,13 +688,9 @@ refreshBillsButton.addEventListener("click", loadImportedBills);
 
 billsState.addEventListener("change", async (event) => {
   const target = event.target;
-  if (!(target instanceof HTMLInputElement)) {
-    return;
-  }
-
-  if (target.classList.contains("status-toggle")) {
+  if (target instanceof HTMLSelectElement && target.classList.contains("status-select")) {
     const billId = target.dataset.billId || "";
-    const status = target.checked ? "paid" : "unpaid";
+    const status = target.value;
     target.disabled = true;
     setText(billsMessage, "Menyimpan status tagihan...");
     try {
@@ -615,22 +699,22 @@ billsState.addEventListener("change", async (event) => {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ bill_id: billId, status }),
       });
-      const row = target.closest("tr");
-      const statusText = row.querySelector(".bill-status-text");
-      statusText.textContent = status === "paid" ? "Lunas" : "Belum lunas";
-      statusText.classList.toggle("is-paid", status === "paid");
-      statusText.classList.toggle("is-unpaid", status !== "paid");
-      target.classList.toggle("is-paid", status === "paid");
-      target.classList.toggle("is-unpaid", status !== "paid");
       setText(billsMessage, "Status tagihan diperbarui.");
       loadImportedBills();
     } catch (error) {
-      target.checked = !target.checked;
       setText(billsMessage, error.message, "error");
+      loadImportedBills();
     } finally {
       target.disabled = false;
     }
-  } else if (target.classList.contains("due-date-input")) {
+    return;
+  }
+
+  if (!(target instanceof HTMLInputElement)) {
+    return;
+  }
+
+  if (target.classList.contains("due-date-input")) {
     const billId = target.dataset.billId || "";
     const dueDate = target.value;
     target.disabled = true;
@@ -650,7 +734,7 @@ billsState.addEventListener("change", async (event) => {
   }
 });
 
-manualCard.addEventListener("click", async (event) => {
+billsCard.addEventListener("click", async (event) => {
   const target = event.target;
   if (!(target instanceof HTMLButtonElement)) {
     return;
@@ -676,7 +760,7 @@ manualCard.addEventListener("click", async (event) => {
       target.disabled = false;
     }
   } else if (target.classList.contains("bulk-due-date-button")) {
-    const groupSection = target.closest(".file-bill-group");
+    const groupSection = target.closest(".file-record-card");
     if (!groupSection) return;
     const bulkInput = groupSection.querySelector(".bulk-due-date-input");
     const dueDate = bulkInput ? bulkInput.value : "";
@@ -763,7 +847,7 @@ manualCard.addEventListener("click", async (event) => {
   }
 });
 
-manualCard.addEventListener("click", async (event) => {
+studentsCard.addEventListener("click", async (event) => {
   const target = event.target;
   if (!(target instanceof HTMLButtonElement)) {
     return;
@@ -779,11 +863,11 @@ manualCard.addEventListener("click", async (event) => {
     document.querySelector("#student-form-nim").value = student.nim;
     document.querySelector("#student-form-name").value = student.full_name;
     document.querySelector("#save-student-button").textContent = "Update";
-    manualCard.scrollIntoView({ behavior: "smooth", block: "start" });
+    studentsCard.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 });
 
-manualCard.addEventListener("click", async (event) => {
+studentsCard.addEventListener("click", async (event) => {
   const target = event.target;
   if (!(target instanceof HTMLButtonElement)) {
     return;
@@ -813,9 +897,22 @@ manualCard.addEventListener("click", async (event) => {
   }
 });
 
-logoutButton.addEventListener("click", async () => {
+logoutButton?.addEventListener("click", async () => {
   await fetch("/api/admin/logout", { method: "POST" });
   showLogin();
 });
 
+logoutButtonMobile?.addEventListener("click", async () => {
+  await fetch("/api/admin/logout", { method: "POST" });
+  showLogin();
+});
+
+sidebarToggle?.addEventListener("click", toggleSidebar);
+sidebarOverlay?.addEventListener("click", closeSidebar);
+
+for (const button of adminViewButtons) {
+  button.addEventListener("click", () => setAdminView(button.dataset.adminView || "upload"));
+}
+
 api("/api/admin/me").then((result) => showAdmin(result.data)).catch(showLogin);
+

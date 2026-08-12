@@ -4,20 +4,13 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Admin SALUT</title>
-    <link rel="stylesheet" href="/styles.css?v=admin-table-layout-20260808" />
+    <link rel="stylesheet" href="/styles.css?v=admin-fix-hidden-v6" />
   </head>
   <body>
-    <main class="admin-shell">
-      <section class="admin-header">
-        <div>
-          <p class="eyebrow">SALUT Awwabin</p>
-          <h1>Admin Import Tagihan</h1>
-        </div>
-        <button type="button" id="logout-button" class="ghost-button hidden">Keluar</button>
-      </section>
-
+    <main id="login-shell" class="admin-login-shell">
       <section id="login-card" class="lookup-panel admin-card">
-        <h2>Login Admin</h2>
+        <p class="eyebrow">SALUT Awwabin</p>
+        <h1>Admin Pembayaran</h1>
         <form id="login-form" class="lookup-form" method="POST" action="#">
           <label for="email">Email</label>
           <input id="email" name="email" type="email" autocomplete="username" required />
@@ -29,179 +22,210 @@
         </form>
         <p id="login-message" class="form-message" role="status"></p>
       </section>
+    </main>
 
-      <section id="import-card" class="lookup-panel admin-card hidden">
-        <div class="admin-card-title">
-          <div>
-            <p class="eyebrow">Upload Excel</p>
-            <h2>Preview dan Commit</h2>
+    <section id="admin-workspace" class="admin-workspace hidden">
+        <!-- Mobile top bar — only visible on small screens -->
+        <header class="admin-mobile-bar">
+          <button type="button" id="sidebar-toggle" class="sidebar-toggle-button" aria-label="Buka menu" aria-expanded="false" aria-controls="admin-sidebar">
+            <span class="hamburger-icon">
+              <span></span>
+              <span></span>
+              <span></span>
+            </span>
+          </button>
+          <div class="admin-mobile-brand">
+            <p class="eyebrow">SALUT Awwabin</p>
+            <span id="admin-mobile-view-title" class="admin-mobile-title">Upload File</span>
           </div>
-          <span id="admin-email" class="status-pill">Admin</span>
-        </div>
+          <button type="button" id="logout-button-mobile" class="ghost-button mobile-logout">Keluar</button>
+        </header>
 
-        <form id="import-form" class="lookup-form">
-          <label for="excel-file">File tagihan</label>
-          <input id="excel-file" name="file" type="file" accept=".xlsx" required />
-          <button type="submit">Preview File</button>
-        </form>
-        <p id="import-message" class="form-message" role="status"></p>
+        <!-- Overlay backdrop — closes sidebar when tapped on mobile -->
+        <div id="sidebar-overlay" class="sidebar-overlay" aria-hidden="true"></div>
 
-        <div id="preview-state" class="preview-state hidden">
-          <div class="summary-grid">
-            <div>
-              <span class="label-small">Valid</span>
-              <strong id="valid-count">0</strong>
-            </div>
-            <div>
-              <span class="label-small">Tagihan Baru</span>
-              <strong id="new-count">0</strong>
-            </div>
-            <div>
-              <span class="label-small">Tidak Berubah</span>
-              <strong id="unchanged-count">0</strong>
-            </div>
-            <div>
-              <span class="label-small">Akan Diperbarui</span>
-              <strong id="update-count">0</strong>
-            </div>
-            <div>
-              <span class="label-small">Nominal Berubah</span>
-              <strong id="amount-change-count">0</strong>
-            </div>
-            <div>
-              <span class="label-small">Kritis</span>
-              <strong id="critical-count">0</strong>
-            </div>
-            <div>
-              <span class="label-small">Issue</span>
-              <strong id="issue-count">0</strong>
-            </div>
+        <aside id="admin-sidebar" class="admin-sidebar" aria-label="Navigasi admin">
+          <div class="admin-brand">
+            <p class="eyebrow">SALUT Awwabin</p>
+            <h1>Admin Pembayaran</h1>
           </div>
 
-          <div id="change-state" class="hidden">
-            <h3>Perubahan yang terdeteksi</h3>
-            <div id="change-table" class="table-mini"></div>
-            <label id="confirm-updates-row" class="confirm-updates hidden">
-              <input id="confirm-updates" type="checkbox" />
-              <span>Saya sudah memeriksa perubahan nominal atau BRIVA dan menyetujui pembaruannya.</span>
-            </label>
+          <nav class="admin-navigation" aria-label="Menu utama">
+            <button type="button" class="admin-nav-button is-active" data-admin-view="upload">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+              <span>Upload File</span>
+            </button>
+            <button type="button" class="admin-nav-button" data-admin-view="students">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+              <span>Data Mahasiswa</span>
+            </button>
+            <button type="button" class="admin-nav-button" data-admin-view="bills">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
+              <span>Tagihan Mahasiswa</span>
+            </button>
+            <button type="button" class="admin-nav-button" data-admin-view="files">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+              <span>Data Mahasiswa per File</span>
+            </button>
+          </nav>
+
+          <div class="admin-sidebar-footer">
+            <span id="admin-email" class="admin-user-email">Admin</span>
+            <button type="button" id="logout-button" class="ghost-button">Keluar</button>
           </div>
+        </aside>
 
-          <h3>Contoh data</h3>
-          <div id="sample-table" class="table-mini"></div>
+        <section class="admin-content">
+          <header class="admin-content-header">
+            <div>
+              <p id="admin-view-kicker" class="eyebrow">Upload Excel</p>
+              <h2 id="admin-view-title">Upload File</h2>
+            </div>
+            <p id="manual-message" class="form-message" role="status"></p>
+          </header>
 
-          <h3>Issue awal</h3>
-          <div id="error-list" class="error-list"></div>
+          <section id="import-card" class="admin-view">
+            <form id="import-form" class="lookup-form admin-form-surface">
+              <label for="excel-file">File tagihan</label>
+              <input id="excel-file" name="file" type="file" accept=".xlsx" required />
+              <button type="submit">Preview File</button>
+            </form>
+            <p id="import-message" class="form-message" role="status"></p>
 
-          <button type="button" id="commit-button">Commit Import</button>
-        </div>
-      </section>
+            <div id="preview-state" class="preview-state hidden">
+              <div class="summary-grid">
+                <div><span class="label-small">Valid</span><strong id="valid-count">0</strong></div>
+                <div><span class="label-small">Tagihan Baru</span><strong id="new-count">0</strong></div>
+                <div><span class="label-small">Tidak Berubah</span><strong id="unchanged-count">0</strong></div>
+                <div><span class="label-small">Akan Diperbarui</span><strong id="update-count">0</strong></div>
+                <div><span class="label-small">Nominal Berubah</span><strong id="amount-change-count">0</strong></div>
+                <div><span class="label-small">Kritis</span><strong id="critical-count">0</strong></div>
+                <div><span class="label-small">Issue</span><strong id="issue-count">0</strong></div>
+              </div>
 
-      <section id="manual-card" class="lookup-panel admin-card hidden">
-        <div class="admin-card-title">
-          <div>
-            <p class="eyebrow">Kelola Manual</p>
-            <h2>Data Mahasiswa dan Tagihan</h2>
-          </div>
-          <button type="button" id="refresh-manual-button" class="ghost-button">Refresh</button>
-        </div>
+              <div id="change-state" class="hidden">
+                <h3>Perubahan yang terdeteksi</h3>
+                <div id="change-table" class="table-mini"></div>
+                <label id="confirm-updates-row" class="confirm-updates hidden">
+                  <input id="confirm-updates" type="checkbox" />
+                  <span>Saya sudah memeriksa perubahan nominal atau BRIVA dan menyetujui pembaruannya.</span>
+                </label>
+              </div>
 
-        <div class="manual-editor">
-          <form id="student-form" class="lookup-form manual-section">
-            <input id="student-id" name="id" type="hidden" />
-            <div class="manual-section-heading">
+              <h3>Contoh data</h3>
+              <div id="sample-table" class="table-mini"></div>
+
+              <h3>Issue awal</h3>
+              <div id="error-list" class="error-list"></div>
+
+              <button type="button" id="commit-button">Commit Import</button>
+            </div>
+
+            <section class="admin-subsection">
+              <h3>Data Perlu Diperbaiki</h3>
+              <div id="import-issues-state" class="table-mini"></div>
+            </section>
+          </section>
+
+          <section id="students-card" class="admin-view hidden">
+            <div class="view-toolbar">
+              <button type="button" id="refresh-manual-button" class="ghost-button">Refresh</button>
+            </div>
+
+            <form id="student-form" class="lookup-form admin-form-surface">
+              <input id="student-id" name="id" type="hidden" />
+              <div class="form-section-heading">
+                <h3>Mahasiswa</h3>
+                <div class="form-actions compact-actions">
+                  <button type="submit" id="save-student-button">Simpan</button>
+                  <button type="button" id="reset-student-button" class="ghost-button">Reset</button>
+                </div>
+              </div>
+              <div class="compact-form-grid">
+                <div>
+                  <label for="student-form-nim">NIM</label>
+                  <input id="student-form-nim" name="nim" type="text" inputmode="numeric" required />
+                </div>
+                <div>
+                  <label for="student-form-name">Nama</label>
+                  <input id="student-form-name" name="full_name" type="text" required />
+                </div>
+              </div>
+            </form>
+
+            <form id="manual-search-form" class="admin-list-tools">
+              <label for="manual-search">Cari Data</label>
+              <div class="search-control">
+                <input id="manual-search" type="search" placeholder="NIM, nama, BRIVA, periode" />
+                <button type="submit" id="manual-search-button">Cari</button>
+              </div>
+            </form>
+
+            <section class="admin-subsection">
               <h3>Mahasiswa</h3>
-              <div class="form-actions compact-actions">
-                <button type="submit" id="save-student-button">Simpan</button>
-                <button type="button" id="reset-student-button" class="ghost-button">Reset</button>
-              </div>
-            </div>
-            <div class="compact-form-grid">
-              <div>
-                <label for="student-form-nim">NIM</label>
-                <input id="student-form-nim" name="nim" type="text" inputmode="numeric" required />
-              </div>
-              <div>
-                <label for="student-form-name">Nama</label>
-                <input id="student-form-name" name="full_name" type="text" required />
-              </div>
-            </div>
-          </form>
+              <div id="students-state" class="table-mini"></div>
+            </section>
+          </section>
 
-          <form id="bill-form" class="lookup-form manual-section">
-            <input id="bill-id" name="id" type="hidden" />
-            <div class="manual-section-heading">
+          <section id="manual-card" class="admin-view hidden">
+            <form id="bill-form" class="lookup-form admin-form-surface">
+              <input id="bill-id" name="id" type="hidden" />
+              <div class="form-section-heading">
+                <h3>Tagihan Mahasiswa</h3>
+                <div class="form-actions compact-actions">
+                  <button type="submit" id="save-bill-button">Simpan</button>
+                  <button type="button" id="reset-bill-button" class="ghost-button">Reset</button>
+                </div>
+              </div>
+              <div class="compact-form-grid bill-form-grid">
+                <div>
+                  <label for="bill-form-briva">Nomor BRIVA</label>
+                  <input id="bill-form-briva" name="briva" type="text" inputmode="numeric" required />
+                </div>
+                <div>
+                  <label for="bill-form-amount">Nominal</label>
+                  <input id="bill-form-amount" name="amount" type="number" min="1" required />
+                </div>
+                <div>
+                  <label for="bill-form-period">Periode</label>
+                  <input id="bill-form-period" name="period" type="text" value="Semester Ganjil 2026" required />
+                </div>
+                <div>
+                  <label for="bill-form-type">Jenis Tagihan</label>
+                  <input id="bill-form-type" name="bill_type" type="text" value="UKT BRIVA" required />
+                </div>
+                <div>
+                  <label for="bill-form-status">Status</label>
+                  <select id="bill-form-status" name="status">
+                    <option value="unpaid">Belum lunas</option>
+                    <option value="partial">Bayar sebagian</option>
+                    <option value="paid">Lunas</option>
+                  </select>
+                </div>
+                <div>
+                  <label for="bill-form-due-date">Batas Aktif</label>
+                  <input id="bill-form-due-date" name="due_date" type="date" />
+                </div>
+              </div>
+            </form>
+
+            <section class="admin-subsection">
               <h3>Tagihan</h3>
-              <div class="form-actions compact-actions">
-                <button type="submit" id="save-bill-button">Simpan</button>
-                <button type="button" id="reset-bill-button" class="ghost-button">Reset</button>
-              </div>
+              <div id="manual-bills-state" class="table-mini"></div>
+            </section>
+          </section>
+
+          <section id="bills-card" class="admin-view hidden">
+            <div class="view-toolbar">
+              <button type="button" id="refresh-bills-button" class="ghost-button">Refresh</button>
             </div>
-            <div class="compact-form-grid bill-form-grid">
-              <div>
-                <label for="bill-form-briva">Nomor BRIVA</label>
-                <input id="bill-form-briva" name="briva" type="text" inputmode="numeric" required />
-              </div>
-              <div>
-                <label for="bill-form-amount">Nominal</label>
-                <input id="bill-form-amount" name="amount" type="number" min="1" required />
-              </div>
-              <div>
-                <label for="bill-form-period">Periode</label>
-                <input id="bill-form-period" name="period" type="text" value="Semester Ganjil 2026" required />
-              </div>
-              <div>
-                <label for="bill-form-type">Jenis Tagihan</label>
-                <input id="bill-form-type" name="bill_type" type="text" value="UKT BRIVA" required />
-              </div>
-              <div>
-                <label for="bill-form-status">Status</label>
-                <select id="bill-form-status" name="status">
-                  <option value="unpaid">Belum lunas</option>
-                  <option value="paid">Lunas</option>
-                </select>
-              </div>
-              <div>
-                <label for="bill-form-due-date">Batas Aktif</label>
-                <input id="bill-form-due-date" name="due_date" type="date" />
-              </div>
-            </div>
-          </form>
-        </div>
-
-        <p id="manual-message" class="form-message" role="status"></p>
-
-        <form id="manual-search-form" class="admin-list-tools">
-          <label for="manual-search">Cari Data</label>
-          <div class="search-control">
-            <input id="manual-search" type="search" placeholder="NIM, nama, BRIVA, periode" />
-            <button type="submit" id="manual-search-button">Cari</button>
-          </div>
-        </form>
-
-        <h3>Data Perlu Diperbaiki</h3>
-        <div id="import-issues-state" class="table-mini"></div>
-
-        <h3>Mahasiswa</h3>
-        <div id="students-state" class="table-mini"></div>
-
-        <h3>Tagihan</h3>
-        <div id="manual-bills-state" class="table-mini"></div>
-      </section>
-
-      <section id="bills-card" class="lookup-panel admin-card hidden">
-        <div class="admin-card-title">
-          <div>
-            <p class="eyebrow">Data Terimport</p>
-            <h2>Tagihan per File</h2>
-          </div>
-          <button type="button" id="refresh-bills-button" class="ghost-button">Refresh</button>
-        </div>
-        <p id="bills-message" class="form-message" role="status"></p>
-        <div id="bills-state" class="imported-bills"></div>
+            <p id="bills-message" class="form-message" role="status"></p>
+            <div id="bills-state" class="imported-bills"></div>
+          </section>
+        </section>
       </section>
     </main>
 
-    <script src="/admin.js?v=admin-import-issues-table-20260808"></script>
+    <script src="/admin.js?v=admin-fix-hierarchy-v5"></script>
   </body>
 </html>

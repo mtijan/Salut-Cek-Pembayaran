@@ -26,9 +26,11 @@ function rupiah(value) {
 }
 
 function setStatusPill(node, status) {
-  node.textContent = status === "paid" ? "Lunas" : "Belum lunas";
+  const labels = { paid: "Lunas", partial: "Bayar sebagian", unpaid: "Belum lunas" };
+  node.textContent = labels[status] || labels.unpaid;
   node.classList.toggle("is-paid", status === "paid");
-  node.classList.toggle("is-unpaid", status !== "paid");
+  node.classList.toggle("is-partial", status === "partial");
+  node.classList.toggle("is-unpaid", status === "unpaid");
 }
 
 function renderResult(data) {
@@ -45,7 +47,9 @@ function renderResult(data) {
   const amountLines = item.querySelector(".amount-lines");
   const vaList = item.querySelector(".va-list");
   const total = bills.reduce((sum, bill) => sum + Number(bill.amount || 0), 0);
+  const hasPartialBill = bills.some((bill) => bill.status === "partial");
   const hasUnpaidBill = bills.some((bill) => bill.status === "unpaid");
+  const paymentStatusValue = bills.length > 0 && !hasPartialBill && !hasUnpaidBill ? "paid" : hasPartialBill ? "partial" : "unpaid";
 
   item.querySelector(".bill-section-title").textContent = bills.length > 1 ? "Informasi Tagihan" : "Informasi Tagihan";
   item.querySelector(".payment-period-inline").textContent = data.student.payment_period || "-";
@@ -62,7 +66,7 @@ function renderResult(data) {
     }
   }
 
-  setStatusPill(paymentStatus, hasUnpaidBill ? "unpaid" : "paid");
+  setStatusPill(paymentStatus, paymentStatusValue);
   item.querySelector(".account-name").textContent = data.student.full_name || "-";
 
   for (const [index, bill] of bills.entries()) {
