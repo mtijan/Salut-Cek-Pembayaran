@@ -265,6 +265,9 @@ class CoreBehaviorTests(unittest.TestCase):
             groups = list_imported_bill_groups(database)
             self.assertEqual(len(groups), 1)
             self.assertEqual(groups[0]["file_name"], "batch-admin.xlsx")
+            self.assertEqual(groups[0]["student_count"], 1)
+            self.assertEqual(groups[0]["total_amount"], 125000)
+            self.assertTrue(groups[0]["imported_at"])
             self.assertEqual(groups[0]["unpaid"], 1)
             bill_id = groups[0]["bills"][0]["id"]
 

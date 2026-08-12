@@ -445,7 +445,7 @@ def list_imported_bill_groups(db_path: str | Path = config.DB_PATH) -> list[dict
     init_db(conn)
     rows = conn.execute(
         """
-        select b.id, b.briva, b.amount, b.period, b.bill_type, b.status, b.payment_method, b.due_date,
+        select b.id, b.briva, b.amount, b.period, b.bill_type, b.status, b.payment_method, b.due_date, b.created_at,
                b.source_file, b.source_row_number, s.nim, s.full_name
         from bills b
         join students s on s.id = b.student_id
@@ -480,6 +480,9 @@ def list_imported_bill_groups(db_path: str | Path = config.DB_PATH) -> list[dict
         bills.append(bill_row_to_dict(row))
         group["total"] = int(group["total"]) + 1
         group["total_amount"] = int(group["total_amount"]) + int(row["amount"])
+        imported_at = str(row["created_at"])
+        if imported_at < str(group["imported_at"]):
+            group["imported_at"] = imported_at
         student_nims = group["_student_nims"]
         assert isinstance(student_nims, set)
         student_nims.add(str(row["nim"]))
@@ -493,6 +496,7 @@ def list_imported_bill_groups(db_path: str | Path = config.DB_PATH) -> list[dict
         student_nims = group.pop("_student_nims")
         assert isinstance(student_nims, set)
         group["student_count"] = len(student_nims)
+    groups.sort(key=lambda group: str(group["imported_at"]), reverse=True)
     return groups
 
 
