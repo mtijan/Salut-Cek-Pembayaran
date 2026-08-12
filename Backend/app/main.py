@@ -33,6 +33,7 @@ from Backend.app.services import (
     rupiah,
     sanitize_filename,
     store_import_preview,
+    summarize_payment_status,
     student_row_to_dict,
     update_bill,
     update_bill_due_date,
@@ -182,6 +183,7 @@ async def lookup(request: Request) -> JSONResponse:
     unpaid_due_dates = [b["due_date"] for b in bills if b["due_date"] and b["status"] != "paid"]
     all_due_dates = [b["due_date"] for b in bills if b["due_date"]]
     primary_due_date = unpaid_due_dates[0] if unpaid_due_dates else (all_due_dates[0] if all_due_dates else "")
+    payment_status = summarize_payment_status([bill["status"] for bill in bills])
 
     return JSONResponse(
         {
@@ -211,6 +213,7 @@ async def lookup(request: Request) -> JSONResponse:
                     }
                     for index, bill in enumerate(bills, start=1)
                 ],
+                "payment_status": payment_status,
             },
             "request_id": req_id,
         }

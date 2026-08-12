@@ -175,6 +175,31 @@ def normalize_status_value(status: object) -> str:
     return value
 
 
+def normalize_payment_status_alias(status: object) -> str:
+    value = str(status or "unpaid").strip().lower()
+    aliases = {
+        "paid": "paid",
+        "lunas": "paid",
+        "partial": "partial",
+        "bayar sebagian": "partial",
+        "lunas sebagian": "partial",
+        "dicicil": "partial",
+        "cicil": "partial",
+        "unpaid": "unpaid",
+        "belum lunas": "unpaid",
+    }
+    return aliases.get(value, "unpaid")
+
+
+def summarize_payment_status(statuses: list[object]) -> str:
+    normalized = [normalize_payment_status_alias(status) for status in statuses]
+    if normalized and all(status == "paid" for status in normalized):
+        return "paid"
+    if "partial" in normalized:
+        return "partial"
+    return "unpaid"
+
+
 def ensure_student(conn: sqlite3.Connection, nim: object, full_name: object) -> sqlite3.Row:
     normalized_nim = normalize_nim(nim)
     normalized_name = normalize_text(full_name)

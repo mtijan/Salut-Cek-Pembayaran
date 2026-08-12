@@ -15,7 +15,7 @@ import server
 from Backend.app import config as app_config
 from Backend.app.config import ROLE_PERMISSIONS
 from Backend.app.rate_limit import RateLimiter
-from Backend.app.services import list_imported_bill_groups, update_bill_status
+from Backend.app.services import list_imported_bill_groups, summarize_payment_status, update_bill_status
 from import_excel import import_workbook, preview_workbook
 from db import connect, init_db
 from fastapi.testclient import TestClient
@@ -110,6 +110,53 @@ class CoreBehaviorTests(unittest.TestCase):
             self.assertEqual(result["data"]["student"]["payment_period"], "Semester Ganjil 2026")
             self.assertEqual(set(result["data"]["student"]), {"nim", "full_name", "program_study", "payment_period", "due_date", "due_date_formatted"})
             self.assertEqual([bill["bill_label"] for bill in result["data"]["bills"]], ["Tagihan 1", "Tagihan 2"])
+
+    def test_lookup_reports_partial_payment_status(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            database = Path(temporary_directory) / "salut.sqlite"
+            conn = connect(database)
+            init_db(conn)
+            with conn:
+                conn.execute(
+                    "insert into students (id, nim, full_name, name_norm) values (?, ?, ?, ?)",
+                    ("student-partial", "050117088", "Rina Partial", "rina partial"),
+                )
+                conn.execute(
+                    """
+                    insert into bills (id, student_id, briva, amount, period, bill_type, status, instructions, source_file)
+                    values (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        "bill-partial",
+                        "student-partial",
+                        "178100023200088",
+                        500000,
+                        "2025.2",
+                        "UKT BRIVA",
+                        "partial",
+                        "Bayar melalui BRIVA BRI dengan nomor VA yang tampil.",
+                        "unit-test.xlsx",
+                    ),
+                )
+            conn.close()
+
+            original_db_path = app_config.DB_PATH
+            app_config.DB_PATH = database
+            try:
+                response = TestClient(server.app).post("/api/lookup", json={"nim": "050117088"})
+                result = response.json()
+            finally:
+                app_config.DB_PATH = original_db_path
+
+            self.assertEqual(response.status_code, 200)
+            self.assertTrue(result["success"])
+            self.assertEqual(result["data"]["payment_status"], "partial")
+            self.assertEqual(result["data"]["bills"][0]["status"], "partial")
+
+    def test_payment_status_summary_accepts_partial_aliases(self) -> None:
+        self.assertEqual(summarize_payment_status(["paid", "lunas sebagian"]), "partial")
+        self.assertEqual(summarize_payment_status(["dicicil"]), "partial")
+        self.assertEqual(summarize_payment_status(["paid", "lunas"]), "paid")
 
     def test_reupload_is_unchanged_and_amount_update_requires_confirmation(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
