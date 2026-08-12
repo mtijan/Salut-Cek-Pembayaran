@@ -1,16 +1,19 @@
 const loginShell = document.querySelector("#login-shell");
 const loginCard = document.querySelector("#login-card");
+const authLoader = document.querySelector("#auth-loader");
 const adminWorkspace = document.querySelector("#admin-workspace");
+const adminMainContent = document.querySelector("#admin-main-content");
 const importCard = document.querySelector("#import-card");
 const studentsCard = document.querySelector("#students-card");
-const manualCard = document.querySelector("#manual-card");
 const billsCard = document.querySelector("#bills-card");
 const adminViewButtons = document.querySelectorAll("[data-admin-view]");
 const adminViewKicker = document.querySelector("#admin-view-kicker");
 const adminViewTitle = document.querySelector("#admin-view-title");
 const loginForm = document.querySelector("#login-form");
+const loginSubmitButton = document.querySelector("#login-submit-button");
+const passwordInput = document.querySelector("#password");
+const passwordToggle = document.querySelector("#password-toggle");
 const importForm = document.querySelector("#import-form");
-const studentForm = document.querySelector("#student-form");
 const billForm = document.querySelector("#bill-form");
 const loginMessage = document.querySelector("#login-message");
 const importMessage = document.querySelector("#import-message");
@@ -24,13 +27,21 @@ const sidebarOverlay = document.querySelector("#sidebar-overlay");
 const adminMobileViewTitle = document.querySelector("#admin-mobile-view-title");
 const adminEmail = document.querySelector("#admin-email");
 const fileInput = document.querySelector("#excel-file");
+const filePicker = document.querySelector("#excel-file-picker");
+const selectedFileName = document.querySelector("#selected-file-name");
 const previewButton = importForm.querySelector("button[type='submit']");
 const refreshManualButton = document.querySelector("#refresh-manual-button");
 const refreshBillsButton = document.querySelector("#refresh-bills-button");
-const resetStudentButton = document.querySelector("#reset-student-button");
+const addStudentButton = document.querySelector("#add-student-button");
+const clearSearchButton = document.querySelector("#clear-search-button");
 const resetBillButton = document.querySelector("#reset-bill-button");
+const closeEditorButton = document.querySelector("#close-editor-button");
+const studentEditor = document.querySelector("#student-editor");
+const studentEditorTitle = document.querySelector("#student-editor-title");
 const manualSearchForm = document.querySelector("#manual-search-form");
 const manualSearch = document.querySelector("#manual-search");
+const statusFilter = document.querySelector("#status-filter");
+const sourceFilter = document.querySelector("#source-filter");
 const previewState = document.querySelector("#preview-state");
 const validCount = document.querySelector("#valid-count");
 const newCount = document.querySelector("#new-count");
@@ -42,33 +53,142 @@ const issueCount = document.querySelector("#issue-count");
 const sampleTable = document.querySelector("#sample-table");
 const errorList = document.querySelector("#error-list");
 const commitButton = document.querySelector("#commit-button");
+const cancelPreviewButton = document.querySelector("#cancel-preview-button");
 const changeState = document.querySelector("#change-state");
 const changeTable = document.querySelector("#change-table");
 const confirmUpdatesRow = document.querySelector("#confirm-updates-row");
 const confirmUpdates = document.querySelector("#confirm-updates");
 const billsState = document.querySelector("#bills-state");
 const studentsState = document.querySelector("#students-state");
-const manualBillsState = document.querySelector("#manual-bills-state");
+const studentsPagination = document.querySelector("#students-pagination");
+const studentsPrevPage = document.querySelector("#students-prev-page");
+const studentsNextPage = document.querySelector("#students-next-page");
+const studentsPageNumbers = document.querySelector("#students-page-numbers");
+const studentsPageInfo = document.querySelector("#students-page-info");
+const studentsResultCount = document.querySelector("#students-result-count");
 const importIssuesState = document.querySelector("#import-issues-state");
+const importSteps = document.querySelectorAll("[data-import-step]");
+const toastRegion = document.querySelector("#toast-region");
+const confirmModal = document.querySelector("#confirm-modal");
+const confirmModalTitle = document.querySelector("#confirm-modal-title");
+const confirmModalDescription = document.querySelector("#confirm-modal-description");
+const confirmModalReason = document.querySelector("#confirm-modal-reason");
+const confirmModalError = document.querySelector("#confirm-modal-error");
+const confirmModalClose = document.querySelector("#confirm-modal-close");
+const confirmModalCancel = document.querySelector("#confirm-modal-cancel");
+const confirmModalSubmit = document.querySelector("#confirm-modal-submit");
+const confirmModalDialog = confirmModal.querySelector(".admin-modal-dialog");
 
+const STUDENT_PAGE_SIZE = 100;
+const FILE_DETAIL_PAGE_SIZE = 50;
 let currentImportToken = "";
 let currentPreview = null;
 let isCommitting = false;
 let isUploading = false;
-let studentRows = [];
 let billRows = [];
+let currentStudentPage = 1;
+let totalStudentPages = 1;
 let activeAdminView = "upload";
+let importedBillGroups = [];
+let modalResolver = null;
+let modalReturnFocus = null;
 
 const adminViews = {
   upload: { card: importCard, kicker: "Upload Excel", title: "Upload File" },
   students: { card: studentsCard, kicker: "Data Akademik", title: "Data Mahasiswa" },
-  bills: { card: manualCard, kicker: "Pembayaran", title: "Tagihan Mahasiswa" },
   files: { card: billsCard, kicker: "Riwayat Import", title: "Data Mahasiswa per File" },
 };
 
 function setText(node, text, type = "") {
   node.textContent = text;
   node.className = `form-message ${type}`.trim();
+}
+
+function renderLoadingState(container, message, compact = false) {
+  container.setAttribute("aria-busy", "true");
+  container.innerHTML = `
+    <div class="loading-state${compact ? " is-compact" : ""}" role="status">
+      <span class="loading-spinner" aria-hidden="true"></span>
+      <span>${escapeHtml(message)}</span>
+    </div>
+  `;
+}
+
+function renderErrorState(container, title, message, retryAction = "") {
+  container.removeAttribute("aria-busy");
+  container.innerHTML = `
+    <div class="state-panel is-error">
+      <strong>${escapeHtml(title)}</strong>
+      <p>${escapeHtml(message)}</p>
+      ${retryAction ? `<button type="button" class="ghost-button" data-retry-action="${escapeHtml(retryAction)}">Coba lagi</button>` : ""}
+    </div>
+  `;
+}
+
+function setSelectedFile(file = null) {
+  selectedFileName.textContent = file ? file.name : "Belum ada file dipilih";
+  selectedFileName.title = file ? file.name : "";
+  filePicker.classList.toggle("has-file", Boolean(file));
+  previewButton.disabled = isUploading || !file;
+}
+
+function showToast(message, type = "success") {
+  const toast = document.createElement("div");
+  toast.className = `admin-toast is-${type}`;
+  toast.setAttribute("role", type === "error" ? "alert" : "status");
+  toast.textContent = message;
+  toastRegion.append(toast);
+  window.setTimeout(() => {
+    toast.classList.add("is-leaving");
+    window.setTimeout(() => toast.remove(), 180);
+  }, 4200);
+}
+
+function setImportStep(step) {
+  for (const item of importSteps) {
+    const itemStep = Number(item.dataset.importStep || 0);
+    item.classList.toggle("is-active", itemStep === step);
+    item.classList.toggle("is-complete", itemStep < step);
+  }
+}
+
+function resetImportPreview({ clearFile = false } = {}) {
+  previewState.classList.add("hidden");
+  currentImportToken = "";
+  currentPreview = null;
+  confirmUpdates.checked = false;
+  if (clearFile) {
+    importForm.reset();
+    setSelectedFile();
+  }
+  setImportStep(1);
+  refreshCommitState();
+}
+
+function closeConfirmModal(result = null) {
+  confirmModal.classList.add("hidden");
+  document.body.classList.remove("modal-open");
+  const resolve = modalResolver;
+  modalResolver = null;
+  if (resolve) resolve(result);
+  if (modalReturnFocus instanceof HTMLElement) modalReturnFocus.focus();
+  modalReturnFocus = null;
+}
+
+function requestDeleteConfirmation({ title, description, submitLabel = "Hapus Data" }) {
+  if (modalResolver) closeConfirmModal(null);
+  modalReturnFocus = document.activeElement;
+  confirmModalTitle.textContent = title;
+  confirmModalDescription.textContent = description;
+  confirmModalSubmit.textContent = submitLabel;
+  confirmModalReason.value = "";
+  confirmModalError.textContent = "";
+  confirmModal.classList.remove("hidden");
+  document.body.classList.add("modal-open");
+  window.setTimeout(() => confirmModalReason.focus(), 0);
+  return new Promise((resolve) => {
+    modalResolver = resolve;
+  });
 }
 
 function escapeHtml(value) {
@@ -89,14 +209,19 @@ function refreshCommitState() {
     commitButton.disabled = true;
     return;
   }
-  commitButton.disabled = isCommitting;
+  const requiresConfirmation = currentPreview.requires_update_confirmation && !confirmUpdates.checked;
+  commitButton.disabled = isCommitting || currentPreview.critical_rows > 0 || requiresConfirmation;
 }
 
-function closeSidebar() {
+function closeSidebar(restoreFocus = false) {
   if (!adminSidebar || !sidebarOverlay || !sidebarToggle) return;
+  const wasOpen = adminSidebar.classList.contains("is-open");
   adminSidebar.classList.remove("is-open");
   sidebarOverlay.classList.remove("is-open");
   sidebarToggle.setAttribute("aria-expanded", "false");
+  sidebarOverlay.setAttribute("aria-hidden", "true");
+  document.body.classList.remove("sidebar-open");
+  if (restoreFocus && wasOpen) sidebarToggle.focus();
 }
 
 function openSidebar() {
@@ -104,6 +229,9 @@ function openSidebar() {
   adminSidebar.classList.add("is-open");
   sidebarOverlay.classList.add("is-open");
   sidebarToggle.setAttribute("aria-expanded", "true");
+  sidebarOverlay.setAttribute("aria-hidden", "false");
+  document.body.classList.add("sidebar-open");
+  window.setTimeout(() => adminSidebar.querySelector(".admin-nav-button")?.focus(), 220);
 }
 
 function toggleSidebar() {
@@ -121,46 +249,68 @@ function setAdminView(view) {
     item.card.classList.toggle("hidden", item !== selected);
   }
   for (const button of adminViewButtons) {
-    button.classList.toggle("is-active", button.dataset.adminView === activeAdminView);
+    const isActive = button.dataset.adminView === activeAdminView;
+    button.classList.toggle("is-active", isActive);
+    if (isActive) button.setAttribute("aria-current", "page");
+    else button.removeAttribute("aria-current");
   }
   adminViewKicker.textContent = selected.kicker;
   adminViewTitle.textContent = selected.title;
+  document.title = `${selected.title} | Admin SALUT`;
   if (adminMobileViewTitle) {
     adminMobileViewTitle.textContent = selected.title;
   }
   closeSidebar();
+  if (activeAdminView !== "students") closeStudentEditor();
+  if (activeAdminView === "upload") loadImportIssues();
+  if (activeAdminView === "students") loadStudentData();
+  if (activeAdminView === "files") loadImportedBills();
 }
 
 function showAdmin(user) {
+  document.body.classList.remove("auth-pending");
+  document.body.classList.remove("login-active");
+  document.body.classList.add("admin-active");
+  authLoader.classList.add("hidden");
   if (loginShell) loginShell.classList.add("hidden");
   loginCard.classList.add("hidden");
   adminWorkspace.classList.remove("hidden");
   adminEmail.textContent = user.email;
   setAdminView(activeAdminView);
-  loadManualData();
-  loadImportedBills();
 }
 
 function showLogin() {
+  document.body.classList.remove("auth-pending");
+  document.body.classList.remove("admin-active");
+  document.body.classList.add("login-active");
+  document.title = "Masuk | Admin SALUT";
+  authLoader.classList.add("hidden");
   closeSidebar();
   if (loginShell) loginShell.classList.remove("hidden");
   loginCard.classList.remove("hidden");
   adminWorkspace.classList.add("hidden");
-  previewState.classList.add("hidden");
-  currentImportToken = "";
-  currentPreview = null;
+  resetImportPreview({ clearFile: true });
   isCommitting = false;
   isUploading = false;
   previewButton.disabled = false;
   billsState.replaceChildren();
   studentsState.replaceChildren();
-  manualBillsState.replaceChildren();
+  studentsPagination.classList.add("hidden");
   importIssuesState.replaceChildren();
-  studentRows = [];
   billRows = [];
+  importedBillGroups = [];
+  currentStudentPage = 1;
+  totalStudentPages = 1;
   setText(billsMessage, "");
   setText(manualMessage, "");
+  closeStudentEditor();
   refreshCommitState();
+  setSelectedFile();
+  passwordInput.type = "password";
+  passwordToggle.setAttribute("aria-pressed", "false");
+  passwordToggle.setAttribute("aria-label", "Tampilkan password");
+  passwordToggle.title = "Tampilkan password";
+  window.setTimeout(() => document.querySelector("#email")?.focus(), 0);
 }
 
 async function api(path, options = {}) {
@@ -170,6 +320,10 @@ async function api(path, options = {}) {
     payload = await response.json();
   } catch (error) {
     throw new Error("Response server tidak valid. Coba refresh halaman atau hubungi developer.");
+  }
+  if (response.status === 401 && path !== "/api/admin/login" && path !== "/api/admin/me") {
+    showLogin();
+    setText(loginMessage, "Sesi admin telah berakhir. Silakan masuk kembali.", "error");
   }
   if (!response.ok || !payload.success) {
     throw new Error(payload.error?.message || "Request gagal.");
@@ -189,15 +343,16 @@ function renderPreview(data) {
   issueCount.textContent = data.issue_rows;
 
   sampleTable.innerHTML = `
-    <table>
+    <table class="data-table preview-data-table">
+      <caption class="visually-hidden">Contoh data dari file yang akan diimport</caption>
       <thead>
-        <tr><th>NIM</th><th>Nama</th><th>Program Studi</th><th>BRIVA</th><th>Jumlah</th><th>Batas Pembayaran</th></tr>
+        <tr><th scope="col">NIM</th><th scope="col">Nama</th><th scope="col">Program Studi</th><th scope="col">BRIVA</th><th scope="col">Jumlah</th><th scope="col">Batas Pembayaran</th></tr>
       </thead>
       <tbody>
         ${data.sample
           .map(
             (row) =>
-              `<tr><td>${escapeHtml(row.nim)}</td><td>${escapeHtml(row.full_name)}</td><td>${escapeHtml(row.program_study || "-")}</td><td>${escapeHtml(row.briva)}</td><td>${rupiah(row.amount)}</td><td>${escapeHtml(row.due_date || "-")}</td></tr>`,
+              `<tr><td data-label="NIM">${escapeHtml(row.nim)}</td><th data-label="Nama" scope="row">${escapeHtml(row.full_name)}</th><td data-label="Program Studi">${escapeHtml(row.program_study || "-")}</td><td data-label="BRIVA">${escapeHtml(row.briva)}</td><td data-label="Jumlah">${rupiah(row.amount)}</td><td data-label="Batas Pembayaran">${escapeHtml(row.due_date || "-")}</td></tr>`,
           )
           .join("")}
       </tbody>
@@ -220,15 +375,16 @@ function renderPreview(data) {
     changeState.classList.add("hidden");
   } else {
     changeTable.innerHTML = `
-      <table>
+      <table class="data-table preview-data-table">
+        <caption class="visually-hidden">Perubahan data yang terdeteksi</caption>
         <thead>
-          <tr><th>NIM</th><th>Jenis</th><th>BRIVA</th><th>Nominal</th></tr>
+          <tr><th scope="col">NIM</th><th scope="col">Jenis</th><th scope="col">BRIVA</th><th scope="col">Nominal</th></tr>
         </thead>
         <tbody>
           ${data.changes
             .map(
               (change) =>
-                `<tr><td>${escapeHtml(change.nim)}</td><td>${escapeHtml(change.change_type)}</td><td>${escapeHtml(change.old_briva)} -> ${escapeHtml(change.new_briva)}</td><td>${rupiah(change.old_amount)} -> ${rupiah(change.new_amount)}</td></tr>`,
+                `<tr><th data-label="NIM" scope="row">${escapeHtml(change.nim)}</th><td data-label="Jenis">${escapeHtml(change.change_type)}</td><td data-label="BRIVA">${escapeHtml(change.old_briva)} -&gt; ${escapeHtml(change.new_briva)}</td><td data-label="Nominal">${rupiah(change.old_amount)} -&gt; ${rupiah(change.new_amount)}</td></tr>`,
             )
             .join("")}
         </tbody>
@@ -241,12 +397,7 @@ function renderPreview(data) {
   confirmUpdatesRow.classList.toggle("hidden", !data.requires_update_confirmation);
   refreshCommitState();
   previewState.classList.remove("hidden");
-}
-
-function resetStudentForm() {
-  studentForm.reset();
-  document.querySelector("#student-id").value = "";
-  document.querySelector("#save-student-button").textContent = "Simpan";
+  setImportStep(2);
 }
 
 function resetBillForm() {
@@ -255,7 +406,36 @@ function resetBillForm() {
   document.querySelector("#bill-form-period").value = "Semester Ganjil 2026";
   document.querySelector("#bill-form-type").value = "UKT BRIVA";
   document.querySelector("#bill-form-status").value = "unpaid";
-  document.querySelector("#save-bill-button").textContent = "Simpan";
+  document.querySelector("#save-bill-button").textContent = "Simpan Data";
+}
+
+function closeStudentEditor() {
+  studentEditor.classList.add("hidden");
+  addStudentButton.setAttribute("aria-expanded", "false");
+  resetBillForm();
+}
+
+function openStudentEditor(bill = null) {
+  resetBillForm();
+  if (bill) {
+    studentEditorTitle.textContent = "Edit Data Mahasiswa";
+    document.querySelector("#bill-id").value = bill.id;
+    document.querySelector("#student-form-nim").value = bill.nim;
+    document.querySelector("#student-form-name").value = bill.full_name;
+    document.querySelector("#bill-form-briva").value = bill.briva;
+    document.querySelector("#bill-form-amount").value = bill.amount;
+    document.querySelector("#bill-form-period").value = bill.period;
+    document.querySelector("#bill-form-type").value = bill.bill_type;
+    document.querySelector("#bill-form-status").value = bill.status;
+    document.querySelector("#bill-form-due-date").value = bill.due_date || "";
+    document.querySelector("#save-bill-button").textContent = "Simpan Perubahan";
+  } else {
+    studentEditorTitle.textContent = "Tambah Data Mahasiswa";
+  }
+  studentEditor.classList.remove("hidden");
+  addStudentButton.setAttribute("aria-expanded", "true");
+  studentEditor.scrollIntoView({ behavior: "smooth", block: "start" });
+  window.setTimeout(() => document.querySelector("#student-form-nim").focus(), 250);
 }
 
 function statusLabel(status) {
@@ -266,76 +446,64 @@ function statusClass(status) {
   return status === "paid" ? "is-paid" : status === "partial" ? "is-partial" : "is-unpaid";
 }
 
-function renderStudents(students) {
-  if (!students.length) {
-    studentsState.innerHTML = `<p class="muted">Belum ada mahasiswa.</p>`;
+function isManualSource(sourceFile) {
+  return ["manual", "manual admin"].includes(String(sourceFile || "").trim().toLowerCase());
+}
+
+function sourceBadge(sourceFile) {
+  const source = String(sourceFile || "-");
+  if (isManualSource(source)) return `<span class="source-badge is-manual">Manual admin</span>`;
+  return `<span class="source-badge is-import">File import</span><span class="source-file-name" title="${escapeHtml(source)}">${escapeHtml(source)}</span>`;
+}
+
+function renderStudentBills(bills, offset = 0) {
+  if (!bills.length) {
+    const hasFilter = Boolean(manualSearch.value.trim() || statusFilter.value || sourceFilter.value);
+    studentsState.innerHTML = `
+      <div class="state-panel">
+        <strong>${hasFilter ? "Data tidak ditemukan" : "Belum ada data mahasiswa"}</strong>
+        <p>${hasFilter ? "Tidak ada data yang cocok dengan pencarian dan filter saat ini." : "Data mahasiswa yang ditambahkan atau diimport akan muncul di sini."}</p>
+        ${hasFilter ? `<button type="button" class="ghost-button" data-reset-student-filter>Reset pencarian</button>` : `<button type="button" data-open-student-editor>Tambah Data</button>`}
+      </div>
+    `;
     return;
   }
 
   studentsState.innerHTML = `
-    <table>
-      <thead>
-        <tr><th>Mahasiswa</th><th>Tagihan</th><th>Total</th><th class="actions-column">Aksi</th></tr>
-      </thead>
-      <tbody>
-        ${students
-          .map(
-            (student) => `
-              <tr data-student-id="${escapeHtml(student.id)}">
-                <td><strong>${escapeHtml(student.full_name)}</strong><br /><span class="muted">${escapeHtml(student.nim)}</span></td>
-                <td>${escapeHtml(student.bill_count)}</td>
-                <td>${escapeHtml(student.total_amount_formatted)}</td>
-                <td class="actions-column">
-                  <div class="row-actions">
-                    <button type="button" class="icon-action-button edit-student-button ghost-button" data-student-id="${escapeHtml(student.id)}" title="Edit mahasiswa" aria-label="Edit mahasiswa ${escapeHtml(student.nim)}">✎</button>
-                    <button type="button" class="icon-action-button delete-student-button danger-button" data-student-id="${escapeHtml(student.id)}" title="Hapus mahasiswa" aria-label="Hapus mahasiswa ${escapeHtml(student.nim)}">×</button>
-                  </div>
-                </td>
-              </tr>
-            `,
-          )
-          .join("")}
-      </tbody>
-    </table>
-  `;
-}
-
-function renderManualBills(bills) {
-  if (!bills.length) {
-    manualBillsState.innerHTML = `<p class="muted">Belum ada tagihan.</p>`;
-    return;
-  }
-
-  manualBillsState.innerHTML = `
-    <table>
+    <table class="data-table student-data-table">
+      <caption class="visually-hidden">Daftar mahasiswa dan tagihan</caption>
       <thead>
         <tr>
-          <th>Mahasiswa</th>
-          <th>BRIVA</th>
-          <th>Nominal</th>
-          <th>Periode</th>
-          <th>Jenis</th>
-          <th>Status</th>
-          <th>Batas Aktif</th>
-          <th class="actions-column">Aksi</th>
+          <th scope="col" class="number-column">No.</th>
+          <th scope="col" class="student-column">Mahasiswa</th>
+          <th scope="col" class="briva-column">BRIVA</th>
+          <th scope="col" class="amount-column">Nominal</th>
+          <th scope="col" class="period-column">Periode</th>
+          <th scope="col" class="type-column">Jenis</th>
+          <th scope="col" class="status-column">Status</th>
+          <th scope="col" class="due-date-column">Batas Aktif</th>
+          <th scope="col" class="source-column">Sumber</th>
+          <th scope="col" class="actions-column">Aksi</th>
         </tr>
       </thead>
       <tbody>
         ${bills
           .map(
-            (bill) => `
+            (bill, index) => `
               <tr data-bill-id="${escapeHtml(bill.id)}">
-                <td><strong>${escapeHtml(bill.full_name)}</strong><br /><span class="muted">${escapeHtml(bill.nim)}</span></td>
-                <td>${escapeHtml(bill.briva)}</td>
-                <td>${escapeHtml(bill.amount_formatted)}</td>
-                <td>${escapeHtml(bill.period)}</td>
-                <td>${escapeHtml(bill.bill_type)}</td>
-                <td class="bill-status-text ${statusClass(bill.status)}">${statusLabel(bill.status)}</td>
-                <td>${escapeHtml(bill.due_date_formatted || "-")}</td>
-                <td class="actions-column">
+                <td data-label="No." class="number-column">${offset + index + 1}</td>
+                <th data-label="Mahasiswa" scope="row" class="student-column"><strong>${escapeHtml(bill.full_name)}</strong><span class="student-nim">${escapeHtml(bill.nim)}</span></th>
+                <td data-label="BRIVA" class="briva-column numeric-value">${escapeHtml(bill.briva)}</td>
+                <td data-label="Nominal" class="amount-column numeric-value">${escapeHtml(bill.amount_formatted)}</td>
+                <td data-label="Periode" class="period-column">${escapeHtml(bill.period)}</td>
+                <td data-label="Jenis" class="type-column">${escapeHtml(bill.bill_type)}</td>
+                <td data-label="Status" class="status-column"><span class="status-badge ${statusClass(bill.status)}"><span aria-hidden="true"></span>${statusLabel(bill.status)}</span></td>
+                <td data-label="Batas Aktif" class="due-date-column">${escapeHtml(bill.due_date_formatted || "-")}</td>
+                <td data-label="Sumber" class="source-column">${sourceBadge(bill.source_file)}</td>
+                <td data-label="Aksi" class="actions-column">
                   <div class="row-actions">
-                    <button type="button" class="icon-action-button edit-bill-button ghost-button" data-bill-id="${escapeHtml(bill.id)}" title="Edit tagihan" aria-label="Edit tagihan BRIVA ${escapeHtml(bill.briva)}">✎</button>
-                    <button type="button" class="icon-action-button delete-bill-button danger-button" data-bill-id="${escapeHtml(bill.id)}" title="Hapus tagihan" aria-label="Hapus tagihan BRIVA ${escapeHtml(bill.briva)}">×</button>
+                    <button type="button" class="icon-action-button edit-bill-button ghost-button" data-bill-id="${escapeHtml(bill.id)}" title="Edit data" aria-label="Edit data mahasiswa ${escapeHtml(bill.nim)}">&#9998;</button>
+                    <button type="button" class="icon-action-button delete-bill-button danger-button" data-bill-id="${escapeHtml(bill.id)}" title="Hapus data" aria-label="Hapus data mahasiswa ${escapeHtml(bill.nim)}">&times;</button>
                   </div>
                 </td>
               </tr>
@@ -347,30 +515,82 @@ function renderManualBills(bills) {
   `;
 }
 
+function renderStudentPagination(pagination) {
+  const total = Number(pagination.total || 0);
+  const limit = Number(pagination.limit || STUDENT_PAGE_SIZE);
+  const offset = Number(pagination.offset || 0);
+  currentStudentPage = Number(pagination.page || 1);
+  totalStudentPages = Number(pagination.total_pages || 1);
+  const firstRow = total ? offset + 1 : 0;
+  const lastRow = Math.min(offset + limit, total);
+  studentsResultCount.textContent = `${total.toLocaleString("id-ID")} data`;
+  studentsPageInfo.textContent = `${firstRow.toLocaleString("id-ID")}-${lastRow.toLocaleString("id-ID")} dari ${total.toLocaleString("id-ID")} data`;
+  studentsPrevPage.disabled = currentStudentPage <= 1;
+  studentsNextPage.disabled = currentStudentPage >= totalStudentPages;
+  studentsPageNumbers.replaceChildren();
+
+  const visiblePages = [];
+  if (totalStudentPages <= 7) {
+    for (let page = 1; page <= totalStudentPages; page += 1) visiblePages.push(page);
+  } else {
+    visiblePages.push(1);
+    if (currentStudentPage > 4) visiblePages.push("start-ellipsis");
+    const start = Math.max(2, currentStudentPage - 1);
+    const end = Math.min(totalStudentPages - 1, currentStudentPage + 1);
+    for (let page = start; page <= end; page += 1) visiblePages.push(page);
+    if (currentStudentPage < totalStudentPages - 3) visiblePages.push("end-ellipsis");
+    visiblePages.push(totalStudentPages);
+  }
+
+  for (const item of visiblePages) {
+    if (typeof item !== "number") {
+      const ellipsis = document.createElement("span");
+      ellipsis.className = "pagination-ellipsis";
+      ellipsis.textContent = "...";
+      studentsPageNumbers.append(ellipsis);
+      continue;
+    }
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = `pagination-number-button ghost-button${item === currentStudentPage ? " is-active" : ""}`;
+    button.dataset.page = String(item);
+    button.textContent = String(item);
+    button.setAttribute("aria-label", `Buka halaman ${item}`);
+    if (item === currentStudentPage) button.setAttribute("aria-current", "page");
+    studentsPageNumbers.append(button);
+  }
+  studentsPagination.classList.toggle("hidden", totalStudentPages <= 1);
+}
+
 function renderImportIssues(issues) {
   if (!issues.length) {
-    importIssuesState.innerHTML = `<p class="muted">Tidak ada data yang perlu diperbaiki.</p>`;
+    importIssuesState.innerHTML = `
+      <div class="state-panel is-compact is-success">
+        <strong>Tidak ada data yang perlu diperbaiki</strong>
+      </div>
+    `;
     return;
   }
 
   importIssuesState.innerHTML = `
-    <table>
+    <table class="data-table issue-data-table">
+      <caption class="visually-hidden">Data import yang perlu diperbaiki</caption>
       <thead>
-        <tr><th>File</th><th>Sheet</th><th>Baris</th><th>NIM</th><th>Nama</th><th>BRIVA</th><th>Nominal</th><th>Catatan</th></tr>
+        <tr><th scope="col">File</th><th scope="col">Sheet</th><th scope="col">Baris</th><th scope="col">NIM</th><th scope="col">Nama</th><th scope="col">BRIVA</th><th scope="col">Nominal</th><th scope="col">Catatan</th></tr>
       </thead>
       <tbody>
         ${issues
           .map(
             (issue) => `
               <tr>
-                <td>${escapeHtml(issue.source_file)}</td>
-                <td>${escapeHtml(issue.sheet_name)}</td>
-                <td>${escapeHtml(issue.row_number)}</td>
-                <td>${escapeHtml(issue.nim || "-")}</td>
-                <td>${escapeHtml(issue.full_name || "-")}</td>
-                <td>${escapeHtml(issue.briva || "-")}</td>
-                <td>${escapeHtml(issue.amount || "-")}</td>
-                <td>${escapeHtml(issue.note)}</td>
+                <td data-label="File">${escapeHtml(issue.source_file)}</td>
+                <td data-label="Sheet">${escapeHtml(issue.sheet_name)}</td>
+                <td data-label="Baris">${escapeHtml(issue.row_number)}</td>
+                <td data-label="NIM">${escapeHtml(issue.nim || "-")}</td>
+                <td data-label="Nama">${escapeHtml(issue.full_name || "-")}</td>
+                <td data-label="BRIVA">${escapeHtml(issue.briva || "-")}</td>
+                <td data-label="Nominal">${escapeHtml(issue.amount || "-")}</td>
+                <td data-label="Catatan">${escapeHtml(issue.note)}</td>
               </tr>
             `,
           )
@@ -380,27 +600,51 @@ function renderImportIssues(issues) {
   `;
 }
 
-async function loadManualData() {
+async function loadStudentData(page = currentStudentPage) {
   const query = manualSearch.value.trim();
+  const status = statusFilter.value;
+  const source = sourceFilter.value;
+  const requestedPage = Math.max(1, Number(page) || 1);
+  const offset = (requestedPage - 1) * STUDENT_PAGE_SIZE;
   refreshManualButton.disabled = true;
-  setText(manualMessage, query ? `Mencari data "${query}"...` : "Memuat data manual...");
+  renderLoadingState(studentsState, "Memuat data mahasiswa...");
+  setText(manualMessage, query ? `Mencari data "${query}"...` : "Memuat data mahasiswa...");
   try {
-    const queryString = query ? `?query=${encodeURIComponent(query)}&limit=2000` : "?limit=2000";
-    const [studentsResult, billsResult, issuesResult] = await Promise.all([
-      api(`/api/admin/students${queryString}`),
-      api(`/api/admin/bills${queryString}`),
-      api("/api/admin/import-issues?limit=500"),
-    ]);
-    studentRows = studentsResult.data.students || [];
+    const queryString = new URLSearchParams({
+      limit: String(STUDENT_PAGE_SIZE),
+      offset: String(offset),
+    });
+    if (query) queryString.set("query", query);
+    if (status) queryString.set("status", status);
+    if (source) queryString.set("source", source);
+    const billsResult = await api(`/api/admin/bills?${queryString.toString()}`);
     billRows = billsResult.data.bills || [];
-    renderStudents(studentRows);
-    renderManualBills(billRows);
-    renderImportIssues(issuesResult.data.issues || []);
-    setText(manualMessage, query ? `Hasil pencarian siap: ${studentRows.length} mahasiswa, ${billRows.length} tagihan.` : "Data manual siap.");
+    const pagination = billsResult.data.pagination || { total: billRows.length, page: 1, total_pages: 1, offset: 0 };
+    if (!billRows.length && Number(pagination.total || 0) > 0 && requestedPage > Number(pagination.total_pages || 1)) {
+      return loadStudentData(Number(pagination.total_pages || 1));
+    }
+    renderStudentBills(billRows, Number(pagination.offset || 0));
+    studentsState.removeAttribute("aria-busy");
+    renderStudentPagination(pagination);
+    const hasFilter = Boolean(query || status || source);
+    setText(manualMessage, hasFilter ? `${Number(pagination.total || 0)} data sesuai pencarian dan filter.` : "Data mahasiswa siap.");
   } catch (error) {
     setText(manualMessage, error.message, "error");
+    renderErrorState(studentsState, "Data tidak dapat dimuat", error.message, "students");
+    studentsPagination.classList.add("hidden");
   } finally {
     refreshManualButton.disabled = false;
+  }
+}
+
+async function loadImportIssues() {
+  renderLoadingState(importIssuesState, "Memuat data perbaikan...", true);
+  try {
+    const result = await api("/api/admin/import-issues?limit=500");
+    renderImportIssues(result.data.issues || []);
+    importIssuesState.removeAttribute("aria-busy");
+  } catch (error) {
+    renderErrorState(importIssuesState, "Data perbaikan tidak dapat dimuat", error.message, "issues");
   }
 }
 
@@ -412,8 +656,14 @@ function formatImportedAt(value) {
 }
 
 function renderImportedBills(groups) {
+  importedBillGroups = groups;
   if (!groups.length) {
-    billsState.innerHTML = `<p class="muted">Belum ada file import yang tersimpan.</p>`;
+    billsState.innerHTML = `
+      <div class="empty-state">
+        <strong>Belum ada file import</strong>
+        <p>File yang sudah disimpan akan muncul di halaman ini.</p>
+      </div>
+    `;
     return;
   }
 
@@ -428,10 +678,7 @@ function renderImportedBills(groups) {
               <h3>${escapeHtml(group.file_name)}</h3>
               <p class="muted">Diimport ${escapeHtml(formatImportedAt(group.imported_at))}</p>
             </div>
-            <div class="bulk-due-date-bar">
-              <input type="date" class="bulk-due-date-input" aria-label="Batas aktif massal untuk file ${escapeHtml(group.file_name)}" />
-              <button type="button" class="bulk-due-date-button ghost-button">Simpan Ke Semua</button>
-            </div>
+            <button type="button" class="delete-import-file-button danger-button" data-file-name="${escapeHtml(group.file_name)}" aria-label="Hapus file import ${escapeHtml(group.file_name)}">Hapus File</button>
           </header>
 
           <dl class="file-record-metrics">
@@ -441,56 +688,14 @@ function renderImportedBills(groups) {
           </dl>
 
           <div class="file-status-summary" aria-label="Ringkasan status pembayaran">
-            <span class="status-summary is-paid">${escapeHtml(group.paid)} Lunas</span>
-            <span class="status-summary is-partial">${escapeHtml(group.partial)} Bayar sebagian</span>
-            <span class="status-summary is-unpaid">${escapeHtml(group.unpaid)} Belum lunas</span>
+            <span class="status-summary is-paid"><span aria-hidden="true"></span>${escapeHtml(group.paid)} Lunas</span>
+            <span class="status-summary is-partial"><span aria-hidden="true"></span>${escapeHtml(group.partial)} Bayar sebagian</span>
+            <span class="status-summary is-unpaid"><span aria-hidden="true"></span>${escapeHtml(group.unpaid)} Belum lunas</span>
           </div>
 
-          <details class="file-record-details">
-            <summary>Rincian tagihan</summary>
-            <div class="table-mini">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Status</th>
-                    <th>NIM</th>
-                    <th>Nama</th>
-                    <th>BRIVA</th>
-                    <th>Nominal</th>
-                    <th>Periode</th>
-                    <th>Batas Aktif</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  ${group.bills
-                    .map(
-                      (bill) => `
-                        <tr data-bill-id="${escapeHtml(bill.id)}">
-                          <td>
-                            <select class="status-select ${statusClass(bill.status)}" data-bill-id="${escapeHtml(bill.id)}" aria-label="Pilih status tagihan untuk NIM ${escapeHtml(bill.nim)}">
-                              <option value="unpaid" ${bill.status === "unpaid" ? "selected" : ""}>Belum lunas</option>
-                              <option value="partial" ${bill.status === "partial" ? "selected" : ""}>Bayar sebagian</option>
-                              <option value="paid" ${bill.status === "paid" ? "selected" : ""}>Lunas</option>
-                            </select>
-                          </td>
-                          <td>${escapeHtml(bill.nim)}</td>
-                          <td>${escapeHtml(bill.full_name)}</td>
-                          <td>${escapeHtml(bill.briva)}</td>
-                          <td>${escapeHtml(bill.amount_formatted)}</td>
-                          <td>${escapeHtml(bill.period)}</td>
-                          <td>
-                            <div class="due-date-cell-group">
-                              <input class="due-date-input" type="date" data-bill-id="${escapeHtml(bill.id)}" value="${escapeHtml(bill.due_date || "")}" aria-label="Pilih batas aktif untuk NIM ${escapeHtml(bill.nim)}" />
-                              <button type="button" class="save-due-date-button ghost-button" data-bill-id="${escapeHtml(bill.id)}">Simpan</button>
-                            </div>
-                          </td>
-                        </tr>
-                      `,
-                    )
-                    .join("")}
-                </tbody>
-              </table>
-            </div>
+          <details class="file-record-details" data-group-index="${index}">
+            <summary>Lihat ${escapeHtml(group.total)} data mahasiswa</summary>
+            <div class="file-detail-content"></div>
           </details>
         </article>
       `;
@@ -498,15 +703,83 @@ function renderImportedBills(groups) {
     .join("");
 }
 
+function renderFileDetail(groupIndex, page = 1) {
+  const group = importedBillGroups[groupIndex];
+  const details = billsState.querySelector(`.file-record-details[data-group-index="${groupIndex}"]`);
+  const content = details?.querySelector(".file-detail-content");
+  if (!group || !content) return;
+
+  const total = group.bills.length;
+  const totalPages = Math.max(1, Math.ceil(total / FILE_DETAIL_PAGE_SIZE));
+  const currentPage = Math.min(Math.max(1, Number(page) || 1), totalPages);
+  const offset = (currentPage - 1) * FILE_DETAIL_PAGE_SIZE;
+  const rows = group.bills.slice(offset, offset + FILE_DETAIL_PAGE_SIZE);
+  const firstRow = total ? offset + 1 : 0;
+  const lastRow = Math.min(offset + FILE_DETAIL_PAGE_SIZE, total);
+
+  content.innerHTML = `
+    <div class="table-mini">
+      <table class="data-table file-detail-table">
+        <caption class="visually-hidden">Rincian mahasiswa dari file ${escapeHtml(group.file_name)}</caption>
+        <thead>
+          <tr>
+            <th scope="col">No.</th>
+            <th scope="col">Status</th>
+            <th scope="col">NIM</th>
+            <th scope="col">Nama</th>
+            <th scope="col">BRIVA</th>
+            <th scope="col">Nominal</th>
+            <th scope="col">Periode</th>
+            <th scope="col">Batas Aktif</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows
+            .map(
+              (bill, index) => `
+                <tr>
+                  <td data-label="No.">${offset + index + 1}</td>
+                  <td data-label="Status"><span class="status-badge ${statusClass(bill.status)}"><span aria-hidden="true"></span>${statusLabel(bill.status)}</span></td>
+                  <td data-label="NIM" class="numeric-value">${escapeHtml(bill.nim)}</td>
+                  <th data-label="Nama" scope="row">${escapeHtml(bill.full_name)}</th>
+                  <td data-label="BRIVA" class="numeric-value">${escapeHtml(bill.briva)}</td>
+                  <td data-label="Nominal" class="numeric-value">${escapeHtml(bill.amount_formatted)}</td>
+                  <td data-label="Periode">${escapeHtml(bill.period)}</td>
+                  <td data-label="Batas Aktif">${escapeHtml(bill.due_date_formatted || "-")}</td>
+                </tr>
+              `,
+            )
+            .join("")}
+        </tbody>
+      </table>
+    </div>
+    ${
+      totalPages > 1
+        ? `<nav class="file-detail-pagination" aria-label="Navigasi rincian ${escapeHtml(group.file_name)}">
+            <button type="button" class="pagination-button ghost-button file-detail-page-button" data-page="${currentPage - 1}" ${currentPage <= 1 ? "disabled" : ""} aria-label="Halaman rincian sebelumnya">&lsaquo;</button>
+            <span aria-live="polite">${firstRow}-${lastRow} dari ${total} data</span>
+            <button type="button" class="pagination-button ghost-button file-detail-page-button" data-page="${currentPage + 1}" ${currentPage >= totalPages ? "disabled" : ""} aria-label="Halaman rincian berikutnya">&rsaquo;</button>
+          </nav>`
+        : ""
+    }
+  `;
+  details.dataset.rendered = "true";
+  details.dataset.page = String(currentPage);
+}
+
 async function loadImportedBills() {
-  setText(billsMessage, "Memuat data tagihan...");
+  setText(billsMessage, "Memuat data mahasiswa per file...");
   refreshBillsButton.disabled = true;
+  renderLoadingState(billsState, "Memuat file import...");
   try {
     const result = await api("/api/admin/imported-bills");
-    renderImportedBills(result.data.groups || []);
-    setText(billsMessage, "Data tagihan siap.");
+    const groups = result.data.groups || [];
+    renderImportedBills(groups);
+    billsState.removeAttribute("aria-busy");
+    setText(billsMessage, `${groups.length} file import tersimpan.`);
   } catch (error) {
     setText(billsMessage, error.message, "error");
+    renderErrorState(billsState, "File import tidak dapat dimuat", error.message, "files");
   } finally {
     refreshBillsButton.disabled = false;
   }
@@ -514,7 +787,11 @@ async function loadImportedBills() {
 
 loginForm.addEventListener("submit", async (event) => {
   event.preventDefault();
+  if (!loginForm.reportValidity()) return;
   setText(loginMessage, "Memeriksa login...");
+  loginSubmitButton.disabled = true;
+  loginSubmitButton.setAttribute("aria-busy", "true");
+  loginSubmitButton.textContent = "Memproses...";
   const body = JSON.stringify(Object.fromEntries(new FormData(loginForm)));
 
   try {
@@ -524,11 +801,34 @@ loginForm.addEventListener("submit", async (event) => {
       body,
     });
     setText(loginMessage, "");
+    loginForm.reset();
     showAdmin(result.data);
   } catch (error) {
     setText(loginMessage, error.message, "error");
+    document.querySelector("#email").setAttribute("aria-invalid", "true");
+    passwordInput.setAttribute("aria-invalid", "true");
+  } finally {
+    loginSubmitButton.disabled = false;
+    loginSubmitButton.removeAttribute("aria-busy");
+    loginSubmitButton.textContent = "Masuk";
   }
 });
+
+passwordToggle.addEventListener("click", () => {
+  const shouldShow = passwordInput.type === "password";
+  passwordInput.type = shouldShow ? "text" : "password";
+  passwordToggle.setAttribute("aria-pressed", String(shouldShow));
+  passwordToggle.setAttribute("aria-label", shouldShow ? "Sembunyikan password" : "Tampilkan password");
+  passwordToggle.title = shouldShow ? "Sembunyikan password" : "Tampilkan password";
+  passwordInput.focus();
+});
+
+for (const input of loginForm.querySelectorAll("input")) {
+  input.addEventListener("input", () => {
+    input.removeAttribute("aria-invalid");
+    setText(loginMessage, "");
+  });
+}
 
 importForm.addEventListener("submit", async (event) => {
   event.preventDefault();
@@ -541,13 +841,15 @@ importForm.addEventListener("submit", async (event) => {
     setText(importMessage, "File harus berformat .xlsx.", "error");
     return;
   }
+  if (selectedFile.size > 5 * 1024 * 1024) {
+    setText(importMessage, "Ukuran file melebihi batas 5 MB.", "error");
+    return;
+  }
   isUploading = true;
   previewButton.disabled = true;
   commitButton.disabled = true;
   setText(importMessage, "Mengunggah dan membaca Excel...");
-  previewState.classList.add("hidden");
-  currentImportToken = "";
-  currentPreview = null;
+  resetImportPreview();
 
   try {
     const result = await api("/api/admin/import/preview", {
@@ -568,14 +870,34 @@ importForm.addEventListener("submit", async (event) => {
     );
   } catch (error) {
     setText(importMessage, error.message, "error");
+    showToast(error.message, "error");
   } finally {
     isUploading = false;
-    previewButton.disabled = false;
+    previewButton.disabled = !fileInput.files.length;
     refreshCommitState();
   }
 });
 
+fileInput.addEventListener("change", () => {
+  if (currentPreview) resetImportPreview();
+  const file = fileInput.files[0] || null;
+  setSelectedFile(file);
+  if (file) setText(importMessage, `${file.name} siap diperiksa.`);
+  else setText(importMessage, "");
+});
+
+for (const eventName of ["dragenter", "dragover"]) {
+  filePicker.addEventListener(eventName, () => filePicker.classList.add("is-dragging"));
+}
+for (const eventName of ["dragleave", "drop"]) {
+  filePicker.addEventListener(eventName, () => filePicker.classList.remove("is-dragging"));
+}
+
 confirmUpdates.addEventListener("change", refreshCommitState);
+cancelPreviewButton.addEventListener("click", () => {
+  resetImportPreview({ clearFile: true });
+  setText(importMessage, "Preview dibatalkan.");
+});
 
 commitButton.addEventListener("click", async () => {
   if (!currentImportToken || !currentPreview) {
@@ -591,6 +913,7 @@ commitButton.addEventListener("click", async () => {
     return;
   }
   isCommitting = true;
+  setImportStep(3);
   commitButton.disabled = true;
   previewButton.disabled = true;
   setText(importMessage, "Menyimpan data ke SQLite...");
@@ -601,10 +924,6 @@ commitButton.addEventListener("click", async () => {
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ import_token: currentImportToken, confirm_updates: confirmUpdates.checked }),
     });
-    previewState.classList.add("hidden");
-    currentImportToken = "";
-    currentPreview = null;
-    importForm.reset();
     const issueDetails = (result.data.issue_details || [])
       .map((issue) => `${issue.sheet} baris ${issue.row_number}`)
       .join(", ");
@@ -612,14 +931,17 @@ commitButton.addEventListener("click", async () => {
     if (result.data.issues > 0) {
       const notification = `${importSummary} ${result.data.issues} baris dilewati dan dicatat untuk perbaikan manual${issueDetails ? `: ${issueDetails}` : ""}.`;
       setText(importMessage, notification, "warning");
-      alert(`${notification}\n\nPerbaiki data tersebut melalui menu Data Mahasiswa atau Tagihan Mahasiswa.`);
+      showToast("Import selesai dengan data yang perlu diperbaiki.", "warning");
     } else {
       setText(importMessage, importSummary);
+      showToast("Import berhasil disimpan.");
     }
-    loadManualData();
-    loadImportedBills();
+    resetImportPreview({ clearFile: true });
+    loadImportIssues();
   } catch (error) {
     setText(importMessage, error.message, "error");
+    setImportStep(2);
+    showToast(error.message, "error");
   } finally {
     isCommitting = false;
     previewButton.disabled = false;
@@ -627,37 +949,12 @@ commitButton.addEventListener("click", async () => {
   }
 });
 
-studentForm.addEventListener("submit", async (event) => {
-  event.preventDefault();
-  const studentId = document.querySelector("#student-id").value;
-  const payload = Object.fromEntries(new FormData(studentForm));
-  delete payload.id;
-  setText(manualMessage, studentId ? "Menyimpan perubahan mahasiswa..." : "Menambah mahasiswa...");
-
-  try {
-    await api(studentId ? `/api/admin/students/${encodeURIComponent(studentId)}` : "/api/admin/students", {
-      method: studentId ? "PATCH" : "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-    resetStudentForm();
-    setText(manualMessage, "Data mahasiswa berhasil disimpan.");
-    alert("Data mahasiswa berhasil disimpan.");
-    await loadManualData();
-    loadImportedBills();
-  } catch (error) {
-    setText(manualMessage, error.message, "error");
-  }
-});
-
 billForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   const billId = document.querySelector("#bill-id").value;
   const payload = Object.fromEntries(new FormData(billForm));
-  payload.nim = document.querySelector("#student-form-nim").value;
-  payload.full_name = document.querySelector("#student-form-name").value;
   delete payload.id;
-  setText(manualMessage, billId ? "Menyimpan perubahan tagihan..." : "Menambah tagihan...");
+  setText(manualMessage, billId ? "Menyimpan perubahan data..." : "Menambah data mahasiswa...");
 
   try {
     await api(billId ? `/api/admin/bills/${encodeURIComponent(billId)}` : "/api/admin/bills", {
@@ -665,136 +962,138 @@ billForm.addEventListener("submit", async (event) => {
       headers: { "content-type": "application/json" },
       body: JSON.stringify(payload),
     });
-    resetBillForm();
-    setText(manualMessage, "Data tagihan berhasil disimpan.");
-    alert("Data tagihan berhasil disimpan.");
-    await loadManualData();
-    loadImportedBills();
+    closeStudentEditor();
+    currentStudentPage = 1;
+    setText(manualMessage, "Data mahasiswa berhasil disimpan.");
+    showToast(billId ? "Perubahan data berhasil disimpan." : "Data mahasiswa berhasil ditambahkan.");
+    await loadStudentData();
   } catch (error) {
     setText(manualMessage, error.message, "error");
+    showToast(error.message, "error");
   }
 });
 
-resetStudentButton.addEventListener("click", resetStudentForm);
-resetBillButton.addEventListener("click", resetBillForm);
-refreshManualButton.addEventListener("click", loadManualData);
+addStudentButton.addEventListener("click", () => openStudentEditor());
+resetBillButton.addEventListener("click", closeStudentEditor);
+closeEditorButton.addEventListener("click", closeStudentEditor);
+refreshManualButton.addEventListener("click", () => loadStudentData(currentStudentPage));
+clearSearchButton.addEventListener("click", () => {
+  manualSearch.value = "";
+  statusFilter.value = "";
+  sourceFilter.value = "";
+  currentStudentPage = 1;
+  loadStudentData(1);
+});
 
 manualSearchForm.addEventListener("submit", async (event) => {
   event.preventDefault();
-  await loadManualData();
+  currentStudentPage = 1;
+  await loadStudentData(1);
+});
+
+statusFilter.addEventListener("change", () => {
+  currentStudentPage = 1;
+  loadStudentData(1);
+});
+
+sourceFilter.addEventListener("change", () => {
+  currentStudentPage = 1;
+  loadStudentData(1);
+});
+
+studentsPrevPage.addEventListener("click", () => {
+  if (currentStudentPage > 1) loadStudentData(currentStudentPage - 1);
+});
+
+studentsNextPage.addEventListener("click", () => {
+  if (currentStudentPage < totalStudentPages) loadStudentData(currentStudentPage + 1);
+});
+
+studentsPageNumbers.addEventListener("click", (event) => {
+  const target = event.target;
+  if (!(target instanceof HTMLButtonElement)) return;
+  const page = Number(target.dataset.page || 0);
+  if (page >= 1 && page <= totalStudentPages && page !== currentStudentPage) loadStudentData(page);
 });
 
 refreshBillsButton.addEventListener("click", loadImportedBills);
 
-billsState.addEventListener("change", async (event) => {
-  const target = event.target;
-  if (target instanceof HTMLSelectElement && target.classList.contains("status-select")) {
-    const billId = target.dataset.billId || "";
-    const status = target.value;
-    target.disabled = true;
-    setText(billsMessage, "Menyimpan status tagihan...");
-    try {
-      await api("/api/admin/bills/status", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ bill_id: billId, status }),
-      });
-      setText(billsMessage, "Status tagihan diperbarui.");
-      loadImportedBills();
-    } catch (error) {
-      setText(billsMessage, error.message, "error");
-      loadImportedBills();
-    } finally {
-      target.disabled = false;
-    }
-    return;
-  }
-
-  if (!(target instanceof HTMLInputElement)) {
-    return;
-  }
-
-  if (target.classList.contains("due-date-input")) {
-    const billId = target.dataset.billId || "";
-    const dueDate = target.value;
-    target.disabled = true;
-    setText(billsMessage, "Menyimpan batas aktif pembayaran...");
-    try {
-      await api("/api/admin/bills/due-date", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ bill_id: billId, due_date: dueDate }),
-      });
-      setText(billsMessage, "Batas aktif pembayaran berhasil diperbarui.");
-    } catch (error) {
-      setText(billsMessage, error.message, "error");
-    } finally {
-      target.disabled = false;
-    }
-  }
-});
+billsState.addEventListener(
+  "toggle",
+  (event) => {
+    const details = event.target;
+    if (!(details instanceof HTMLDetailsElement) || !details.open || details.dataset.rendered === "true") return;
+    renderFileDetail(Number(details.dataset.groupIndex || 0), 1);
+  },
+  true,
+);
 
 billsCard.addEventListener("click", async (event) => {
   const target = event.target;
+  if (!(target instanceof HTMLButtonElement)) return;
+
+  if (target.classList.contains("file-detail-page-button")) {
+    const details = target.closest(".file-record-details");
+    if (!(details instanceof HTMLDetailsElement)) return;
+    const currentPage = Number(details.dataset.page || 1);
+    const targetPage = Number(target.dataset.page || 1);
+    renderFileDetail(Number(details.dataset.groupIndex || 0), targetPage);
+    const buttons = Array.from(details.querySelectorAll(".file-detail-page-button:not([disabled])"));
+    const focusTarget = targetPage > currentPage ? buttons.at(-1) : buttons[0];
+    focusTarget?.focus();
+    return;
+  }
+
+  if (!target.classList.contains("delete-import-file-button")) return;
+
+  const fileName = target.dataset.fileName || "";
+  if (!fileName) return;
+  const reason = await requestDeleteConfirmation({
+    title: "Hapus File Import",
+    description: `File ${fileName} beserta seluruh data hasil impornya akan dihapus. Tindakan ini tidak dapat dibatalkan.`,
+    submitLabel: "Hapus File",
+  });
+  if (!reason) return;
+
+  target.disabled = true;
+  setText(billsMessage, `Menghapus file ${fileName}...`);
+  try {
+    const result = await api("/api/admin/imported-files", {
+      method: "DELETE",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ file_name: fileName, reason }),
+    });
+    await loadImportedBills();
+    setText(billsMessage, `File ${fileName} dan ${result.data.deleted_bills} data berhasil dihapus.`);
+    showToast(`File ${fileName} berhasil dihapus.`);
+  } catch (error) {
+    setText(billsMessage, error.message, "error");
+    showToast(error.message, "error");
+  } finally {
+    target.disabled = false;
+  }
+});
+
+studentsCard.addEventListener("click", async (event) => {
+  const target = event.target;
   if (!(target instanceof HTMLButtonElement)) {
     return;
   }
 
-  if (target.classList.contains("save-due-date-button")) {
-    const billId = target.dataset.billId || "";
-    const container = target.closest(".due-date-cell-group");
-    const input = container ? container.querySelector(".due-date-input") : null;
-    const dueDate = input ? input.value : "";
-    target.disabled = true;
-    setText(billsMessage, "Menyimpan batas aktif pembayaran...");
-    try {
-      await api("/api/admin/bills/due-date", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ bill_id: billId, due_date: dueDate }),
-      });
-      setText(billsMessage, "Batas aktif pembayaran berhasil disimpan.");
-    } catch (error) {
-      setText(billsMessage, error.message, "error");
-    } finally {
-      target.disabled = false;
-    }
-  } else if (target.classList.contains("bulk-due-date-button")) {
-    const groupSection = target.closest(".file-record-card");
-    if (!groupSection) return;
-    const bulkInput = groupSection.querySelector(".bulk-due-date-input");
-    const dueDate = bulkInput ? bulkInput.value : "";
-    const rowInputs = groupSection.querySelectorAll(".due-date-input");
-    const billIds = Array.from(rowInputs).map((input) => input.dataset.billId).filter(Boolean);
-
-    if (!billIds.length) {
-      setText(billsMessage, "Tidak ada tagihan untuk diperbarui.", "error");
-      return;
-    }
-
-    target.disabled = true;
-    setText(billsMessage, "Menyimpan batas aktif untuk semua tagihan...");
-    try {
-      const result = await api("/api/admin/bills/due-date", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ bill_ids: billIds, due_date: dueDate }),
-      });
-      for (const input of rowInputs) {
-        input.value = dueDate;
-      }
-      setText(billsMessage, `Batas aktif berhasil disimpan untuk ${result.data.updated_count || billIds.length} tagihan.`);
-    } catch (error) {
-      setText(billsMessage, error.message, "error");
-    } finally {
-      target.disabled = false;
-    }
+  if (target.hasAttribute("data-reset-student-filter")) {
+    clearSearchButton.click();
+    return;
   }
-});
 
-manualCard.addEventListener("click", async (event) => {
-  const target = event.target;
-  if (!(target instanceof HTMLButtonElement)) {
+  if (target.hasAttribute("data-open-student-editor")) {
+    openStudentEditor();
+    return;
+  }
+
+  if (target.classList.contains("edit-bill-button")) {
+    const bill = billRows.find((item) => item.id === (target.dataset.billId || ""));
+    if (!bill) return;
+    openStudentEditor(bill);
     return;
   }
 
@@ -802,98 +1101,80 @@ manualCard.addEventListener("click", async (event) => {
     const billId = target.dataset.billId || "";
     const bill = billRows.find((item) => item.id === billId);
     if (!bill) return;
-    const reason = prompt(`Hapus tagihan BRIVA ${bill.briva} untuk NIM ${bill.nim}?\nMasukkan alasan penghapusan:`, "Koreksi manual admin");
-    if (reason === null) return;
+    const reason = await requestDeleteConfirmation({
+      title: "Hapus Data Mahasiswa",
+      description: `${bill.full_name} (${bill.nim}) dengan BRIVA ${bill.briva} akan dihapus. Tindakan ini tidak dapat dibatalkan.`,
+    });
+    if (!reason) return;
     target.disabled = true;
-    setText(manualMessage, "Menghapus tagihan...");
+    setText(manualMessage, "Menghapus data mahasiswa...");
     try {
       await api(`/api/admin/bills/${encodeURIComponent(billId)}?reason=${encodeURIComponent(reason)}`, { method: "DELETE" });
-      setText(manualMessage, "Tagihan berhasil dihapus.");
-      alert("Tagihan berhasil dihapus.");
-      await loadManualData();
-      loadImportedBills();
+      setText(manualMessage, "Data mahasiswa berhasil dihapus.");
+      showToast("Data mahasiswa berhasil dihapus.");
+      closeStudentEditor();
+      await loadStudentData();
     } catch (error) {
       setText(manualMessage, error.message, "error");
+      showToast(error.message, "error");
     } finally {
       target.disabled = false;
     }
   }
 });
 
-manualCard.addEventListener("click", async (event) => {
-  const target = event.target;
-  if (!(target instanceof HTMLButtonElement)) {
+confirmModalSubmit.addEventListener("click", () => {
+  const reason = confirmModalReason.value.trim();
+  if (!reason) {
+    confirmModalError.textContent = "Alasan penghapusan wajib diisi.";
+    confirmModalReason.focus();
     return;
   }
-
-  if (target.classList.contains("edit-bill-button")) {
-    const bill = billRows.find((item) => item.id === (target.dataset.billId || ""));
-    if (!bill) return;
-    if (!confirm(`Edit tagihan BRIVA ${bill.briva} untuk NIM ${bill.nim}?`)) {
-      return;
-    }
-    document.querySelector("#bill-id").value = bill.id;
-    document.querySelector("#student-id").value = "";
-    document.querySelector("#student-form-nim").value = bill.nim;
-    document.querySelector("#student-form-name").value = bill.full_name;
-    document.querySelector("#bill-form-briva").value = bill.briva;
-    document.querySelector("#bill-form-amount").value = bill.amount;
-    document.querySelector("#bill-form-period").value = bill.period;
-    document.querySelector("#bill-form-type").value = bill.bill_type;
-    document.querySelector("#bill-form-status").value = bill.status;
-    document.querySelector("#bill-form-due-date").value = bill.due_date || "";
-    document.querySelector("#save-bill-button").textContent = "Update";
-    manualCard.scrollIntoView({ behavior: "smooth", block: "start" });
-  }
+  closeConfirmModal(reason);
 });
 
-studentsCard.addEventListener("click", async (event) => {
-  const target = event.target;
-  if (!(target instanceof HTMLButtonElement)) {
-    return;
-  }
-
-  if (target.classList.contains("edit-student-button")) {
-    const student = studentRows.find((item) => item.id === (target.dataset.studentId || ""));
-    if (!student) return;
-    if (!confirm(`Edit data mahasiswa ${student.nim} - ${student.full_name}?`)) {
-      return;
-    }
-    document.querySelector("#student-id").value = student.id;
-    document.querySelector("#student-form-nim").value = student.nim;
-    document.querySelector("#student-form-name").value = student.full_name;
-    document.querySelector("#save-student-button").textContent = "Update";
-    studentsCard.scrollIntoView({ behavior: "smooth", block: "start" });
-  }
+confirmModalReason.addEventListener("input", () => {
+  confirmModalError.textContent = "";
 });
 
-studentsCard.addEventListener("click", async (event) => {
+confirmModalCancel.addEventListener("click", () => closeConfirmModal(null));
+confirmModalClose.addEventListener("click", () => closeConfirmModal(null));
+confirmModal.addEventListener("click", (event) => {
+  if (event.target instanceof HTMLElement && event.target.hasAttribute("data-modal-cancel")) closeConfirmModal(null);
+});
+
+document.addEventListener("click", (event) => {
   const target = event.target;
-  if (!(target instanceof HTMLButtonElement)) {
+  if (!(target instanceof HTMLButtonElement)) return;
+  const action = target.dataset.retryAction;
+  if (action === "students") loadStudentData();
+  if (action === "issues") loadImportIssues();
+  if (action === "files") loadImportedBills();
+});
+
+document.addEventListener("keydown", (event) => {
+  if (confirmModal.classList.contains("hidden")) {
+    if (event.key === "Escape" && adminSidebar?.classList.contains("is-open")) closeSidebar(true);
     return;
   }
+  if (event.key === "Escape") {
+    closeConfirmModal(null);
+    return;
+  }
+  if (event.key !== "Tab") return;
 
-  if (target.classList.contains("delete-student-button")) {
-    const studentId = target.dataset.studentId || "";
-    const student = studentRows.find((item) => item.id === studentId);
-    if (!student) return;
-    const reason = prompt(`Hapus mahasiswa ${student.nim} dan semua tagihannya?\nMasukkan alasan penghapusan:`, "Koreksi manual admin");
-    if (reason === null) return;
-    target.disabled = true;
-    setText(manualMessage, "Menghapus mahasiswa...");
-    try {
-      await api(`/api/admin/students/${encodeURIComponent(studentId)}?reason=${encodeURIComponent(reason)}`, { method: "DELETE" });
-      setText(manualMessage, "Mahasiswa berhasil dihapus.");
-      alert("Mahasiswa berhasil dihapus.");
-      resetStudentForm();
-      resetBillForm();
-      await loadManualData();
-      loadImportedBills();
-    } catch (error) {
-      setText(manualMessage, error.message, "error");
-    } finally {
-      target.disabled = false;
-    }
+  const focusable = Array.from(
+    confirmModalDialog.querySelectorAll("button:not([disabled]), textarea:not([disabled])"),
+  ).filter((element) => element instanceof HTMLElement && element.offsetParent !== null);
+  if (!focusable.length) return;
+  const first = focusable[0];
+  const last = focusable[focusable.length - 1];
+  if (event.shiftKey && document.activeElement === first) {
+    event.preventDefault();
+    last.focus();
+  } else if (!event.shiftKey && document.activeElement === last) {
+    event.preventDefault();
+    first.focus();
   }
 });
 
@@ -908,11 +1189,11 @@ logoutButtonMobile?.addEventListener("click", async () => {
 });
 
 sidebarToggle?.addEventListener("click", toggleSidebar);
-sidebarOverlay?.addEventListener("click", closeSidebar);
+sidebarOverlay?.addEventListener("click", () => closeSidebar(true));
 
 for (const button of adminViewButtons) {
   button.addEventListener("click", () => setAdminView(button.dataset.adminView || "upload"));
 }
 
-api("/api/admin/me").then((result) => showAdmin(result.data)).catch(showLogin);
-
+setSelectedFile();
+api("/api/admin/me").then((result) => showAdmin(result.data)).catch(() => showLogin());
