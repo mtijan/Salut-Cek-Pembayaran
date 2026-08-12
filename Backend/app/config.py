@@ -22,6 +22,40 @@ DEFAULT_PAYMENT_PERIOD_LABEL = os.environ.get("DEFAULT_PAYMENT_PERIOD_LABEL", "S
 
 
 def _read_git_release_id() -> str | None:
+    git_dir = PROJECT_ROOT / ".git"
+    if git_dir.is_file():
+        git_dir_text = git_dir.read_text(encoding="utf-8", errors="ignore").strip()
+        if git_dir_text.startswith("gitdir:"):
+            git_dir = (PROJECT_ROOT / git_dir_text.removeprefix("gitdir:").strip()).resolve()
+
+    try:
+        head = (git_dir / "HEAD").read_text(encoding="utf-8").strip()
+    except OSError:
+        head = ""
+
+    if head and not head.startswith("ref:"):
+        return head[:7]
+
+    if head.startswith("ref:"):
+        ref_name = head.removeprefix("ref:").strip()
+        try:
+            ref_hash = (git_dir / ref_name).read_text(encoding="utf-8").strip()
+        except OSError:
+            ref_hash = ""
+        if ref_hash:
+            return ref_hash[:7]
+
+        try:
+            packed_refs = (git_dir / "packed-refs").read_text(encoding="utf-8", errors="ignore").splitlines()
+        except OSError:
+            packed_refs = []
+        for line in packed_refs:
+            if line.startswith("#") or not line.strip():
+                continue
+            commit_hash, _, packed_ref_name = line.partition(" ")
+            if packed_ref_name.strip() == ref_name:
+                return commit_hash[:7]
+
     try:
         result = subprocess.run(
             ["git", "-C", str(PROJECT_ROOT), "rev-parse", "--short", "HEAD"],
