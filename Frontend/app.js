@@ -25,12 +25,37 @@ function rupiah(value) {
   return `Rp ${Number(value || 0).toLocaleString("id-ID")}`;
 }
 
+function normalizeStatus(status) {
+  const value = String(status || "unpaid").trim().toLowerCase();
+  const aliases = {
+    paid: "paid",
+    lunas: "paid",
+    partial: "partial",
+    "bayar sebagian": "partial",
+    "lunas sebagian": "partial",
+    dicicil: "partial",
+    cicil: "partial",
+    unpaid: "unpaid",
+    "belum lunas": "unpaid",
+  };
+  return aliases[value] || "unpaid";
+}
+
+function summarizePaymentStatus(bills) {
+  const statuses = bills.map((bill) => normalizeStatus(bill.status));
+  const allPaid = statuses.length > 0 && statuses.every((status) => status === "paid");
+  if (allPaid) return "paid";
+  if (statuses.includes("partial")) return "partial";
+  return "unpaid";
+}
+
 function setStatusPill(node, status) {
-  const labels = { paid: "Lunas", partial: "Bayar sebagian", unpaid: "Belum lunas" };
-  node.textContent = labels[status] || labels.unpaid;
-  node.classList.toggle("is-paid", status === "paid");
-  node.classList.toggle("is-partial", status === "partial");
-  node.classList.toggle("is-unpaid", status === "unpaid");
+  const normalizedStatus = normalizeStatus(status);
+  const labels = { paid: "Lunas", partial: "Lunas sebagian", unpaid: "Belum lunas" };
+  node.textContent = labels[normalizedStatus];
+  node.classList.toggle("is-paid", normalizedStatus === "paid");
+  node.classList.toggle("is-partial", normalizedStatus === "partial");
+  node.classList.toggle("is-unpaid", normalizedStatus === "unpaid");
 }
 
 function renderResult(data) {
@@ -47,9 +72,7 @@ function renderResult(data) {
   const amountLines = item.querySelector(".amount-lines");
   const vaList = item.querySelector(".va-list");
   const total = bills.reduce((sum, bill) => sum + Number(bill.amount || 0), 0);
-  const hasPartialBill = bills.some((bill) => bill.status === "partial");
-  const hasUnpaidBill = bills.some((bill) => bill.status === "unpaid");
-  const paymentStatusValue = bills.length > 0 && !hasPartialBill && !hasUnpaidBill ? "paid" : hasPartialBill ? "partial" : "unpaid";
+  const paymentStatusValue = normalizeStatus(data.payment_status || summarizePaymentStatus(bills));
 
   item.querySelector(".bill-section-title").textContent = bills.length > 1 ? "Informasi Tagihan" : "Informasi Tagihan";
   item.querySelector(".payment-period-inline").textContent = data.student.payment_period || "-";
