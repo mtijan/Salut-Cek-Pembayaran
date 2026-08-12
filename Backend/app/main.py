@@ -16,11 +16,13 @@ from Backend.app.services import (
     authenticate_admin,
     bill_row_to_dict,
     cleanup_stale_imports,
+    count_bills,
     create_admin_session,
     create_bill,
     create_student,
     delete_bill,
     delete_admin_session,
+    delete_imported_bill_group,
     delete_import_preview,
     delete_student,
     ensure_database,
@@ -101,6 +103,17 @@ def parse_limit(request: Request, default: int = 2000, max_limit: int = 5000) ->
     except ValueError:
         raise ValueError("Query parameter limit harus berupa angka.")
     return max(1, min(val, max_limit))
+
+
+def parse_offset(request: Request) -> int:
+    raw = request.query_params.get("offset")
+    if raw is None or raw == "":
+        return 0
+    try:
+        value = int(raw)
+    except ValueError:
+        raise ValueError("Query parameter offset harus berupa angka.")
+    return max(0, value)
 
 
 def enforce_rate_limit(scope: str, key: str, limit: int, window_seconds: int) -> int | None:
@@ -264,6 +277,32 @@ async def admin_imported_bills(admin=Depends(require_admin("import"))) -> JSONRe
     return success_response({"groups": list_imported_bill_groups(config.DB_PATH)})
 
 
+@app.delete("/api/admin/imported-files")
+async def admin_delete_imported_file(request: Request, admin=Depends(require_admin("manage_data"))) -> JSONResponse:
+    payload = await read_json(request)
+    file_name = str(payload.get("file_name") or "").strip()
+    reason = str(payload.get("reason") or "").strip()
+    try:
+        deleted = delete_imported_bill_group(config.DB_PATH, file_name, actor_id=admin["id"], reason=reason)
+    except ValueError as exc:
+        return error_response(400, "VALIDATION_ERROR", str(exc))
+    if not deleted:
+        return error_response(404, "NOT_FOUND", "File import tidak ditemukan.")
+
+    conn = connect(config.DB_PATH)
+    with conn:
+        write_audit(
+            conn,
+            admin["id"],
+            "import_file.delete",
+            "import_file",
+            file_name,
+            {"reason": reason, "deleted_bills": deleted["deleted_bills"]},
+        )
+    conn.close()
+    return success_response(deleted)
+
+
 @app.post("/api/admin/bills/status")
 async def admin_bill_status(request: Request, admin=Depends(require_admin("import"))) -> JSONResponse:
     payload = await read_json(request)
@@ -408,11 +447,32 @@ async def admin_delete_student(student_id: str, request: Request, admin=Depends(
 @app.get("/api/admin/bills")
 async def admin_bills(request: Request, admin=Depends(require_admin("manage_data"))) -> JSONResponse:
     query = str(request.query_params.get("query") or "")
+    status = str(request.query_params.get("status") or "").strip().lower()
+    source = str(request.query_params.get("source") or "").strip().lower()
+    if status not in {"", "paid", "partial", "unpaid"}:
+        return error_response(400, "VALIDATION_ERROR", "Filter status tidak valid.")
+    if source not in {"", "import", "manual"}:
+        return error_response(400, "VALIDATION_ERROR", "Filter sumber tidak valid.")
     try:
-        limit = parse_limit(request, default=2000, max_limit=5000)
+        limit = parse_limit(request, default=100, max_limit=100)
+        offset = parse_offset(request)
     except ValueError as exc:
         return error_response(400, "VALIDATION_ERROR", str(exc))
-    return success_response({"bills": list_bills(config.DB_PATH, query, limit)})
+    total = count_bills(config.DB_PATH, query, status, source)
+    page = (offset // limit) + 1
+    total_pages = max(1, (total + limit - 1) // limit)
+    return success_response(
+        {
+            "bills": list_bills(config.DB_PATH, query, limit, offset, status, source),
+            "pagination": {
+                "total": total,
+                "limit": limit,
+                "offset": offset,
+                "page": page,
+                "total_pages": total_pages,
+            },
+        }
+    )
 
 
 @app.post("/api/admin/bills")

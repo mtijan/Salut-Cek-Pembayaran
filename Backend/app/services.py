@@ -334,28 +334,66 @@ def delete_student(db_path: str | Path, student_id: str, actor_id: str | None = 
         conn.close()
 
 
-def list_bills(db_path: str | Path = config.DB_PATH, query: str = "", limit: int = 2000) -> list[dict[str, object]]:
+def bill_filter_clause(query: str = "", status: str = "", source: str = "") -> tuple[str, list[object]]:
     search = normalize_text(query)
-    limit = max(1, min(int(limit or 2000), 5000))
-    conn = connect(db_path)
-    init_db(conn)
+    normalized_status = normalize_text(status).lower()
+    normalized_source = normalize_text(source).lower()
     params: list[object] = []
     where_clauses = ["b.deleted_at is null", "s.deleted_at is null"]
     if search:
         where_clauses.append("(s.nim like ? or s.full_name like ? or b.briva like ? or b.period like ? or b.bill_type like ?)")
         params.extend([f"%{search}%", f"%{search}%", f"%{search}%", f"%{search}%", f"%{search}%"])
-    where = "where " + " and ".join(where_clauses)
+    if normalized_status:
+        where_clauses.append("b.status = ?")
+        params.append(normalized_status)
+    if normalized_source == "manual":
+        where_clauses.append("lower(trim(b.source_file)) in ('manual', 'manual admin')")
+    elif normalized_source == "import":
+        where_clauses.append("lower(trim(b.source_file)) not in ('manual', 'manual admin')")
+    return "where " + " and ".join(where_clauses), params
+
+
+def list_bills(
+    db_path: str | Path = config.DB_PATH,
+    query: str = "",
+    limit: int = 2000,
+    offset: int = 0,
+    status: str = "",
+    source: str = "",
+) -> list[dict[str, object]]:
+    limit = max(1, min(int(limit or 2000), 5000))
+    offset = max(0, int(offset or 0))
+    conn = connect(db_path)
+    init_db(conn)
+    where, params = bill_filter_clause(query, status, source)
     rows = conn.execute(
         f"""
         {joined_bill_select()}
         {where}
         order by b.updated_at desc, b.created_at desc
-        limit ?
+        limit ? offset ?
         """,
-        (*params, limit),
+        (*params, limit, offset),
     ).fetchall()
     conn.close()
     return [bill_row_to_dict(row) for row in rows]
+
+
+def count_bills(db_path: str | Path = config.DB_PATH, query: str = "", status: str = "", source: str = "") -> int:
+    conn = connect(db_path)
+    init_db(conn)
+    where, params = bill_filter_clause(query, status, source)
+    row = conn.execute(
+        f"""
+        select count(*) as total
+        from bills b
+        join students s on s.id = b.student_id
+        {where}
+        """,
+        params,
+    ).fetchone()
+    conn.close()
+    return int(row["total"] if row else 0)
 
 
 def list_import_issues(db_path: str | Path = config.DB_PATH, limit: int = 500) -> list[dict[str, object]]:
@@ -474,7 +512,9 @@ def list_imported_bill_groups(db_path: str | Path = config.DB_PATH) -> list[dict
                b.source_file, b.source_row_number, s.nim, s.full_name
         from bills b
         join students s on s.id = b.student_id
-        where b.deleted_at is null and s.deleted_at is null
+        where b.deleted_at is null
+          and s.deleted_at is null
+          and lower(trim(b.source_file)) not in ('manual', 'manual admin')
         order by b.source_file desc, s.nim asc, b.source_row_number asc, b.created_at asc, b.briva asc
         """
     ).fetchall()
@@ -523,6 +563,47 @@ def list_imported_bill_groups(db_path: str | Path = config.DB_PATH) -> list[dict
         group["student_count"] = len(student_nims)
     groups.sort(key=lambda group: str(group["imported_at"]), reverse=True)
     return groups
+
+
+def delete_imported_bill_group(
+    db_path: str | Path,
+    source_file: object,
+    actor_id: str | None = None,
+    reason: str = "",
+) -> dict[str, object] | None:
+    file_name = normalize_text(source_file)
+    if not file_name:
+        raise ValueError("Nama file wajib diisi.")
+    if file_name.casefold() in {"manual", "manual admin"}:
+        raise ValueError("Data Manual Admin bukan data import per file.")
+    delete_reason = require_delete_reason(reason)
+
+    conn = connect(db_path)
+    init_db(conn)
+    try:
+        with conn:
+            rows = conn.execute(
+                """
+                select id
+                from bills
+                where source_file = ? and deleted_at is null
+                """,
+                (file_name,),
+            ).fetchall()
+            if not rows:
+                return None
+            conn.execute(
+                """
+                update bills
+                set deleted_at = datetime('now'), deleted_by = ?, delete_reason = ?, updated_at = datetime('now')
+                where source_file = ? and deleted_at is null
+                """,
+                (actor_id, delete_reason, file_name),
+            )
+            conn.execute("delete from import_issues where source_file = ?", (file_name,))
+        return {"file_name": file_name, "deleted_bills": len(rows)}
+    finally:
+        conn.close()
 
 
 def update_bill_status(db_path: str | Path, bill_id: str, status: str) -> sqlite3.Row | None:

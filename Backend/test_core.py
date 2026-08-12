@@ -15,7 +15,7 @@ import server
 from Backend.app import config as app_config
 from Backend.app.config import ROLE_PERMISSIONS
 from Backend.app.rate_limit import RateLimiter
-from Backend.app.services import list_imported_bill_groups, summarize_payment_status, update_bill_status
+from Backend.app.services import delete_imported_bill_group, list_imported_bill_groups, summarize_payment_status, update_bill_status
 from import_excel import import_workbook, preview_workbook
 from db import connect, init_db
 from fastapi.testclient import TestClient
@@ -331,6 +331,44 @@ class CoreBehaviorTests(unittest.TestCase):
             groups = list_imported_bill_groups(database)
             self.assertEqual(groups[0]["paid"], 1)
 
+    def test_imported_groups_exclude_manual_data_and_can_be_deleted(self) -> None:
+        from Backend.app.services import create_bill, list_bills
+
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            temp = Path(temporary_directory)
+            database = temp / "salut.sqlite"
+            workbook = temp / "batch-file-delete.xlsx"
+            self._write_workbook(workbook, [("01015", "Data Import", "51515", 250000)])
+            import_workbook(workbook, database)
+            create_bill(
+                database,
+                {
+                    "nim": "01016",
+                    "full_name": "Data Manual",
+                    "briva": "61616",
+                    "amount": 300000,
+                    "period": "Semester Ganjil 2026",
+                },
+            )
+
+            groups = list_imported_bill_groups(database)
+            self.assertEqual([group["file_name"] for group in groups], ["batch-file-delete.xlsx"])
+            self.assertEqual(groups[0]["student_count"], 1)
+
+            deleted = delete_imported_bill_group(
+                database,
+                "batch-file-delete.xlsx",
+                actor_id="admin-test",
+                reason="File tidak digunakan",
+            )
+            self.assertEqual(deleted, {"file_name": "batch-file-delete.xlsx", "deleted_bills": 1})
+            self.assertEqual(list_imported_bill_groups(database), [])
+            self.assertEqual([bill["source_file"] for bill in list_bills(database)], ["Manual Admin"])
+
+            reimported = import_workbook(workbook, database)
+            self.assertEqual(reimported["created"], 1)
+            self.assertEqual(len(list_imported_bill_groups(database)), 1)
+
     def test_admin_bill_due_date_update(self) -> None:
         from Backend.app.services import update_bill_due_date, format_due_date
         with tempfile.TemporaryDirectory() as temporary_directory:
@@ -525,11 +563,85 @@ class CoreBehaviorTests(unittest.TestCase):
                 self.assertEqual(updated_bill.json()["data"]["bill"]["status"], "paid")
                 self.assertEqual(updated_bill.json()["data"]["bill"]["amount"], 125000)
 
+                conn = connect(database)
+                with conn:
+                    conn.execute(
+                        """
+                        insert into bills
+                          (id, student_id, briva, amount, period, bill_type, instructions, source_file, source_row_number)
+                        values (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        """,
+                        ("bill-import-api", student_id, "70002", 150000, "Semester Ganjil 2026", "UKT BRIVA", "Bayar", "api-import.xlsx", 2),
+                    )
+                conn.close()
+                deleted_file = client.request(
+                    "DELETE",
+                    "/api/admin/imported-files",
+                    json={"file_name": "api-import.xlsx", "reason": "Pengujian hapus file"},
+                )
+                self.assertEqual(deleted_file.status_code, 200)
+                self.assertEqual(deleted_file.json()["data"]["deleted_bills"], 1)
+
                 self.assertEqual(client.get("/api/admin/students").status_code, 200)
                 self.assertEqual(client.get("/api/admin/bills").status_code, 200)
                 self.assertEqual(client.get("/api/admin/import-issues").status_code, 200)
                 self.assertEqual(client.delete(f"/api/admin/bills/{bill_id}?reason=test").status_code, 200)
                 self.assertEqual(client.delete(f"/api/admin/students/{student_id}?reason=test").status_code, 200)
+            finally:
+                app_config.DB_PATH = original_db_path
+
+    def test_admin_bills_pagination_limits_each_page_to_100(self) -> None:
+        from Backend.app.security import hash_password
+
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            database = Path(temporary_directory) / "salut.sqlite"
+            conn = connect(database)
+            init_db(conn)
+            with conn:
+                conn.execute(
+                    "insert into admin_users (id, email, password_hash, role) values (?, ?, ?, ?)",
+                    ("admin-page", "admin@page.test", hash_password("Password123!"), "admin"),
+                )
+                conn.execute(
+                    "insert into students (id, nim, full_name, name_norm) values (?, ?, ?, ?)",
+                    ("student-page", "09999", "Mahasiswa Pagination", "mahasiswa pagination"),
+                )
+                conn.executemany(
+                    """
+                    insert into bills (id, student_id, briva, amount, period, bill_type, instructions, source_file)
+                    values (?, 'student-page', ?, 100000, 'Semester Ganjil 2026', 'UKT BRIVA', 'Bayar', 'pagination.xlsx')
+                    """,
+                    [(f"bill-page-{index}", f"900{index:03d}") for index in range(105)],
+                )
+                conn.execute(
+                    "update bills set status = 'paid', source_file = 'Manual Admin' where id = 'bill-page-0'"
+                )
+            conn.close()
+
+            original_db_path = app_config.DB_PATH
+            app_config.DB_PATH = database
+            try:
+                client = TestClient(server.app)
+                client.post("/api/admin/login", json={"email": "admin@page.test", "password": "Password123!"})
+
+                first_page = client.get("/api/admin/bills?limit=500&offset=0")
+                self.assertEqual(first_page.status_code, 200)
+                self.assertEqual(len(first_page.json()["data"]["bills"]), 100)
+                self.assertEqual(
+                    first_page.json()["data"]["pagination"],
+                    {"total": 105, "limit": 100, "offset": 0, "page": 1, "total_pages": 2},
+                )
+
+                second_page = client.get("/api/admin/bills?limit=100&offset=100")
+                self.assertEqual(len(second_page.json()["data"]["bills"]), 5)
+                self.assertEqual(second_page.json()["data"]["pagination"]["page"], 2)
+
+                paid = client.get("/api/admin/bills?status=paid")
+                manual = client.get("/api/admin/bills?source=manual")
+                imported = client.get("/api/admin/bills?source=import")
+                self.assertEqual(paid.json()["data"]["pagination"]["total"], 1)
+                self.assertEqual(manual.json()["data"]["pagination"]["total"], 1)
+                self.assertEqual(imported.json()["data"]["pagination"]["total"], 104)
             finally:
                 app_config.DB_PATH = original_db_path
 
@@ -647,6 +759,7 @@ class CoreBehaviorTests(unittest.TestCase):
         self.assertEqual(client.get("/api/admin/students").status_code, 401)
         self.assertEqual(client.get("/api/admin/bills").status_code, 401)
         self.assertEqual(client.get("/api/admin/imported-bills").status_code, 401)
+        self.assertEqual(client.request("DELETE", "/api/admin/imported-files", json={"file_name": "x.xlsx", "reason": "test"}).status_code, 401)
 
     def test_delete_requires_reason(self) -> None:
         from Backend.app.security import hash_password

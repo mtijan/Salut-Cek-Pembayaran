@@ -196,7 +196,9 @@ def _existing_bills(
                b.due_date, s.nim, s.full_name, s.program_study, s.initial_registration, s.phone_number
         from bills b
         join students s on s.id = b.student_id
-        where b.source_file = ? or b.period = ? or s.nim in ({placeholders})
+        where (b.source_file = ? or b.period = ? or s.nim in ({placeholders}))
+          and b.deleted_at is null
+          and s.deleted_at is null
         """,
         (source_file, period, *sorted(nims)),
     ).fetchall()
