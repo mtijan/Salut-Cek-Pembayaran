@@ -4,13 +4,13 @@ Aplikasi web untuk membantu mahasiswa Universitas Terbuka yang berafiliasi denga
 
 ## Status
 
-Rilis ini siap untuk deployment VPS setelah environment production dan reverse proxy dikonfigurasi. Backend FastAPI, frontend publik, login admin, import workbook Excel, kontrol rate limit dasar, dan SQLite sudah dibuat.
+Baseline production berjalan di VPS dengan FastAPI/Uvicorn, frontend publik, login admin, import workbook Excel, kontrol rate limit dasar, dan SQLite. Perubahan `Unreleased` tetap harus divalidasi, dicommit, dipush, dan dideploy sebelum dianggap aktif di VPS.
 
 ## Target MVP
 
 - Mahasiswa dapat mencari tagihan menggunakan NIM.
 - Sistem menampilkan tagihan, status pembayaran, nomor BRIVA, dan cara pembayaran; bila satu NIM punya beberapa tagihan, nominal tampil sebagai `Tagihan 1`, `Tagihan 2`, dan seterusnya lalu dijumlahkan menjadi `Total Tagihan`.
-- Admin SALUT dapat login, mengimpor workbook tagihan dengan nama file apa pun selama struktur header sesuai template resmi, melihat data per nama file import, dan menandai status lunas/belum lunas.
+- Admin SALUT dapat login, mengimpor workbook tagihan dengan nama file apa pun selama struktur header sesuai template resmi, melihat data per nama file import, mengatur status `Belum lunas`, `Bayar sebagian`, atau `Lunas`, serta mengubah batas aktif pembayaran.
 - Sistem mencatat audit penting seperti import data, login admin, dan pencarian tagihan.
 - Deployment awal menggunakan VPS dan SQLite.
 
@@ -60,6 +60,9 @@ Untuk membaca dokumentasi dalam tampilan yang lebih nyaman, buka file `docs/inde
 
 ```powershell
 python -m unittest Backend.test_core
+python -m py_compile Backend\*.py Backend\app\*.py
+node --check .\Frontend\app.js
+node --check .\Frontend\admin.js
 python .\Backend\import_excel.py
 python -m uvicorn Backend.app.main:app --host 127.0.0.1 --port 8000
 ```
