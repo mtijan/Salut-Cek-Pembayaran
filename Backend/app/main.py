@@ -179,7 +179,7 @@ async def lookup(request: Request) -> JSONResponse:
     conn.close()
     write_lookup_log(nim, "", "found")
 
-    unpaid_due_dates = [b["due_date"] for b in bills if b["due_date"] and b["status"] == "unpaid"]
+    unpaid_due_dates = [b["due_date"] for b in bills if b["due_date"] and b["status"] != "paid"]
     all_due_dates = [b["due_date"] for b in bills if b["due_date"]]
     primary_due_date = unpaid_due_dates[0] if unpaid_due_dates else (all_due_dates[0] if all_due_dates else "")
 

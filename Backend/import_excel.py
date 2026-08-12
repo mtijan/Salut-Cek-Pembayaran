@@ -359,7 +359,7 @@ def _analyze_workbook(
             registration_changed = normalize_text(existing_briva["initial_registration"]) != normalize_text(row["initial_registration"])
             phone_changed = normalize_text(existing_briva["phone_number"]) != normalize_text(row["phone_number"])
             due_date_changed = normalize_text(existing_briva["due_date"]) != normalize_text(row["due_date"])
-            if existing_briva["status"] == "paid" and amount_changed:
+            if existing_briva["status"] != "unpaid" and amount_changed:
                 critical_rows += 1
                 issue_rows += 1
                 conflict_rows += 1
@@ -369,7 +369,7 @@ def _analyze_workbook(
                         "sheet": layout.data_sheet,
                         "row_number": row["row_number"],
                         "severity": "critical",
-                        "message": "Nominal tagihan yang sudah lunas tidak boleh diubah melalui import.",
+                        "message": "Nominal tagihan yang sudah lunas atau dicicil tidak boleh diubah melalui import.",
                     },
                 )
                 continue
@@ -414,7 +414,7 @@ def _analyze_workbook(
             continue
 
         existing = current_bills[0]
-        if existing["status"] == "paid":
+        if existing["status"] != "unpaid":
             critical_rows += 1
             issue_rows += 1
             conflict_rows += 1
@@ -424,7 +424,7 @@ def _analyze_workbook(
                     "sheet": layout.data_sheet,
                     "row_number": row["row_number"],
                     "severity": "critical",
-                    "message": "BRIVA tagihan yang sudah lunas tidak boleh diganti melalui import.",
+                    "message": "BRIVA tagihan yang sudah lunas atau dicicil tidak boleh diganti melalui import.",
                 },
             )
             continue

@@ -268,6 +268,12 @@ class CoreBehaviorTests(unittest.TestCase):
             self.assertEqual(groups[0]["unpaid"], 1)
             bill_id = groups[0]["bills"][0]["id"]
 
+            updated = update_bill_status(database, bill_id, "partial")
+            self.assertIsNotNone(updated)
+            self.assertEqual(updated["status"], "partial")
+            groups = list_imported_bill_groups(database)
+            self.assertEqual(groups[0]["partial"], 1)
+
             updated = update_bill_status(database, bill_id, "paid")
             self.assertIsNotNone(updated)
             self.assertEqual(updated["status"], "paid")

@@ -141,7 +141,7 @@ def student_row_to_dict(row: sqlite3.Row) -> dict[str, object]:
 
 def joined_bill_select() -> str:
     return """
-        select b.id, b.briva, b.amount, b.period, b.bill_type, b.status, b.payment_method, b.due_date,
+        select b.id, b.briva, b.amount, b.period, b.bill_type, b.status, b.payment_method, b.due_date, b.created_at,
                b.source_file, b.source_row_number, s.nim, s.full_name
         from bills b
         join students s on s.id = b.student_id
@@ -170,8 +170,8 @@ def validate_amount(value: object) -> int:
 
 def normalize_status_value(status: object) -> str:
     value = str(status or "unpaid").strip().lower()
-    if value not in {"paid", "unpaid"}:
-        raise ValueError("Status hanya boleh paid atau unpaid.")
+    if value not in {"paid", "partial", "unpaid"}:
+        raise ValueError("Status hanya boleh paid, partial, atau unpaid.")
     return value
 
 
@@ -461,23 +461,44 @@ def list_imported_bill_groups(db_path: str | Path = config.DB_PATH) -> list[dict
         source_file = str(row["source_file"])
         group = by_file.get(source_file)
         if group is None:
-            group = {"file_name": source_file, "total": 0, "paid": 0, "unpaid": 0, "bills": []}
+            group = {
+                "file_name": source_file,
+                "total": 0,
+                "student_count": 0,
+                "total_amount": 0,
+                "imported_at": str(row["created_at"]),
+                "paid": 0,
+                "partial": 0,
+                "unpaid": 0,
+                "bills": [],
+                "_student_nims": set(),
+            }
             by_file[source_file] = group
             groups.append(group)
         bills = group["bills"]
         assert isinstance(bills, list)
         bills.append(bill_row_to_dict(row))
         group["total"] = int(group["total"]) + 1
+        group["total_amount"] = int(group["total_amount"]) + int(row["amount"])
+        student_nims = group["_student_nims"]
+        assert isinstance(student_nims, set)
+        student_nims.add(str(row["nim"]))
         if row["status"] == "paid":
             group["paid"] = int(group["paid"]) + 1
+        elif row["status"] == "partial":
+            group["partial"] = int(group["partial"]) + 1
         else:
             group["unpaid"] = int(group["unpaid"]) + 1
+    for group in groups:
+        student_nims = group.pop("_student_nims")
+        assert isinstance(student_nims, set)
+        group["student_count"] = len(student_nims)
     return groups
 
 
 def update_bill_status(db_path: str | Path, bill_id: str, status: str) -> sqlite3.Row | None:
-    if status not in {"paid", "unpaid"}:
-        raise ValueError("Status hanya boleh paid atau unpaid.")
+    if status not in {"paid", "partial", "unpaid"}:
+        raise ValueError("Status hanya boleh paid, partial, atau unpaid.")
 
     conn = connect(db_path)
     init_db(conn)
