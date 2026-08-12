@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Admin SALUT</title>
-    <link rel="stylesheet" href="/styles.css?v=admin-fix-hidden-v6" />
+    <link rel="stylesheet" href="/styles.css?v=20260813-admin-workspace-v1" />
   </head>
   <body>
     <main id="login-shell" class="admin-login-shell">
@@ -59,10 +59,6 @@
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
               <span>Data Mahasiswa</span>
             </button>
-            <button type="button" class="admin-nav-button" data-admin-view="bills">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
-              <span>Tagihan Mahasiswa</span>
-            </button>
             <button type="button" class="admin-nav-button" data-admin-view="files">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
               <span>Data Mahasiswa per File</span>
@@ -81,13 +77,21 @@
               <p id="admin-view-kicker" class="eyebrow">Upload Excel</p>
               <h2 id="admin-view-title">Upload File</h2>
             </div>
-            <p id="manual-message" class="form-message" role="status"></p>
           </header>
 
           <section id="import-card" class="admin-view">
-            <form id="import-form" class="lookup-form admin-form-surface">
-              <label for="excel-file">File tagihan</label>
-              <input id="excel-file" name="file" type="file" accept=".xlsx" required />
+            <ol class="import-steps" aria-label="Tahapan import">
+              <li class="is-active" data-import-step="1"><span>1</span>Pilih file</li>
+              <li data-import-step="2"><span>2</span>Periksa data</li>
+              <li data-import-step="3"><span>3</span>Simpan</li>
+            </ol>
+
+            <form id="import-form" class="admin-form-surface import-upload-form">
+              <div class="file-input-group">
+                <label for="excel-file">File tagihan</label>
+                <span id="excel-file-hint" class="field-hint">Format Excel .xlsx</span>
+                <input id="excel-file" name="file" type="file" accept=".xlsx" aria-describedby="excel-file-hint" required />
+              </div>
               <button type="submit">Preview File</button>
             </form>
             <p id="import-message" class="form-message" role="status"></p>
@@ -118,7 +122,10 @@
               <h3>Issue awal</h3>
               <div id="error-list" class="error-list"></div>
 
-              <button type="button" id="commit-button">Commit Import</button>
+              <div class="preview-actions">
+                <button type="button" id="cancel-preview-button" class="ghost-button">Batalkan</button>
+                <button type="button" id="commit-button">Simpan Data</button>
+              </div>
             </div>
 
             <section class="admin-subsection">
@@ -128,104 +135,161 @@
           </section>
 
           <section id="students-card" class="admin-view hidden">
-            <div class="view-toolbar">
-              <button type="button" id="refresh-manual-button" class="ghost-button">Refresh</button>
-            </div>
-
-            <form id="student-form" class="lookup-form admin-form-surface">
-              <input id="student-id" name="id" type="hidden" />
-              <div class="form-section-heading">
-                <h3>Mahasiswa</h3>
-                <div class="form-actions compact-actions">
-                  <button type="submit" id="save-student-button">Simpan</button>
-                  <button type="button" id="reset-student-button" class="ghost-button">Reset</button>
-                </div>
+            <form id="manual-search-form" class="data-toolbar">
+              <div class="toolbar-search">
+                <label for="manual-search">Cari data</label>
+                <input id="manual-search" type="search" placeholder="NIM, nama, BRIVA, atau periode" />
               </div>
-              <div class="compact-form-grid">
-                <div>
-                  <label for="student-form-nim">NIM</label>
-                  <input id="student-form-nim" name="nim" type="text" inputmode="numeric" required />
-                </div>
-                <div>
-                  <label for="student-form-name">Nama</label>
-                  <input id="student-form-name" name="full_name" type="text" required />
-                </div>
+              <div class="toolbar-filter">
+                <label for="status-filter">Status</label>
+                <select id="status-filter">
+                  <option value="">Semua status</option>
+                  <option value="unpaid">Belum lunas</option>
+                  <option value="partial">Bayar sebagian</option>
+                  <option value="paid">Lunas</option>
+                </select>
               </div>
-            </form>
-
-            <form id="manual-search-form" class="admin-list-tools">
-              <label for="manual-search">Cari Data</label>
-              <div class="search-control">
-                <input id="manual-search" type="search" placeholder="NIM, nama, BRIVA, periode" />
+              <div class="toolbar-filter">
+                <label for="source-filter">Sumber</label>
+                <select id="source-filter">
+                  <option value="">Semua sumber</option>
+                  <option value="import">File import</option>
+                  <option value="manual">Manual admin</option>
+                </select>
+              </div>
+              <div class="toolbar-actions">
                 <button type="submit" id="manual-search-button">Cari</button>
+                <button type="button" id="clear-search-button" class="ghost-button">Reset</button>
+                <button type="button" id="refresh-manual-button" class="icon-toolbar-button ghost-button" title="Muat ulang data" aria-label="Muat ulang data">&#8635;</button>
+                <button type="button" id="add-student-button"><span aria-hidden="true">+</span><span>Tambah Data</span></button>
               </div>
             </form>
 
-            <section class="admin-subsection">
-              <h3>Mahasiswa</h3>
-              <div id="students-state" class="table-mini"></div>
+            <section id="student-editor" class="admin-editor-panel hidden" aria-labelledby="student-editor-title">
+              <form id="bill-form">
+                <input id="bill-id" name="id" type="hidden" />
+                <div class="editor-header">
+                  <div>
+                    <p class="eyebrow">Form data</p>
+                    <h3 id="student-editor-title">Tambah Data Mahasiswa</h3>
+                  </div>
+                  <button type="button" id="close-editor-button" class="icon-toolbar-button ghost-button" title="Tutup form" aria-label="Tutup form">&times;</button>
+                </div>
+
+                <div class="editor-groups">
+                  <fieldset>
+                    <legend>Mahasiswa</legend>
+                    <div class="editor-fields two-columns">
+                      <div>
+                        <label for="student-form-nim">NIM</label>
+                        <input id="student-form-nim" name="nim" type="text" inputmode="numeric" required />
+                      </div>
+                      <div>
+                        <label for="student-form-name">Nama</label>
+                        <input id="student-form-name" name="full_name" type="text" required />
+                      </div>
+                    </div>
+                  </fieldset>
+
+                  <fieldset>
+                    <legend>Tagihan</legend>
+                    <div class="editor-fields four-columns">
+                      <div>
+                        <label for="bill-form-briva">Nomor BRIVA</label>
+                        <input id="bill-form-briva" name="briva" type="text" inputmode="numeric" required />
+                      </div>
+                      <div>
+                        <label for="bill-form-amount">Nominal</label>
+                        <input id="bill-form-amount" name="amount" type="number" min="1" required />
+                      </div>
+                      <div>
+                        <label for="bill-form-period">Periode</label>
+                        <input id="bill-form-period" name="period" type="text" value="Semester Ganjil 2026" required />
+                      </div>
+                      <div>
+                        <label for="bill-form-type">Jenis Tagihan</label>
+                        <input id="bill-form-type" name="bill_type" type="text" value="UKT BRIVA" required />
+                      </div>
+                    </div>
+                  </fieldset>
+
+                  <fieldset>
+                    <legend>Pembayaran</legend>
+                    <div class="editor-fields two-columns">
+                      <div>
+                        <label for="bill-form-status">Status</label>
+                        <select id="bill-form-status" name="status">
+                          <option value="unpaid">Belum lunas</option>
+                          <option value="partial">Bayar sebagian</option>
+                          <option value="paid">Lunas</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label for="bill-form-due-date">Batas Aktif</label>
+                        <input id="bill-form-due-date" name="due_date" type="date" />
+                      </div>
+                    </div>
+                  </fieldset>
+                </div>
+
+                <div class="editor-footer">
+                  <button type="button" id="reset-bill-button" class="ghost-button">Batal</button>
+                  <button type="submit" id="save-bill-button">Simpan Data</button>
+                </div>
+              </form>
             </section>
-          </section>
-
-          <section id="manual-card" class="admin-view hidden">
-            <form id="bill-form" class="lookup-form admin-form-surface">
-              <input id="bill-id" name="id" type="hidden" />
-              <div class="form-section-heading">
-                <h3>Tagihan Mahasiswa</h3>
-                <div class="form-actions compact-actions">
-                  <button type="submit" id="save-bill-button">Simpan</button>
-                  <button type="button" id="reset-bill-button" class="ghost-button">Reset</button>
-                </div>
-              </div>
-              <div class="compact-form-grid bill-form-grid">
-                <div>
-                  <label for="bill-form-briva">Nomor BRIVA</label>
-                  <input id="bill-form-briva" name="briva" type="text" inputmode="numeric" required />
-                </div>
-                <div>
-                  <label for="bill-form-amount">Nominal</label>
-                  <input id="bill-form-amount" name="amount" type="number" min="1" required />
-                </div>
-                <div>
-                  <label for="bill-form-period">Periode</label>
-                  <input id="bill-form-period" name="period" type="text" value="Semester Ganjil 2026" required />
-                </div>
-                <div>
-                  <label for="bill-form-type">Jenis Tagihan</label>
-                  <input id="bill-form-type" name="bill_type" type="text" value="UKT BRIVA" required />
-                </div>
-                <div>
-                  <label for="bill-form-status">Status</label>
-                  <select id="bill-form-status" name="status">
-                    <option value="unpaid">Belum lunas</option>
-                    <option value="partial">Bayar sebagian</option>
-                    <option value="paid">Lunas</option>
-                  </select>
-                </div>
-                <div>
-                  <label for="bill-form-due-date">Batas Aktif</label>
-                  <input id="bill-form-due-date" name="due_date" type="date" />
-                </div>
-              </div>
-            </form>
 
             <section class="admin-subsection">
-              <h3>Tagihan</h3>
-              <div id="manual-bills-state" class="table-mini"></div>
+              <div class="section-heading-row">
+                <div>
+                  <h3>Data Mahasiswa</h3>
+                  <p id="manual-message" class="form-message" role="status"></p>
+                </div>
+                <span id="students-result-count" class="result-count">0 data</span>
+              </div>
+              <div id="students-state" class="table-mini"></div>
+              <nav id="students-pagination" class="table-pagination hidden" aria-label="Navigasi halaman data mahasiswa">
+                <button type="button" id="students-prev-page" class="pagination-button ghost-button" title="Halaman sebelumnya" aria-label="Halaman sebelumnya">&lsaquo;</button>
+                <div id="students-page-numbers" class="pagination-pages" aria-label="Pilih nomor halaman"></div>
+                <button type="button" id="students-next-page" class="pagination-button ghost-button" title="Halaman berikutnya" aria-label="Halaman berikutnya">&rsaquo;</button>
+                <span id="students-page-info" class="pagination-info">0 data</span>
+              </nav>
             </section>
           </section>
 
           <section id="bills-card" class="admin-view hidden">
-            <div class="view-toolbar">
-              <button type="button" id="refresh-bills-button" class="ghost-button">Refresh</button>
+            <div class="section-heading-row view-heading-row">
+              <div>
+                <h3>File Import</h3>
+                <p id="bills-message" class="form-message" role="status"></p>
+              </div>
+              <button type="button" id="refresh-bills-button" class="icon-toolbar-button ghost-button" title="Muat ulang data per file" aria-label="Muat ulang data per file">&#8635;</button>
             </div>
-            <p id="bills-message" class="form-message" role="status"></p>
             <div id="bills-state" class="imported-bills"></div>
           </section>
         </section>
       </section>
-    </main>
 
-    <script src="/admin.js?v=admin-fix-hierarchy-v5"></script>
+      <div id="toast-region" class="toast-region" aria-live="polite" aria-atomic="true"></div>
+
+      <div id="confirm-modal" class="admin-modal hidden" role="dialog" aria-modal="true" aria-labelledby="confirm-modal-title">
+        <div class="admin-modal-backdrop" data-modal-cancel></div>
+        <div class="admin-modal-dialog" role="document">
+          <div class="admin-modal-header">
+            <h2 id="confirm-modal-title">Konfirmasi Penghapusan</h2>
+            <button type="button" id="confirm-modal-close" class="icon-toolbar-button ghost-button" title="Tutup" aria-label="Tutup">&times;</button>
+          </div>
+          <p id="confirm-modal-description"></p>
+          <label for="confirm-modal-reason">Alasan penghapusan</label>
+          <textarea id="confirm-modal-reason" rows="3" required></textarea>
+          <p id="confirm-modal-error" class="field-error" role="alert"></p>
+          <div class="admin-modal-actions">
+            <button type="button" id="confirm-modal-cancel" class="ghost-button">Batal</button>
+            <button type="button" id="confirm-modal-submit" class="danger-confirm-button">Hapus Data</button>
+          </div>
+        </div>
+      </div>
+
+    <script src="/admin.js?v=20260813-admin-workspace-v1"></script>
   </body>
 </html>
