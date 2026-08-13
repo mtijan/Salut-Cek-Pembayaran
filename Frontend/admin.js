@@ -456,6 +456,16 @@ function sourceBadge(sourceFile) {
   return `<span class="source-badge is-import">File import</span><span class="source-file-name" title="${escapeHtml(source)}">${escapeHtml(source)}</span>`;
 }
 
+function dueDateDisplay(value) {
+  const text = String(value || "-").trim() || "-";
+  const parts = text.match(/^(.*?)\s+Pukul\s+(.+)$/i);
+  if (!parts) return `<span class="due-date-date">${escapeHtml(text)}</span>`;
+  return `
+    <span class="due-date-date">${escapeHtml(parts[1])}</span>
+    <span class="due-date-time">${escapeHtml(parts[2])}</span>
+  `;
+}
+
 function renderStudentBills(bills, offset = 0) {
   if (!bills.length) {
     const hasFilter = Boolean(manualSearch.value.trim() || statusFilter.value || sourceFilter.value);
@@ -498,7 +508,7 @@ function renderStudentBills(bills, offset = 0) {
                 <td data-label="Periode" class="period-column">${escapeHtml(bill.period)}</td>
                 <td data-label="Jenis" class="type-column">${escapeHtml(bill.bill_type)}</td>
                 <td data-label="Status" class="status-column"><span class="status-badge ${statusClass(bill.status)}"><span aria-hidden="true"></span>${statusLabel(bill.status)}</span></td>
-                <td data-label="Batas Aktif" class="due-date-column">${escapeHtml(bill.due_date_formatted || "-")}</td>
+                <td data-label="Batas Aktif" class="due-date-column">${dueDateDisplay(bill.due_date_formatted)}</td>
                 <td data-label="Sumber" class="source-column">${sourceBadge(bill.source_file)}</td>
                 <td data-label="Aksi" class="actions-column">
                   <div class="row-actions">
@@ -745,7 +755,7 @@ function renderFileDetail(groupIndex, page = 1) {
                   <td data-label="BRIVA" class="numeric-value">${escapeHtml(bill.briva)}</td>
                   <td data-label="Nominal" class="numeric-value">${escapeHtml(bill.amount_formatted)}</td>
                   <td data-label="Periode">${escapeHtml(bill.period)}</td>
-                  <td data-label="Batas Aktif">${escapeHtml(bill.due_date_formatted || "-")}</td>
+                  <td data-label="Batas Aktif" class="due-date-cell">${dueDateDisplay(bill.due_date_formatted)}</td>
                 </tr>
               `,
             )
