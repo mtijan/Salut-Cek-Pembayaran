@@ -4,7 +4,11 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Admin SALUT</title>
+<<<<<<< HEAD
     <link rel="stylesheet" href="/styles.css?v=20260813-admin-workspace-v2" />
+=======
+    <link rel="stylesheet" href="/styles.css?v=20260813-admin-workspace-v1" />
+>>>>>>> 23fad3d8bb35bfa676b352d9a76046b93e3465d1
   </head>
   <body class="auth-pending">
     <a class="skip-link" href="#admin-main-content">Lewati navigasi</a>
@@ -108,6 +112,7 @@
             <form id="import-form" class="admin-form-surface import-upload-form">
               <div class="file-input-group">
                 <label for="excel-file">File tagihan</label>
+<<<<<<< HEAD
                 <span id="excel-file-hint" class="field-hint">Excel .xlsx, maksimal 5 MB</span>
                 <div id="excel-file-picker" class="file-picker-control">
                   <input id="excel-file" class="file-picker-input" name="file" type="file" accept=".xlsx" aria-describedby="excel-file-hint selected-file-name" required />
@@ -116,6 +121,12 @@
                 </div>
               </div>
               <button type="submit" id="preview-file-button" disabled>Periksa File</button>
+=======
+                <span id="excel-file-hint" class="field-hint">Format Excel .xlsx</span>
+                <input id="excel-file" name="file" type="file" accept=".xlsx" aria-describedby="excel-file-hint" required />
+              </div>
+              <button type="submit">Preview File</button>
+>>>>>>> 23fad3d8bb35bfa676b352d9a76046b93e3465d1
             </form>
             <p id="import-message" class="form-message" role="status"></p>
 
@@ -184,7 +195,11 @@
                 <button type="submit" id="manual-search-button">Cari</button>
                 <button type="button" id="clear-search-button" class="ghost-button">Reset</button>
                 <button type="button" id="refresh-manual-button" class="icon-toolbar-button ghost-button" title="Muat ulang data" aria-label="Muat ulang data">&#8635;</button>
+<<<<<<< HEAD
                 <button type="button" id="add-student-button" aria-controls="student-editor" aria-expanded="false"><span aria-hidden="true">+</span><span>Tambah Data</span></button>
+=======
+                <button type="button" id="add-student-button"><span aria-hidden="true">+</span><span>Tambah Data</span></button>
+>>>>>>> 23fad3d8bb35bfa676b352d9a76046b93e3465d1
               </div>
             </form>
 
@@ -313,6 +328,10 @@
         </div>
       </div>
 
+<<<<<<< HEAD
     <script src="/admin.js?v=20260813-admin-workspace-v2"></script>
+=======
+    <script src="/admin.js?v=20260813-admin-workspace-v1"></script>
+>>>>>>> 23fad3d8bb35bfa676b352d9a76046b93e3465d1
   </body>
 </html>

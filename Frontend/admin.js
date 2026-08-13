@@ -80,7 +80,10 @@ const confirmModalSubmit = document.querySelector("#confirm-modal-submit");
 const confirmModalDialog = confirmModal.querySelector(".admin-modal-dialog");
 
 const STUDENT_PAGE_SIZE = 100;
+<<<<<<< HEAD
 const FILE_DETAIL_PAGE_SIZE = 50;
+=======
+>>>>>>> 23fad3d8bb35bfa676b352d9a76046b93e3465d1
 let currentImportToken = "";
 let currentPreview = null;
 let isCommitting = false;
@@ -89,7 +92,10 @@ let billRows = [];
 let currentStudentPage = 1;
 let totalStudentPages = 1;
 let activeAdminView = "upload";
+<<<<<<< HEAD
 let importedBillGroups = [];
+=======
+>>>>>>> 23fad3d8bb35bfa676b352d9a76046b93e3465d1
 let modalResolver = null;
 let modalReturnFocus = null;
 
@@ -104,6 +110,7 @@ function setText(node, text, type = "") {
   node.className = `form-message ${type}`.trim();
 }
 
+<<<<<<< HEAD
 function renderLoadingState(container, message, compact = false) {
   container.setAttribute("aria-busy", "true");
   container.innerHTML = `
@@ -132,6 +139,8 @@ function setSelectedFile(file = null) {
   previewButton.disabled = isUploading || !file;
 }
 
+=======
+>>>>>>> 23fad3d8bb35bfa676b352d9a76046b93e3465d1
 function showToast(message, type = "success") {
   const toast = document.createElement("div");
   toast.className = `admin-toast is-${type}`;
@@ -157,10 +166,14 @@ function resetImportPreview({ clearFile = false } = {}) {
   currentImportToken = "";
   currentPreview = null;
   confirmUpdates.checked = false;
+<<<<<<< HEAD
   if (clearFile) {
     importForm.reset();
     setSelectedFile();
   }
+=======
+  if (clearFile) importForm.reset();
+>>>>>>> 23fad3d8bb35bfa676b352d9a76046b93e3465d1
   setImportStep(1);
   refreshCommitState();
 }
@@ -268,10 +281,14 @@ function setAdminView(view) {
 }
 
 function showAdmin(user) {
+<<<<<<< HEAD
   document.body.classList.remove("auth-pending");
   document.body.classList.remove("login-active");
   document.body.classList.add("admin-active");
   authLoader.classList.add("hidden");
+=======
+  document.body.classList.add("admin-active");
+>>>>>>> 23fad3d8bb35bfa676b352d9a76046b93e3465d1
   if (loginShell) loginShell.classList.add("hidden");
   loginCard.classList.add("hidden");
   adminWorkspace.classList.remove("hidden");
@@ -280,11 +297,15 @@ function showAdmin(user) {
 }
 
 function showLogin() {
+<<<<<<< HEAD
   document.body.classList.remove("auth-pending");
   document.body.classList.remove("admin-active");
   document.body.classList.add("login-active");
   document.title = "Masuk | Admin SALUT";
   authLoader.classList.add("hidden");
+=======
+  document.body.classList.remove("admin-active");
+>>>>>>> 23fad3d8bb35bfa676b352d9a76046b93e3465d1
   closeSidebar();
   if (loginShell) loginShell.classList.remove("hidden");
   loginCard.classList.remove("hidden");
@@ -298,7 +319,10 @@ function showLogin() {
   studentsPagination.classList.add("hidden");
   importIssuesState.replaceChildren();
   billRows = [];
+<<<<<<< HEAD
   importedBillGroups = [];
+=======
+>>>>>>> 23fad3d8bb35bfa676b352d9a76046b93e3465d1
   currentStudentPage = 1;
   totalStudentPages = 1;
   setText(billsMessage, "");
@@ -411,7 +435,10 @@ function resetBillForm() {
 
 function closeStudentEditor() {
   studentEditor.classList.add("hidden");
+<<<<<<< HEAD
   addStudentButton.setAttribute("aria-expanded", "false");
+=======
+>>>>>>> 23fad3d8bb35bfa676b352d9a76046b93e3465d1
   resetBillForm();
 }
 
@@ -433,7 +460,10 @@ function openStudentEditor(bill = null) {
     studentEditorTitle.textContent = "Tambah Data Mahasiswa";
   }
   studentEditor.classList.remove("hidden");
+<<<<<<< HEAD
   addStudentButton.setAttribute("aria-expanded", "true");
+=======
+>>>>>>> 23fad3d8bb35bfa676b352d9a76046b93e3465d1
   studentEditor.scrollIntoView({ behavior: "smooth", block: "start" });
   window.setTimeout(() => document.querySelector("#student-form-nim").focus(), 250);
 }
@@ -458,6 +488,7 @@ function sourceBadge(sourceFile) {
 
 function renderStudentBills(bills, offset = 0) {
   if (!bills.length) {
+<<<<<<< HEAD
     const hasFilter = Boolean(manualSearch.value.trim() || statusFilter.value || sourceFilter.value);
     studentsState.innerHTML = `
       <div class="state-panel">
@@ -466,6 +497,9 @@ function renderStudentBills(bills, offset = 0) {
         ${hasFilter ? `<button type="button" class="ghost-button" data-reset-student-filter>Reset pencarian</button>` : `<button type="button" data-open-student-editor>Tambah Data</button>`}
       </div>
     `;
+=======
+    studentsState.innerHTML = `<p class="muted">Belum ada data mahasiswa.</p>`;
+>>>>>>> 23fad3d8bb35bfa676b352d9a76046b93e3465d1
     return;
   }
 
@@ -513,6 +547,56 @@ function renderStudentBills(bills, offset = 0) {
       </tbody>
     </table>
   `;
+<<<<<<< HEAD
+=======
+}
+
+function renderStudentPagination(pagination) {
+  const total = Number(pagination.total || 0);
+  const limit = Number(pagination.limit || STUDENT_PAGE_SIZE);
+  const offset = Number(pagination.offset || 0);
+  currentStudentPage = Number(pagination.page || 1);
+  totalStudentPages = Number(pagination.total_pages || 1);
+  const firstRow = total ? offset + 1 : 0;
+  const lastRow = Math.min(offset + limit, total);
+  studentsResultCount.textContent = `${total.toLocaleString("id-ID")} data`;
+  studentsPageInfo.textContent = `${firstRow.toLocaleString("id-ID")}–${lastRow.toLocaleString("id-ID")} dari ${total.toLocaleString("id-ID")} data`;
+  studentsPrevPage.disabled = currentStudentPage <= 1;
+  studentsNextPage.disabled = currentStudentPage >= totalStudentPages;
+  studentsPageNumbers.replaceChildren();
+
+  const visiblePages = [];
+  if (totalStudentPages <= 7) {
+    for (let page = 1; page <= totalStudentPages; page += 1) visiblePages.push(page);
+  } else {
+    visiblePages.push(1);
+    if (currentStudentPage > 4) visiblePages.push("start-ellipsis");
+    const start = Math.max(2, currentStudentPage - 1);
+    const end = Math.min(totalStudentPages - 1, currentStudentPage + 1);
+    for (let page = start; page <= end; page += 1) visiblePages.push(page);
+    if (currentStudentPage < totalStudentPages - 3) visiblePages.push("end-ellipsis");
+    visiblePages.push(totalStudentPages);
+  }
+
+  for (const item of visiblePages) {
+    if (typeof item !== "number") {
+      const ellipsis = document.createElement("span");
+      ellipsis.className = "pagination-ellipsis";
+      ellipsis.textContent = "...";
+      studentsPageNumbers.append(ellipsis);
+      continue;
+    }
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = `pagination-number-button ghost-button${item === currentStudentPage ? " is-active" : ""}`;
+    button.dataset.page = String(item);
+    button.textContent = String(item);
+    button.setAttribute("aria-label", `Buka halaman ${item}`);
+    if (item === currentStudentPage) button.setAttribute("aria-current", "page");
+    studentsPageNumbers.append(button);
+  }
+  studentsPagination.classList.toggle("hidden", totalStudentPages <= 1);
+>>>>>>> 23fad3d8bb35bfa676b352d9a76046b93e3465d1
 }
 
 function renderStudentPagination(pagination) {
@@ -607,7 +691,10 @@ async function loadStudentData(page = currentStudentPage) {
   const requestedPage = Math.max(1, Number(page) || 1);
   const offset = (requestedPage - 1) * STUDENT_PAGE_SIZE;
   refreshManualButton.disabled = true;
+<<<<<<< HEAD
   renderLoadingState(studentsState, "Memuat data mahasiswa...");
+=======
+>>>>>>> 23fad3d8bb35bfa676b352d9a76046b93e3465d1
   setText(manualMessage, query ? `Mencari data "${query}"...` : "Memuat data mahasiswa...");
   try {
     const queryString = new URLSearchParams({
@@ -624,7 +711,10 @@ async function loadStudentData(page = currentStudentPage) {
       return loadStudentData(Number(pagination.total_pages || 1));
     }
     renderStudentBills(billRows, Number(pagination.offset || 0));
+<<<<<<< HEAD
     studentsState.removeAttribute("aria-busy");
+=======
+>>>>>>> 23fad3d8bb35bfa676b352d9a76046b93e3465d1
     renderStudentPagination(pagination);
     const hasFilter = Boolean(query || status || source);
     setText(manualMessage, hasFilter ? `${Number(pagination.total || 0)} data sesuai pencarian dan filter.` : "Data mahasiswa siap.");
@@ -638,6 +728,7 @@ async function loadStudentData(page = currentStudentPage) {
 }
 
 async function loadImportIssues() {
+<<<<<<< HEAD
   renderLoadingState(importIssuesState, "Memuat data perbaikan...", true);
   try {
     const result = await api("/api/admin/import-issues?limit=500");
@@ -645,6 +736,13 @@ async function loadImportIssues() {
     importIssuesState.removeAttribute("aria-busy");
   } catch (error) {
     renderErrorState(importIssuesState, "Data perbaikan tidak dapat dimuat", error.message, "issues");
+=======
+  try {
+    const result = await api("/api/admin/import-issues?limit=500");
+    renderImportIssues(result.data.issues || []);
+  } catch (error) {
+    importIssuesState.innerHTML = `<p class="form-message error">${escapeHtml(error.message)}</p>`;
+>>>>>>> 23fad3d8bb35bfa676b352d9a76046b93e3465d1
   }
 }
 
@@ -678,7 +776,11 @@ function renderImportedBills(groups) {
               <h3>${escapeHtml(group.file_name)}</h3>
               <p class="muted">Diimport ${escapeHtml(formatImportedAt(group.imported_at))}</p>
             </div>
+<<<<<<< HEAD
             <button type="button" class="delete-import-file-button danger-button" data-file-name="${escapeHtml(group.file_name)}" aria-label="Hapus file import ${escapeHtml(group.file_name)}">Hapus File</button>
+=======
+            <button type="button" class="delete-import-file-button danger-button" data-file-name="${escapeHtml(group.file_name)}">Hapus File</button>
+>>>>>>> 23fad3d8bb35bfa676b352d9a76046b93e3465d1
           </header>
 
           <dl class="file-record-metrics">
@@ -693,9 +795,47 @@ function renderImportedBills(groups) {
             <span class="status-summary is-unpaid"><span aria-hidden="true"></span>${escapeHtml(group.unpaid)} Belum lunas</span>
           </div>
 
+<<<<<<< HEAD
           <details class="file-record-details" data-group-index="${index}">
             <summary>Lihat ${escapeHtml(group.total)} data mahasiswa</summary>
             <div class="file-detail-content"></div>
+=======
+          <details class="file-record-details">
+            <summary>Lihat ${escapeHtml(group.total)} data mahasiswa</summary>
+            <div class="table-mini">
+              <table class="data-table file-detail-table">
+                <caption class="visually-hidden">Rincian mahasiswa dari file ${escapeHtml(group.file_name)}</caption>
+                <thead>
+                  <tr>
+                    <th scope="col">Status</th>
+                    <th scope="col">NIM</th>
+                    <th scope="col">Nama</th>
+                    <th scope="col">BRIVA</th>
+                    <th scope="col">Nominal</th>
+                    <th scope="col">Periode</th>
+                    <th scope="col">Batas Aktif</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${group.bills
+                    .map(
+                      (bill) => `
+                        <tr>
+                          <td data-label="Status"><span class="status-badge ${statusClass(bill.status)}"><span aria-hidden="true"></span>${statusLabel(bill.status)}</span></td>
+                          <td data-label="NIM" class="numeric-value">${escapeHtml(bill.nim)}</td>
+                          <th data-label="Nama" scope="row">${escapeHtml(bill.full_name)}</th>
+                          <td data-label="BRIVA" class="numeric-value">${escapeHtml(bill.briva)}</td>
+                          <td data-label="Nominal" class="numeric-value">${escapeHtml(bill.amount_formatted)}</td>
+                          <td data-label="Periode">${escapeHtml(bill.period)}</td>
+                          <td data-label="Batas Aktif">${escapeHtml(bill.due_date_formatted || "-")}</td>
+                        </tr>
+                      `,
+                    )
+                    .join("")}
+                </tbody>
+              </table>
+            </div>
+>>>>>>> 23fad3d8bb35bfa676b352d9a76046b93e3465d1
           </details>
         </article>
       `;
@@ -775,7 +915,10 @@ async function loadImportedBills() {
     const result = await api("/api/admin/imported-bills");
     const groups = result.data.groups || [];
     renderImportedBills(groups);
+<<<<<<< HEAD
     billsState.removeAttribute("aria-busy");
+=======
+>>>>>>> 23fad3d8bb35bfa676b352d9a76046b93e3465d1
     setText(billsMessage, `${groups.length} file import tersimpan.`);
   } catch (error) {
     setText(billsMessage, error.message, "error");
@@ -880,6 +1023,7 @@ importForm.addEventListener("submit", async (event) => {
 
 fileInput.addEventListener("change", () => {
   if (currentPreview) resetImportPreview();
+<<<<<<< HEAD
   const file = fileInput.files[0] || null;
   setSelectedFile(file);
   if (file) setText(importMessage, `${file.name} siap diperiksa.`);
@@ -897,6 +1041,15 @@ confirmUpdates.addEventListener("change", refreshCommitState);
 cancelPreviewButton.addEventListener("click", () => {
   resetImportPreview({ clearFile: true });
   setText(importMessage, "Preview dibatalkan.");
+=======
+  if (fileInput.files.length) setText(importMessage, `${fileInput.files[0].name} siap diperiksa.`);
+});
+
+confirmUpdates.addEventListener("change", refreshCommitState);
+cancelPreviewButton.addEventListener("click", () => {
+  resetImportPreview();
+  setText(importMessage, "Preview dibatalkan. File dapat dipilih kembali.");
+>>>>>>> 23fad3d8bb35bfa676b352d9a76046b93e3465d1
 });
 
 commitButton.addEventListener("click", async () => {
@@ -1018,6 +1171,7 @@ studentsPageNumbers.addEventListener("click", (event) => {
 
 refreshBillsButton.addEventListener("click", loadImportedBills);
 
+<<<<<<< HEAD
 billsState.addEventListener(
   "toggle",
   (event) => {
@@ -1083,8 +1237,42 @@ studentsCard.addEventListener("click", async (event) => {
   if (target.hasAttribute("data-reset-student-filter")) {
     clearSearchButton.click();
     return;
+=======
+billsCard.addEventListener("click", async (event) => {
+  const target = event.target;
+  if (!(target instanceof HTMLButtonElement) || !target.classList.contains("delete-import-file-button")) {
+    return;
   }
 
+  const fileName = target.dataset.fileName || "";
+  if (!fileName) return;
+  const reason = await requestDeleteConfirmation({
+    title: "Hapus File Import",
+    description: `File ${fileName} beserta seluruh data hasil impornya akan dihapus. Tindakan ini tidak dapat dibatalkan.`,
+    submitLabel: "Hapus File",
+  });
+  if (!reason) return;
+
+  target.disabled = true;
+  setText(billsMessage, `Menghapus file ${fileName}...`);
+  try {
+    const result = await api("/api/admin/imported-files", {
+      method: "DELETE",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ file_name: fileName, reason }),
+    });
+    await loadImportedBills();
+    setText(billsMessage, `File ${fileName} dan ${result.data.deleted_bills} data berhasil dihapus.`);
+    showToast(`File ${fileName} berhasil dihapus.`);
+  } catch (error) {
+    setText(billsMessage, error.message, "error");
+    showToast(error.message, "error");
+  } finally {
+    target.disabled = false;
+>>>>>>> 23fad3d8bb35bfa676b352d9a76046b93e3465d1
+  }
+
+<<<<<<< HEAD
   if (target.hasAttribute("data-open-student-editor")) {
     openStudentEditor();
     return;
@@ -1175,6 +1363,87 @@ document.addEventListener("keydown", (event) => {
   } else if (!event.shiftKey && document.activeElement === last) {
     event.preventDefault();
     first.focus();
+=======
+studentsCard.addEventListener("click", async (event) => {
+  const target = event.target;
+  if (!(target instanceof HTMLButtonElement)) {
+    return;
+  }
+
+  if (target.classList.contains("edit-bill-button")) {
+    const bill = billRows.find((item) => item.id === (target.dataset.billId || ""));
+    if (!bill) return;
+    openStudentEditor(bill);
+    return;
+  }
+
+  if (target.classList.contains("delete-bill-button")) {
+    const billId = target.dataset.billId || "";
+    const bill = billRows.find((item) => item.id === billId);
+    if (!bill) return;
+    const reason = await requestDeleteConfirmation({
+      title: "Hapus Data Mahasiswa",
+      description: `${bill.full_name} (${bill.nim}) dengan BRIVA ${bill.briva} akan dihapus. Tindakan ini tidak dapat dibatalkan.`,
+    });
+    if (!reason) return;
+    target.disabled = true;
+    setText(manualMessage, "Menghapus data mahasiswa...");
+    try {
+      await api(`/api/admin/bills/${encodeURIComponent(billId)}?reason=${encodeURIComponent(reason)}`, { method: "DELETE" });
+      setText(manualMessage, "Data mahasiswa berhasil dihapus.");
+      showToast("Data mahasiswa berhasil dihapus.");
+      closeStudentEditor();
+      await loadStudentData();
+    } catch (error) {
+      setText(manualMessage, error.message, "error");
+      showToast(error.message, "error");
+    } finally {
+      target.disabled = false;
+    }
+>>>>>>> 23fad3d8bb35bfa676b352d9a76046b93e3465d1
+  }
+});
+
+confirmModalSubmit.addEventListener("click", () => {
+  const reason = confirmModalReason.value.trim();
+  if (!reason) {
+    confirmModalError.textContent = "Alasan penghapusan wajib diisi.";
+    confirmModalReason.focus();
+    return;
+  }
+  closeConfirmModal(reason);
+});
+
+confirmModalReason.addEventListener("input", () => {
+  confirmModalError.textContent = "";
+});
+
+confirmModalCancel.addEventListener("click", () => closeConfirmModal(null));
+confirmModalClose.addEventListener("click", () => closeConfirmModal(null));
+confirmModal.addEventListener("click", (event) => {
+  if (event.target instanceof HTMLElement && event.target.hasAttribute("data-modal-cancel")) closeConfirmModal(null);
+});
+
+document.addEventListener("keydown", (event) => {
+  if (confirmModal.classList.contains("hidden")) return;
+  if (event.key === "Escape") {
+    closeConfirmModal(null);
+    return;
+  }
+  if (event.key !== "Tab") return;
+
+  const focusable = Array.from(
+    confirmModalDialog.querySelectorAll("button:not([disabled]), textarea:not([disabled])"),
+  ).filter((element) => element instanceof HTMLElement && element.offsetParent !== null);
+  if (!focusable.length) return;
+  const first = focusable[0];
+  const last = focusable[focusable.length - 1];
+  if (event.shiftKey && document.activeElement === first) {
+    event.preventDefault();
+    last.focus();
+  } else if (!event.shiftKey && document.activeElement === last) {
+    event.preventDefault();
+    first.focus();
   }
 });
 
@@ -1195,5 +1464,9 @@ for (const button of adminViewButtons) {
   button.addEventListener("click", () => setAdminView(button.dataset.adminView || "upload"));
 }
 
+<<<<<<< HEAD
 setSelectedFile();
 api("/api/admin/me").then((result) => showAdmin(result.data)).catch(() => showLogin());
+=======
+api("/api/admin/me").then((result) => showAdmin(result.data)).catch(showLogin);
+>>>>>>> 23fad3d8bb35bfa676b352d9a76046b93e3465d1
