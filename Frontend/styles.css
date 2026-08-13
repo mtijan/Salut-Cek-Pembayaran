@@ -2125,7 +2125,6 @@ body.modal-open {
 
 .student-data-table .actions-column {
   width: 100px;
-<<<<<<< HEAD
   position: sticky;
   right: 0;
   z-index: 1;
@@ -2136,8 +2135,6 @@ body.modal-open {
 .admin-active .student-data-table thead .actions-column {
   z-index: 3;
   background: #edf3f1;
-=======
->>>>>>> 23fad3d8bb35bfa676b352d9a76046b93e3465d1
 }
 
 .student-nim,
@@ -2686,14 +2683,11 @@ body.modal-open {
     max-width: 100%;
   }
 
-<<<<<<< HEAD
   .student-data-table .actions-column {
     position: static;
     box-shadow: none;
   }
 
-=======
->>>>>>> 23fad3d8bb35bfa676b352d9a76046b93e3465d1
   .admin-active .table-pagination {
     justify-content: flex-start;
   }
@@ -2733,7 +2727,6 @@ body.modal-open {
     right: 16px;
   }
 }
-<<<<<<< HEAD
 
 /* Admin authentication and state feedback */
 
@@ -3075,5 +3068,3 @@ body:not(.admin-active) .skip-link {
     transition: none;
   }
 }
-=======
->>>>>>> 23fad3d8bb35bfa676b352d9a76046b93e3465d1
