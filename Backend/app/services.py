@@ -129,13 +129,23 @@ def bill_row_to_dict(row: sqlite3.Row) -> dict[str, object]:
 
 
 def student_row_to_dict(row: sqlite3.Row) -> dict[str, object]:
+    keys = row.keys()
     return {
         "id": row["id"],
         "nim": row["nim"],
         "full_name": row["full_name"],
-        "bill_count": row["bill_count"] if "bill_count" in row.keys() else 0,
-        "total_amount": row["total_amount"] if "total_amount" in row.keys() and row["total_amount"] is not None else 0,
-        "total_amount_formatted": rupiah(int(row["total_amount"] or 0)) if "total_amount" in row.keys() else rupiah(0),
+        "program_study": row["program_study"] if "program_study" in keys and row["program_study"] else "",
+        "study_program_id": row["study_program_id"] if "study_program_id" in keys and row["study_program_id"] else "",
+        "study_program_name": row["study_program_name"] if "study_program_name" in keys and row["study_program_name"] else (row["program_study"] if "program_study" in keys and row["program_study"] else ""),
+        "academic_status": row["academic_status"] if "academic_status" in keys and row["academic_status"] else "aktif",
+        "entry_year": row["entry_year"] if "entry_year" in keys and row["entry_year"] is not None else None,
+        "email": row["email"] if "email" in keys and row["email"] else "",
+        "address": row["address"] if "address" in keys and row["address"] else "",
+        "phone_number": row["phone_number"] if "phone_number" in keys and row["phone_number"] else "",
+        "initial_registration": row["initial_registration"] if "initial_registration" in keys and row["initial_registration"] else "",
+        "bill_count": row["bill_count"] if "bill_count" in keys else 0,
+        "total_amount": row["total_amount"] if "total_amount" in keys and row["total_amount"] is not None else 0,
+        "total_amount_formatted": rupiah(int(row["total_amount"] or 0)) if "total_amount" in keys else rupiah(0),
     }
 
 
@@ -200,7 +210,18 @@ def summarize_payment_status(statuses: list[object]) -> str:
     return "unpaid"
 
 
-def ensure_student(conn: sqlite3.Connection, nim: object, full_name: object) -> sqlite3.Row:
+def ensure_student(
+    conn: sqlite3.Connection,
+    nim: object,
+    full_name: object,
+    program_study: object = None,
+    study_program_id: object = None,
+    academic_status: object = None,
+    entry_year: object = None,
+    email: object = None,
+    address: object = None,
+    phone_number: object = None,
+) -> sqlite3.Row:
     normalized_nim = normalize_nim(nim)
     normalized_name = normalize_text(full_name)
     if not normalized_nim:
@@ -208,28 +229,66 @@ def ensure_student(conn: sqlite3.Connection, nim: object, full_name: object) -> 
     if not normalized_name:
         raise ValueError("Nama mahasiswa wajib diisi.")
 
+    norm_prodi = normalize_text(program_study) or None
+    norm_prodi_id = normalize_text(study_program_id) or None
+    norm_status = normalize_text(academic_status) or None
+    norm_email = normalize_text(email) or None
+    norm_address = normalize_text(address) or None
+    norm_phone = normalize_text(phone_number) or None
+    try:
+        norm_year = int(str(entry_year).strip()) if entry_year is not None and str(entry_year).strip().isdigit() else None
+    except (ValueError, TypeError):
+        norm_year = None
+
     row = conn.execute("select id, nim, full_name from students where nim = ? and deleted_at is null", (normalized_nim,)).fetchone()
     if row:
-        if row["full_name"] != normalized_name:
-            conn.execute(
-                "update students set full_name = ?, name_norm = ?, updated_at = datetime('now') where id = ?",
-                (normalized_name, normalize_name(normalized_name), row["id"]),
-            )
-            row = conn.execute("select id, nim, full_name from students where id = ?", (row["id"],)).fetchone()
-        return row
+        updates = ["full_name = ?", "name_norm = ?", "updated_at = datetime('now')"]
+        params: list[object] = [normalized_name, normalize_name(normalized_name)]
+        if norm_prodi:
+            updates.append("program_study = ?")
+            params.append(norm_prodi)
+        if norm_prodi_id:
+            updates.append("study_program_id = ?")
+            params.append(norm_prodi_id)
+        if norm_status is not None:
+            updates.append("academic_status = ?")
+            params.append(norm_status)
+        if norm_year is not None:
+            updates.append("entry_year = ?")
+            params.append(norm_year)
+        if norm_email:
+            updates.append("email = ?")
+            params.append(norm_email)
+        if norm_address:
+            updates.append("address = ?")
+            params.append(norm_address)
+        if norm_phone:
+            updates.append("phone_number = ?")
+            params.append(norm_phone)
+        params.append(row["id"])
+        conn.execute(f"update students set {', '.join(updates)} where id = ?", params)
+        return conn.execute("select id, nim, full_name from students where id = ?", (row["id"],)).fetchone()
 
     student_id = str(uuid.uuid4())
     conn.execute(
         """
-        insert into students (id, nim, full_name, name_norm)
-        values (?, ?, ?, ?)
+        insert into students
+          (id, nim, full_name, name_norm, program_study, study_program_id, academic_status, entry_year, email, address, phone_number)
+        values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
-        (student_id, normalized_nim, normalized_name, normalize_name(normalized_name)),
+        (student_id, normalized_nim, normalized_name, normalize_name(normalized_name), norm_prodi, norm_prodi_id, norm_status or "aktif", norm_year, norm_email, norm_address, norm_phone),
     )
     return conn.execute("select id, nim, full_name from students where id = ?", (student_id,)).fetchone()
 
 
-def list_students(db_path: str | Path = config.DB_PATH, query: str = "", limit: int = 2000) -> list[dict[str, object]]:
+def list_students(
+    db_path: str | Path = config.DB_PATH,
+    query: str = "",
+    limit: int = 2000,
+    study_program_id: str = "",
+    academic_status: str = "",
+    entry_year: int | None = None,
+) -> list[dict[str, object]]:
     search = normalize_text(query)
     limit = max(1, min(int(limit or 2000), 5000))
     conn = connect(db_path)
@@ -237,16 +296,30 @@ def list_students(db_path: str | Path = config.DB_PATH, query: str = "", limit: 
     params: list[object] = []
     where_clauses = ["s.deleted_at is null"]
     if search:
-        where_clauses.append("(s.nim like ? or s.full_name like ?)")
-        params.extend([f"%{search}%", f"%{search}%"])
+        where_clauses.append("(s.nim like ? or s.full_name like ? or s.program_study like ?)")
+        params.extend([f"%{search}%", f"%{search}%", f"%{search}%"])
+    if study_program_id:
+        where_clauses.append("(s.study_program_id = ? or sp.code = ?)")
+        params.extend([study_program_id, study_program_id])
+    if academic_status:
+        where_clauses.append("s.academic_status = ?")
+        params.append(academic_status.lower().strip())
+    if entry_year is not None and str(entry_year).isdigit():
+        where_clauses.append("s.entry_year = ?")
+        params.append(int(entry_year))
+
     where = "where " + " and ".join(where_clauses)
     rows = conn.execute(
         f"""
-        select s.id, s.nim, s.full_name, count(b.id) as bill_count, coalesce(sum(b.amount), 0) as total_amount
+        select s.id, s.nim, s.full_name, s.program_study, s.study_program_id, s.academic_status,
+               s.entry_year, s.email, s.address, s.phone_number, s.initial_registration,
+               sp.name as study_program_name,
+               count(b.id) as bill_count, coalesce(sum(b.amount), 0) as total_amount
         from students s
+        left join study_programs sp on sp.id = s.study_program_id
         left join bills b on b.student_id = s.id and b.deleted_at is null
         {where}
-        group by s.id, s.nim, s.full_name
+        group by s.id, s.nim, s.full_name, s.program_study, s.study_program_id, s.academic_status, s.entry_year, s.email, s.address, s.phone_number, s.initial_registration, sp.name
         order by s.nim asc
         limit ?
         """,
@@ -256,12 +329,98 @@ def list_students(db_path: str | Path = config.DB_PATH, query: str = "", limit: 
     return [student_row_to_dict(row) for row in rows]
 
 
-def create_student(db_path: str | Path, nim: object, full_name: object) -> sqlite3.Row:
+def get_student_detail(db_path: str | Path, student_id: str) -> dict[str, object] | None:
+    conn = connect(db_path)
+    init_db(conn)
+    student = conn.execute(
+        """
+        select s.id, s.nim, s.full_name, s.program_study, s.study_program_id, s.academic_status,
+               s.entry_year, s.email, s.address, s.phone_number, s.initial_registration, s.created_at,
+               sp.name as study_program_name, sp.code as study_program_code, sp.degree as study_program_degree
+        from students s
+        left join study_programs sp on sp.id = s.study_program_id
+        where s.id = ? and s.deleted_at is null
+        """,
+        (student_id,),
+    ).fetchone()
+    if not student:
+        conn.close()
+        return None
+
+    bills = conn.execute(
+        """
+        select b.id, b.briva, b.amount, b.period, b.bill_type, b.status, b.payment_method, b.due_date,
+               b.source_file, b.source_row_number, b.created_at, s.nim, s.full_name
+        from bills b
+        join students s on s.id = b.student_id
+        where b.student_id = ? and b.deleted_at is null
+        order by b.created_at desc, b.period desc
+        """,
+        (student_id,),
+    ).fetchall()
+    conn.close()
+
+    bill_list = [bill_row_to_dict(b) for b in bills]
+    total_amount = sum(int(b["amount"]) for b in bill_list)
+    total_paid = sum(int(b["amount"]) for b in bill_list if b["status"] == "paid")
+    total_outstanding = total_amount - total_paid
+    overall_status = summarize_payment_status([b["status"] for b in bill_list])
+
+    return {
+        "student": student_row_to_dict(student),
+        "bills": bill_list,
+        "summary": {
+            "total_bills": len(bill_list),
+            "total_amount": total_amount,
+            "total_amount_formatted": rupiah(total_amount),
+            "total_paid": total_paid,
+            "total_paid_formatted": rupiah(total_paid),
+            "total_outstanding": total_outstanding,
+            "total_outstanding_formatted": rupiah(total_outstanding),
+            "overall_status": overall_status,
+        },
+    }
+
+
+def create_student(
+    db_path: str | Path,
+    nim_or_payload: object = None,
+    full_name: object = None,
+    payload: dict[str, object] | None = None,
+) -> sqlite3.Row:
+    if isinstance(nim_or_payload, dict):
+        data = nim_or_payload
+    elif isinstance(payload, dict):
+        data = payload
+    else:
+        data = {"nim": nim_or_payload, "full_name": full_name}
+
+    nim_val = data.get("nim")
+    name_val = data.get("full_name")
+    prodi = data.get("program_study")
+    prodi_id = data.get("study_program_id")
+    status = data.get("academic_status") or "aktif"
+    year = data.get("entry_year")
+    email = data.get("email")
+    address = data.get("address")
+    phone = data.get("phone_number")
+
     conn = connect(db_path)
     init_db(conn)
     try:
         with conn:
-            student = ensure_student(conn, nim, full_name)
+            student = ensure_student(
+                conn,
+                nim=nim_val,
+                full_name=name_val,
+                program_study=prodi,
+                study_program_id=prodi_id,
+                academic_status=status,
+                entry_year=year,
+                email=email,
+                address=address,
+                phone_number=phone,
+            )
     finally:
         conn.close()
     return student
@@ -282,6 +441,17 @@ def update_student(db_path: str | Path, student_id: str, payload: dict[str, obje
     if not normalized_name:
         raise ValueError("Nama mahasiswa wajib diisi.")
 
+    prodi = normalize_text(payload.get("program_study")) or None
+    prodi_id = normalize_text(payload.get("study_program_id")) or None
+    status = normalize_text(payload.get("academic_status")) or "aktif"
+    email = normalize_text(payload.get("email")) or None
+    address = normalize_text(payload.get("address")) or None
+    phone = normalize_text(payload.get("phone_number")) or None
+    try:
+        year = int(str(payload.get("entry_year")).strip()) if payload.get("entry_year") is not None and str(payload.get("entry_year")).strip().isdigit() else None
+    except (ValueError, TypeError):
+        year = None
+
     conn = connect(db_path)
     init_db(conn)
     try:
@@ -295,12 +465,14 @@ def update_student(db_path: str | Path, student_id: str, payload: dict[str, obje
             conn.execute(
                 """
                 update students
-                set nim = ?, full_name = ?, name_norm = ?, updated_at = datetime('now')
+                set nim = ?, full_name = ?, name_norm = ?, program_study = ?, study_program_id = ?,
+                    academic_status = ?, entry_year = ?, email = ?, address = ?, phone_number = ?,
+                    updated_at = datetime('now')
                 where id = ?
                 """,
-                (normalized_nim, normalized_name, normalize_name(normalized_name), student_id),
+                (normalized_nim, normalized_name, normalize_name(normalized_name), prodi, prodi_id, status, year, email, address, phone, student_id),
             )
-            return conn.execute("select id, nim, full_name from students where id = ?", (student_id,)).fetchone()
+            return conn.execute("select * from students where id = ?", (student_id,)).fetchone()
     finally:
         conn.close()
 
@@ -805,3 +977,380 @@ def find_admin_by_session(token: str | None) -> sqlite3.Row | None:
     ).fetchone()
     conn.close()
     return admin
+
+
+# ==========================================
+# MASTER DATA: STUDY PROGRAMS
+# ==========================================
+
+def list_study_programs(db_path: str | Path = config.DB_PATH) -> list[dict[str, object]]:
+    conn = connect(db_path)
+    init_db(conn)
+    rows = conn.execute(
+        """
+        select sp.id, sp.code, sp.name, sp.degree, sp.faculty, sp.is_active, sp.created_at, sp.updated_at,
+               count(s.id) as student_count
+        from study_programs sp
+        left join students s on s.study_program_id = sp.id and s.deleted_at is null
+        group by sp.id, sp.code, sp.name, sp.degree, sp.faculty, sp.is_active, sp.created_at, sp.updated_at
+        order by sp.name asc
+        """
+    ).fetchall()
+    conn.close()
+    return [
+        {
+            "id": r["id"],
+            "code": r["code"],
+            "name": r["name"],
+            "degree": r["degree"],
+            "faculty": r["faculty"] or "",
+            "is_active": int(r["is_active"]),
+            "student_count": int(r["student_count"]),
+            "created_at": str(r["created_at"]),
+            "updated_at": str(r["updated_at"]),
+        }
+        for r in rows
+    ]
+
+
+def create_study_program(db_path: str | Path, payload: dict[str, object]) -> dict[str, object]:
+    code = normalize_text(payload.get("code")).upper()
+    name = normalize_text(payload.get("name"))
+    degree = normalize_text(payload.get("degree")) or "S1"
+    faculty = normalize_text(payload.get("faculty")) or None
+    is_active = 1 if payload.get("is_active", 1) else 0
+
+    if not code:
+        raise ValueError("Kode program studi wajib diisi.")
+    if not name:
+        raise ValueError("Nama program studi wajib diisi.")
+
+    conn = connect(db_path)
+    init_db(conn)
+    try:
+        with conn:
+            existing = conn.execute("select id from study_programs where upper(code) = ?", (code,)).fetchone()
+            if existing:
+                raise ValueError(f"Program studi dengan kode '{code}' sudah ada.")
+            program_id = f"sp_{uuid.uuid4().hex[:12]}"
+            conn.execute(
+                """
+                insert into study_programs (id, code, name, degree, faculty, is_active)
+                values (?, ?, ?, ?, ?, ?)
+                """,
+                (program_id, code, name, degree, faculty, is_active),
+            )
+            row = conn.execute("select * from study_programs where id = ?", (program_id,)).fetchone()
+            return dict(row)
+    finally:
+        conn.close()
+
+
+def update_study_program(db_path: str | Path, program_id: str, payload: dict[str, object]) -> dict[str, object] | None:
+    code = normalize_text(payload.get("code")).upper() if payload.get("code") is not None else None
+    name = normalize_text(payload.get("name")) if payload.get("name") is not None else None
+    degree = normalize_text(payload.get("degree")) if payload.get("degree") is not None else None
+    faculty = normalize_text(payload.get("faculty")) if payload.get("faculty") is not None else None
+    is_active = (1 if payload.get("is_active") else 0) if payload.get("is_active") is not None else None
+
+    conn = connect(db_path)
+    init_db(conn)
+    try:
+        with conn:
+            current = conn.execute("select * from study_programs where id = ?", (program_id,)).fetchone()
+            if not current:
+                return None
+
+            new_code = code if code is not None else current["code"]
+            new_name = name if name is not None else current["name"]
+            new_degree = degree if degree is not None else current["degree"]
+            new_faculty = faculty if faculty is not None else current["faculty"]
+            new_active = is_active if is_active is not None else current["is_active"]
+
+            if not new_code:
+                raise ValueError("Kode program studi tidak boleh kosong.")
+            if not new_name:
+                raise ValueError("Nama program studi tidak boleh kosong.")
+
+            duplicate = conn.execute("select id from study_programs where upper(code) = ? and id <> ?", (new_code, program_id)).fetchone()
+            if duplicate:
+                raise ValueError(f"Program studi dengan kode '{new_code}' sudah ada.")
+
+            conn.execute(
+                """
+                update study_programs
+                set code = ?, name = ?, degree = ?, faculty = ?, is_active = ?, updated_at = datetime('now')
+                where id = ?
+                """,
+                (new_code, new_name, new_degree, new_faculty, new_active, program_id),
+            )
+            row = conn.execute("select * from study_programs where id = ?", (program_id,)).fetchone()
+            return dict(row)
+    finally:
+        conn.close()
+
+
+def delete_study_program(db_path: str | Path, program_id: str) -> bool:
+    conn = connect(db_path)
+    init_db(conn)
+    try:
+        with conn:
+            current = conn.execute("select id from study_programs where id = ?", (program_id,)).fetchone()
+            if not current:
+                return False
+            conn.execute("delete from study_programs where id = ?", (program_id,))
+            return True
+    finally:
+        conn.close()
+
+
+# ==========================================
+# MASTER DATA: ACADEMIC PERIODS
+# ==========================================
+
+def list_academic_periods(db_path: str | Path = config.DB_PATH) -> list[dict[str, object]]:
+    conn = connect(db_path)
+    init_db(conn)
+    rows = conn.execute(
+        """
+        select id, code, name, semester_type, is_active, default_due_date, created_at, updated_at
+        from academic_periods
+        order by code desc
+        """
+    ).fetchall()
+    conn.close()
+    return [
+        {
+            "id": r["id"],
+            "code": r["code"],
+            "name": r["name"],
+            "semester_type": r["semester_type"],
+            "is_active": int(r["is_active"]),
+            "default_due_date": r["default_due_date"] or "",
+            "default_due_date_formatted": format_due_date(r["default_due_date"]),
+            "created_at": str(r["created_at"]),
+            "updated_at": str(r["updated_at"]),
+        }
+        for r in rows
+    ]
+
+
+def create_academic_period(db_path: str | Path, payload: dict[str, object]) -> dict[str, object]:
+    code = normalize_text(payload.get("code"))
+    name = normalize_text(payload.get("name"))
+    semester_type = normalize_text(payload.get("semester_type")).lower() or "ganjil"
+    is_active = 1 if payload.get("is_active") else 0
+    default_due_date = validate_due_date_value(payload.get("default_due_date"))
+
+    if not code:
+        raise ValueError("Kode periode akademik wajib diisi.")
+    if not name:
+        raise ValueError("Nama periode akademik wajib diisi.")
+    if semester_type not in {"ganjil", "genap", "pendek"}:
+        raise ValueError("Tipe semester harus ganjil, genap, atau pendek.")
+
+    conn = connect(db_path)
+    init_db(conn)
+    try:
+        with conn:
+            existing = conn.execute("select id from academic_periods where code = ?", (code,)).fetchone()
+            if existing:
+                raise ValueError(f"Periode akademik dengan kode '{code}' sudah ada.")
+            period_id = f"prd_{uuid.uuid4().hex[:12]}"
+            if is_active == 1:
+                conn.execute("update academic_periods set is_active = 0")
+            conn.execute(
+                """
+                insert into academic_periods (id, code, name, semester_type, is_active, default_due_date)
+                values (?, ?, ?, ?, ?, ?)
+                """,
+                (period_id, code, name, semester_type, is_active, default_due_date),
+            )
+            row = conn.execute("select * from academic_periods where id = ?", (period_id,)).fetchone()
+            return dict(row)
+    finally:
+        conn.close()
+
+
+def update_academic_period(db_path: str | Path, period_id: str, payload: dict[str, object]) -> dict[str, object] | None:
+    code = normalize_text(payload.get("code")) if payload.get("code") is not None else None
+    name = normalize_text(payload.get("name")) if payload.get("name") is not None else None
+    semester_type = normalize_text(payload.get("semester_type")).lower() if payload.get("semester_type") is not None else None
+    is_active = (1 if payload.get("is_active") else 0) if payload.get("is_active") is not None else None
+    default_due_date = validate_due_date_value(payload.get("default_due_date")) if "default_due_date" in payload else None
+
+    conn = connect(db_path)
+    init_db(conn)
+    try:
+        with conn:
+            current = conn.execute("select * from academic_periods where id = ?", (period_id,)).fetchone()
+            if not current:
+                return None
+
+            new_code = code if code is not None else current["code"]
+            new_name = name if name is not None else current["name"]
+            new_type = semester_type if semester_type is not None else current["semester_type"]
+            new_active = is_active if is_active is not None else current["is_active"]
+            new_due = default_due_date if "default_due_date" in payload else current["default_due_date"]
+
+            if not new_code:
+                raise ValueError("Kode periode tidak boleh kosong.")
+            if not new_name:
+                raise ValueError("Nama periode tidak boleh kosong.")
+            if new_type not in {"ganjil", "genap", "pendek"}:
+                raise ValueError("Tipe semester harus ganjil, genap, atau pendek.")
+
+            duplicate = conn.execute("select id from academic_periods where code = ? and id <> ?", (new_code, period_id)).fetchone()
+            if duplicate:
+                raise ValueError(f"Periode akademik dengan kode '{new_code}' sudah ada.")
+
+            if new_active == 1:
+                conn.execute("update academic_periods set is_active = 0 where id <> ?", (period_id,))
+
+            conn.execute(
+                """
+                update academic_periods
+                set code = ?, name = ?, semester_type = ?, is_active = ?, default_due_date = ?, updated_at = datetime('now')
+                where id = ?
+                """,
+                (new_code, new_name, new_type, new_active, new_due, period_id),
+            )
+            row = conn.execute("select * from academic_periods where id = ?", (period_id,)).fetchone()
+            return dict(row)
+    finally:
+        conn.close()
+
+
+# ==========================================
+# DASHBOARD STATS & FINANCIAL REPORTS
+# ==========================================
+
+def get_dashboard_stats(db_path: str | Path = config.DB_PATH) -> dict[str, object]:
+    conn = connect(db_path)
+    init_db(conn)
+
+    # Students count
+    s_row = conn.execute(
+        """
+        select
+          count(*) as total_students,
+          sum(case when academic_status = 'aktif' then 1 else 0 end) as active_students
+        from students
+        where deleted_at is null
+        """
+    ).fetchone()
+
+    # Bills count & sums
+    b_row = conn.execute(
+        """
+        select
+          count(*) as total_bills,
+          sum(case when b.status = 'paid' then 1 else 0 end) as paid_bills,
+          sum(case when b.status = 'partial' then 1 else 0 end) as partial_bills,
+          sum(case when b.status = 'unpaid' then 1 else 0 end) as unpaid_bills,
+          coalesce(sum(b.amount), 0) as total_billed_amount,
+          coalesce(sum(case when b.status = 'paid' then b.amount else 0 end), 0) as total_paid_amount
+        from bills b
+        join students s on s.id = b.student_id
+        where b.deleted_at is null and s.deleted_at is null
+        """
+    ).fetchone()
+
+    conn.close()
+
+    total_students = int(s_row["total_students"] or 0) if s_row else 0
+    active_students = int(s_row["active_students"] or 0) if s_row else 0
+
+    total_bills = int(b_row["total_bills"] or 0) if b_row else 0
+    paid_bills = int(b_row["paid_bills"] or 0) if b_row else 0
+    partial_bills = int(b_row["partial_bills"] or 0) if b_row else 0
+    unpaid_bills = int(b_row["unpaid_bills"] or 0) if b_row else 0
+
+    total_billed = int(b_row["total_billed_amount"] or 0) if b_row else 0
+    total_paid = int(b_row["total_paid_amount"] or 0) if b_row else 0
+    total_outstanding = max(0, total_billed - total_paid)
+
+    payment_rate = round((total_paid / total_billed * 100), 2) if total_billed > 0 else 0.0
+
+    return {
+        "total_students": total_students,
+        "active_students": active_students,
+        "total_bills": total_bills,
+        "paid_bills": paid_bills,
+        "partial_bills": partial_bills,
+        "unpaid_bills": unpaid_bills,
+        "total_billed_amount": total_billed,
+        "total_billed_amount_formatted": rupiah(total_billed),
+        "total_paid_amount": total_paid,
+        "total_paid_amount_formatted": rupiah(total_paid),
+        "total_outstanding_amount": total_outstanding,
+        "total_outstanding_amount_formatted": rupiah(total_outstanding),
+        "payment_rate_percentage": payment_rate,
+    }
+
+
+def get_financial_summary(db_path: str | Path = config.DB_PATH) -> dict[str, object]:
+    conn = connect(db_path)
+    init_db(conn)
+
+    rows = conn.execute(
+        """
+        select
+          coalesce(sp.name, s.program_study, 'Lainnya') as program_study,
+          count(distinct s.id) as total_students,
+          count(b.id) as total_bills,
+          coalesce(sum(b.amount), 0) as billed_amount,
+          coalesce(sum(case when b.status = 'paid' then b.amount else 0 end), 0) as paid_amount
+        from students s
+        left join study_programs sp on sp.id = s.study_program_id
+        left join bills b on b.student_id = s.id and b.deleted_at is null
+        where s.deleted_at is null
+        group by coalesce(sp.name, s.program_study, 'Lainnya')
+        order by billed_amount desc
+        """
+    ).fetchall()
+
+    conn.close()
+
+    by_study_program: list[dict[str, object]] = []
+    total_billed = 0
+    total_paid = 0
+
+    for r in rows:
+        billed = int(r["billed_amount"] or 0)
+        paid = int(r["paid_amount"] or 0)
+        outstanding = max(0, billed - paid)
+        rate = round((paid / billed * 100), 2) if billed > 0 else 0.0
+
+        total_billed += billed
+        total_paid += paid
+
+        by_study_program.append({
+            "program_study": r["program_study"],
+            "total_students": int(r["total_students"] or 0),
+            "total_bills": int(r["total_bills"] or 0),
+            "billed_amount": billed,
+            "billed_amount_formatted": rupiah(billed),
+            "paid_amount": paid,
+            "paid_amount_formatted": rupiah(paid),
+            "outstanding_amount": outstanding,
+            "outstanding_amount_formatted": rupiah(outstanding),
+            "percentage_paid": rate,
+        })
+
+    total_outstanding = max(0, total_billed - total_paid)
+    overall_rate = round((total_paid / total_billed * 100), 2) if total_billed > 0 else 0.0
+
+    return {
+        "by_study_program": by_study_program,
+        "totals": {
+            "billed_amount": total_billed,
+            "billed_amount_formatted": rupiah(total_billed),
+            "paid_amount": total_paid,
+            "paid_amount_formatted": rupiah(total_paid),
+            "outstanding_amount": total_outstanding,
+            "outstanding_amount_formatted": rupiah(total_outstanding),
+            "percentage_paid": overall_rate,
+        },
+    }
+

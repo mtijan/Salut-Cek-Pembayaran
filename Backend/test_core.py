@@ -874,6 +874,161 @@ class CoreBehaviorTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "Jumlah baris worksheet melebihi batas maksimum 5000"):
                 preview_workbook(workbook)
 
+    def test_schema_migration_and_master_data(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            database = Path(temporary_directory) / "salut.sqlite"
+            conn = connect(database)
+            init_db(conn)
+            prodi_count = conn.execute("select count(*) as cnt from study_programs").fetchone()["cnt"]
+            period_count = conn.execute("select count(*) as cnt from academic_periods").fetchone()["cnt"]
+            bill_type_count = conn.execute("select count(*) as cnt from bill_types").fetchone()["cnt"]
+            conn.close()
+
+            self.assertGreaterEqual(prodi_count, 5)
+            self.assertGreaterEqual(period_count, 2)
+            self.assertGreaterEqual(bill_type_count, 3)
+
+    def test_study_programs_crud(self) -> None:
+        from Backend.app.services import create_study_program, delete_study_program, list_study_programs, update_study_program
+
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            database = Path(temporary_directory) / "salut.sqlite"
+            # Create
+            created = create_study_program(database, {"code": "TIK", "name": "Teknik Informatika", "degree": "S1", "faculty": "FST"})
+            self.assertEqual(created["code"], "TIK")
+            self.assertEqual(created["name"], "Teknik Informatika")
+
+            # List
+            prodis = list_study_programs(database)
+            self.assertTrue(any(p["code"] == "TIK" for p in prodis))
+
+            # Update
+            updated = update_study_program(database, created["id"], {"name": "S1 Teknik Informatika"})
+            self.assertIsNotNone(updated)
+            self.assertEqual(updated["name"], "S1 Teknik Informatika")
+
+            # Delete
+            deleted = delete_study_program(database, created["id"])
+            self.assertTrue(deleted)
+            prodis_after = list_study_programs(database)
+            self.assertFalse(any(p["code"] == "TIK" for p in prodis_after))
+
+    def test_academic_periods_crud(self) -> None:
+        from Backend.app.services import create_academic_period, list_academic_periods, update_academic_period
+
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            database = Path(temporary_directory) / "salut.sqlite"
+            # Create
+            created = create_academic_period(database, {"code": "20261", "name": "2026/2027 Ganjil", "semester_type": "ganjil", "is_active": 1, "default_due_date": "2026-09-30"})
+            self.assertEqual(created["code"], "20261")
+            self.assertEqual(created["is_active"], 1)
+
+            # Check that only one period is active
+            periods = list_academic_periods(database)
+            active_periods = [p for p in periods if p["is_active"] == 1]
+            self.assertEqual(len(active_periods), 1)
+            self.assertEqual(active_periods[0]["code"], "20261")
+
+            # Update
+            updated = update_academic_period(database, created["id"], {"name": "2026/2027 Semester Ganjil"})
+            self.assertIsNotNone(updated)
+            self.assertEqual(updated["name"], "2026/2027 Semester Ganjil")
+
+    def test_student_profile_360_detail(self) -> None:
+        from Backend.app.services import create_bill, create_student, get_student_detail
+
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            database = Path(temporary_directory) / "salut.sqlite"
+            student = create_student(
+                database,
+                {
+                    "nim": "050117099",
+                    "full_name": "Rizky Firmansyah",
+                    "program_study": "S1 Ilmu Hukum",
+                    "academic_status": "aktif",
+                    "entry_year": 2025,
+                    "email": "rizky@example.com",
+                    "address": "Jl. Sudirman No 10",
+                    "phone_number": "081234567890",
+                },
+            )
+
+            # Add two bills
+            create_bill(database, {"nim": "050117099", "full_name": "Rizky Firmansyah", "briva": "17810001", "amount": 1000000, "period": "2025.1", "status": "paid"})
+            create_bill(database, {"nim": "050117099", "full_name": "Rizky Firmansyah", "briva": "17810002", "amount": 1500000, "period": "2025.2", "status": "unpaid"})
+
+            detail = get_student_detail(database, student["id"])
+            self.assertIsNotNone(detail)
+            self.assertEqual(detail["student"]["nim"], "050117099")
+            self.assertEqual(detail["student"]["academic_status"], "aktif")
+            self.assertEqual(detail["student"]["entry_year"], 2025)
+            self.assertEqual(len(detail["bills"]), 2)
+            self.assertEqual(detail["summary"]["total_amount"], 2500000)
+            self.assertEqual(detail["summary"]["total_paid"], 1000000)
+            self.assertEqual(detail["summary"]["total_outstanding"], 1500000)
+            self.assertEqual(detail["summary"]["overall_status"], "unpaid")
+
+    def test_student_filters_by_prodi_and_status(self) -> None:
+        from Backend.app.services import create_student, list_students
+
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            database = Path(temporary_directory) / "salut.sqlite"
+            create_student(database, {"nim": "1001", "full_name": "Mhs Aktif Hukum", "program_study": "S1 Ilmu Hukum", "academic_status": "aktif", "entry_year": 2024})
+            create_student(database, {"nim": "1002", "full_name": "Mhs Cuti Manajemen", "program_study": "S1 Manajemen", "academic_status": "cuti", "entry_year": 2025})
+
+            # Filter by academic_status
+            aktif_list = list_students(database, academic_status="aktif")
+            self.assertTrue(any(s["nim"] == "1001" for s in aktif_list))
+            self.assertFalse(any(s["nim"] == "1002" for s in aktif_list))
+
+            # Filter by entry_year
+            year_2025_list = list_students(database, entry_year=2025)
+            self.assertTrue(any(s["nim"] == "1002" for s in year_2025_list))
+            self.assertFalse(any(s["nim"] == "1001" for s in year_2025_list))
+
+    def test_dashboard_stats_and_financial_summary(self) -> None:
+        from Backend.app.services import create_bill, create_student, get_dashboard_stats, get_financial_summary
+
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            database = Path(temporary_directory) / "salut.sqlite"
+            create_student(database, {"nim": "2001", "full_name": "Student A", "program_study": "S1 Ilmu Hukum", "academic_status": "aktif"})
+            create_student(database, {"nim": "2002", "full_name": "Student B", "program_study": "S1 Manajemen", "academic_status": "cuti"})
+
+            create_bill(database, {"nim": "2001", "full_name": "Student A", "briva": "17810011", "amount": 2000000, "period": "2025.1", "status": "paid"})
+            create_bill(database, {"nim": "2002", "full_name": "Student B", "briva": "17810012", "amount": 3000000, "period": "2025.1", "status": "unpaid"})
+
+            stats = get_dashboard_stats(database)
+            self.assertEqual(stats["total_students"], 2)
+            self.assertEqual(stats["active_students"], 1)
+            self.assertEqual(stats["total_bills"], 2)
+            self.assertEqual(stats["paid_bills"], 1)
+            self.assertEqual(stats["unpaid_bills"], 1)
+            self.assertEqual(stats["total_billed_amount"], 5000000)
+            self.assertEqual(stats["total_paid_amount"], 2000000)
+            self.assertEqual(stats["total_outstanding_amount"], 3000000)
+            self.assertEqual(stats["payment_rate_percentage"], 40.0)
+
+            fin = get_financial_summary(database)
+            self.assertEqual(fin["totals"]["billed_amount"], 5000000)
+            self.assertEqual(fin["totals"]["paid_amount"], 2000000)
+            self.assertEqual(fin["totals"]["outstanding_amount"], 3000000)
+            self.assertEqual(len(fin["by_study_program"]), 2)
+
+    def test_granular_rbac_roles(self) -> None:
+        from Backend.app.config import ROLE_PERMISSIONS
+        self.assertIn("manage_master_data", ROLE_PERMISSIONS["admin_akademik"])
+        self.assertIn("manage_students", ROLE_PERMISSIONS["admin_akademik"])
+        self.assertNotIn("import", ROLE_PERMISSIONS["admin_akademik"])
+
+        self.assertIn("import", ROLE_PERMISSIONS["admin_keuangan"])
+        self.assertIn("manage_billing", ROLE_PERMISSIONS["admin_keuangan"])
+        self.assertNotIn("manage_master_data", ROLE_PERMISSIONS["admin_keuangan"])
+
+        self.assertIn("view_reports", ROLE_PERMISSIONS["viewer"])
+        self.assertNotIn("manage_data", ROLE_PERMISSIONS["viewer"])
+
+        self.assertIn("manage_users", ROLE_PERMISSIONS["super_admin"])
+
     @staticmethod
     def _write_workbook(path: Path, rows: list[tuple[str, str, str, int]]) -> None:
         def inline(cell: str, value: str) -> str:

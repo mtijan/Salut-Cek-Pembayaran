@@ -1,11 +1,47 @@
 pragma foreign_keys = on;
 
+create table if not exists study_programs (
+  id text primary key,
+  code text not null unique,
+  name text not null,
+  degree text not null default 'S1',
+  faculty text,
+  is_active integer not null default 1,
+  created_at text not null default (datetime('now')),
+  updated_at text not null default (datetime('now'))
+);
+
+create table if not exists academic_periods (
+  id text primary key,
+  code text not null unique,
+  name text not null,
+  semester_type text not null,
+  is_active integer not null default 0,
+  default_due_date text,
+  created_at text not null default (datetime('now')),
+  updated_at text not null default (datetime('now'))
+);
+
+create table if not exists bill_types (
+  id text primary key,
+  code text not null unique,
+  name text not null,
+  default_amount integer not null default 0,
+  is_active integer not null default 1,
+  created_at text not null default (datetime('now'))
+);
+
 create table if not exists students (
   id text primary key,
   nim text not null unique,
   full_name text not null,
   name_norm text not null,
   program_study text,
+  study_program_id text references study_programs(id) on delete set null,
+  academic_status text not null default 'aktif',
+  entry_year integer,
+  email text,
+  address text,
   initial_registration text,
   phone_number text,
   deleted_at text,

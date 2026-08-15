@@ -17,33 +17,43 @@ from Backend.app.services import (
     bill_row_to_dict,
     cleanup_stale_imports,
     count_bills,
+    create_academic_period,
     create_admin_session,
     create_bill,
     create_student,
-    delete_bill,
+    create_study_program,
     delete_admin_session,
+    delete_bill,
     delete_imported_bill_group,
     delete_import_preview,
     delete_student,
+    delete_study_program,
     ensure_database,
+    find_admin_by_session,
     format_due_date,
+    get_dashboard_stats,
+    get_financial_summary,
     get_import_preview_for_admin,
+    get_student_detail,
+    list_academic_periods,
+    list_bills,
     list_imported_bill_groups,
     list_import_issues,
-    list_bills,
     list_students,
+    list_study_programs,
     rupiah,
     sanitize_filename,
     store_import_preview,
-    summarize_payment_status,
     student_row_to_dict,
+    summarize_payment_status,
+    update_academic_period,
     update_bill,
     update_bill_due_date,
     update_bill_status,
     update_student,
+    update_study_program,
     write_audit,
     write_lookup_log,
-    find_admin_by_session,
 )
 from Backend.db import connect
 from Backend.excel_reader import normalize_nim
@@ -373,14 +383,148 @@ async def admin_bill_due_date(request: Request, admin=Depends(require_admin("imp
     )
 
 
+# ==========================================
+# DASHBOARD STATS & FINANCIAL REPORTS
+# ==========================================
+
+@app.get("/api/admin/dashboard/stats")
+async def admin_dashboard_stats(admin=Depends(require_admin("view_reports"))) -> JSONResponse:
+    return success_response(get_dashboard_stats(config.DB_PATH))
+
+
+@app.get("/api/admin/reports/financial-summary")
+async def admin_financial_summary(admin=Depends(require_admin("view_reports"))) -> JSONResponse:
+    return success_response(get_financial_summary(config.DB_PATH))
+
+
+# ==========================================
+# MASTER DATA: STUDY PROGRAMS
+# ==========================================
+
+@app.get("/api/admin/study-programs")
+async def admin_study_programs(admin=Depends(require_admin("view_reports"))) -> JSONResponse:
+    return success_response({"study_programs": list_study_programs(config.DB_PATH)})
+
+
+@app.post("/api/admin/study-programs")
+async def admin_create_study_program(request: Request, admin=Depends(require_admin("manage_master_data"))) -> JSONResponse:
+    payload = await read_json(request)
+    try:
+        program = create_study_program(config.DB_PATH, payload)
+    except ValueError as exc:
+        return error_response(400, "VALIDATION_ERROR", str(exc))
+
+    conn = connect(config.DB_PATH)
+    with conn:
+        write_audit(conn, admin["id"], "study_program.create", "study_program", program["id"], {"code": program["code"], "name": program["name"]})
+    conn.close()
+    return success_response({"study_program": program})
+
+
+@app.patch("/api/admin/study-programs/{program_id}")
+async def admin_update_study_program(program_id: str, request: Request, admin=Depends(require_admin("manage_master_data"))) -> JSONResponse:
+    payload = await read_json(request)
+    try:
+        program = update_study_program(config.DB_PATH, program_id, payload)
+    except ValueError as exc:
+        return error_response(400, "VALIDATION_ERROR", str(exc))
+    if not program:
+        return error_response(404, "NOT_FOUND", "Program studi tidak ditemukan.")
+
+    conn = connect(config.DB_PATH)
+    with conn:
+        write_audit(conn, admin["id"], "study_program.update", "study_program", program_id, {"code": program["code"], "name": program["name"]})
+    conn.close()
+    return success_response({"study_program": program})
+
+
+@app.delete("/api/admin/study-programs/{program_id}")
+async def admin_delete_study_program(program_id: str, admin=Depends(require_admin("manage_master_data"))) -> JSONResponse:
+    deleted = delete_study_program(config.DB_PATH, program_id)
+    if not deleted:
+        return error_response(404, "NOT_FOUND", "Program studi tidak ditemukan.")
+
+    conn = connect(config.DB_PATH)
+    with conn:
+        write_audit(conn, admin["id"], "study_program.delete", "study_program", program_id, {})
+    conn.close()
+    return success_response({"deleted": True})
+
+
+# ==========================================
+# MASTER DATA: ACADEMIC PERIODS
+# ==========================================
+
+@app.get("/api/admin/academic-periods")
+async def admin_academic_periods(admin=Depends(require_admin("view_reports"))) -> JSONResponse:
+    return success_response({"academic_periods": list_academic_periods(config.DB_PATH)})
+
+
+@app.post("/api/admin/academic-periods")
+async def admin_create_academic_period(request: Request, admin=Depends(require_admin("manage_master_data"))) -> JSONResponse:
+    payload = await read_json(request)
+    try:
+        period = create_academic_period(config.DB_PATH, payload)
+    except ValueError as exc:
+        return error_response(400, "VALIDATION_ERROR", str(exc))
+
+    conn = connect(config.DB_PATH)
+    with conn:
+        write_audit(conn, admin["id"], "academic_period.create", "academic_period", period["id"], {"code": period["code"], "name": period["name"]})
+    conn.close()
+    return success_response({"academic_period": period})
+
+
+@app.patch("/api/admin/academic-periods/{period_id}")
+async def admin_update_academic_period(period_id: str, request: Request, admin=Depends(require_admin("manage_master_data"))) -> JSONResponse:
+    payload = await read_json(request)
+    try:
+        period = update_academic_period(config.DB_PATH, period_id, payload)
+    except ValueError as exc:
+        return error_response(400, "VALIDATION_ERROR", str(exc))
+    if not period:
+        return error_response(404, "NOT_FOUND", "Periode akademik tidak ditemukan.")
+
+    conn = connect(config.DB_PATH)
+    with conn:
+        write_audit(conn, admin["id"], "academic_period.update", "academic_period", period_id, {"code": period["code"], "name": period["name"]})
+    conn.close()
+    return success_response({"academic_period": period})
+
+
+# ==========================================
+# STUDENTS & STUDENT PROFILE 360
+# ==========================================
+
 @app.get("/api/admin/students")
 async def admin_students(request: Request, admin=Depends(require_admin("manage_data"))) -> JSONResponse:
     query = str(request.query_params.get("query") or "")
+    study_program_id = str(request.query_params.get("study_program_id") or "")
+    academic_status = str(request.query_params.get("academic_status") or "")
+    raw_year = request.query_params.get("entry_year")
+    entry_year = int(raw_year) if raw_year and raw_year.isdigit() else None
     try:
         limit = parse_limit(request, default=2000, max_limit=5000)
     except ValueError as exc:
         return error_response(400, "VALIDATION_ERROR", str(exc))
-    return success_response({"students": list_students(config.DB_PATH, query, limit)})
+    return success_response({
+        "students": list_students(
+            config.DB_PATH,
+            query=query,
+            limit=limit,
+            study_program_id=study_program_id,
+            academic_status=academic_status,
+            entry_year=entry_year,
+        )
+    })
+
+
+@app.get("/api/admin/students/{student_id}/detail")
+async def admin_student_detail(student_id: str, admin=Depends(require_admin("manage_data"))) -> JSONResponse:
+    detail = get_student_detail(config.DB_PATH, student_id)
+    if not detail:
+        return error_response(404, "NOT_FOUND", "Mahasiswa tidak ditemukan.")
+    return success_response(detail)
 
 
 @app.get("/api/admin/import-issues")
@@ -396,7 +540,7 @@ async def admin_import_issues(request: Request, admin=Depends(require_admin("man
 async def admin_create_student(request: Request, admin=Depends(require_admin("manage_data"))) -> JSONResponse:
     payload = await read_json(request)
     try:
-        student = create_student(config.DB_PATH, payload.get("nim"), payload.get("full_name"))
+        student = create_student(config.DB_PATH, payload=payload)
     except ValueError as exc:
         return error_response(400, "VALIDATION_ERROR", str(exc))
 

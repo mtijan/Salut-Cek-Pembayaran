@@ -93,7 +93,9 @@ MAX_UPLOAD_BYTES = 5 * 1024 * 1024
 IMPORT_RETENTION_SECONDS = 24 * 60 * 60
 
 ROLE_PERMISSIONS = {
-    "viewer": set(),
-    "admin": {"import", "manage_data"},
-    "super_admin": {"import", "manage_data"},
+    "viewer": {"view_reports"},
+    "admin_akademik": {"manage_data", "manage_students", "manage_master_data", "view_reports"},
+    "admin_keuangan": {"manage_data", "manage_billing", "import", "view_reports"},
+    "admin": {"manage_data", "manage_students", "manage_billing", "manage_master_data", "import", "view_reports"},
+    "super_admin": {"manage_data", "manage_students", "manage_billing", "manage_master_data", "import", "view_reports", "manage_users"},
 }

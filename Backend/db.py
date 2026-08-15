@@ -30,7 +30,11 @@ def init_db(conn: sqlite3.Connection) -> None:
     migrate_bills_for_due_date(conn)
     migrate_students_for_profile(conn)
     migrate_soft_delete(conn)
+    migrate_master_data_and_student_siakad(conn)
     conn.execute("create index if not exists idx_bills_source_file_row on bills(source_file, source_row_number)")
+    conn.execute("create index if not exists idx_students_academic_status on students(academic_status)")
+    conn.execute("create index if not exists idx_students_entry_year on students(entry_year)")
+    conn.execute("create index if not exists idx_students_study_program_id on students(study_program_id)")
 
 
 def _table_sql(conn: sqlite3.Connection, table: str) -> str:
@@ -53,6 +57,89 @@ def migrate_students_for_profile(conn: sqlite3.Connection) -> None:
     for column in ("program_study", "initial_registration", "phone_number"):
         if column not in columns:
             conn.execute(f"alter table students add column {column} text")
+
+
+def migrate_master_data_and_student_siakad(conn: sqlite3.Connection) -> None:
+    columns = _table_columns(conn, "students")
+    if "study_program_id" not in columns:
+        conn.execute("alter table students add column study_program_id text")
+    if "academic_status" not in columns:
+        conn.execute("alter table students add column academic_status text default 'aktif'")
+    if "entry_year" not in columns:
+        conn.execute("alter table students add column entry_year integer")
+    if "email" not in columns:
+        conn.execute("alter table students add column email text")
+    if "address" not in columns:
+        conn.execute("alter table students add column address text")
+
+    # Seed initial study programs if empty
+    row = conn.execute("select count(*) as cnt from study_programs").fetchone()
+    if row and row["cnt"] == 0:
+        default_prodis = [
+            ("sp_hkm", "HKM", "S1 Ilmu Hukum", "S1", "FHISIP"),
+            ("sp_mnj", "MNJ", "S1 Manajemen", "S1", "FEB"),
+            ("sp_akt", "AKT", "S1 Akuntansi", "S1", "FEB"),
+            ("sp_kom", "KOM", "S1 Ilmu Komunikasi", "S1", "FHISIP"),
+            ("sp_sif", "SIF", "S1 Sistem Informasi", "S1", "FST"),
+            ("sp_pgsd", "PGSD", "S1 PGSD", "S1", "FKIP"),
+            ("sp_ipem", "IPEM", "S1 Ilmu Pemerintahan", "S1", "FHISIP"),
+            ("sp_adm", "ADM", "S1 Ilmu Administrasi Negara", "S1", "FHISIP"),
+        ]
+        conn.executemany(
+            "insert into study_programs (id, code, name, degree, faculty, is_active) values (?, ?, ?, ?, ?, 1)",
+            default_prodis,
+        )
+
+    # Seed initial academic periods if empty
+    p_row = conn.execute("select count(*) as cnt from academic_periods").fetchone()
+    if p_row and p_row["cnt"] == 0:
+        default_periods = [
+            ("prd_20251", "20251", "2025/2026 Ganjil", "ganjil", 1, "2026-08-25"),
+            ("prd_20242", "20242", "2024/2025 Genap", "genap", 0, "2025-02-28"),
+        ]
+        conn.executemany(
+            "insert into academic_periods (id, code, name, semester_type, is_active, default_due_date) values (?, ?, ?, ?, ?, ?)",
+            default_periods,
+        )
+
+    # Seed initial bill types if empty
+    b_row = conn.execute("select count(*) as cnt from bill_types").fetchone()
+    if b_row and b_row["cnt"] == 0:
+        default_bill_types = [
+            ("bt_ukt", "UKT", "UKT SPP Pokok", 1850000),
+            ("bt_reg", "REG", "Registrasi Awal", 100000),
+            ("bt_prk", "PRK", "Biaya Praktikum", 500000),
+        ]
+        conn.executemany(
+            "insert into bill_types (id, code, name, default_amount) values (?, ?, ?, ?)",
+            default_bill_types,
+        )
+
+    # Auto-link study_program_id and extract entry_year for existing students
+    conn.execute(
+        """
+        update students
+        set study_program_id = (
+            select id from study_programs where lower(study_programs.name) = lower(students.program_study) limit 1
+        )
+        where study_program_id is null and program_study is not null
+        """
+    )
+    conn.execute(
+        """
+        update students
+        set academic_status = 'aktif'
+        where academic_status is null
+        """
+    )
+    conn.execute(
+        """
+        update students
+        set entry_year = cast(substr(initial_registration, instr(initial_registration, '20'), 4) as integer)
+        where entry_year is null and initial_registration like '%20%'
+        """
+    )
+
 
 
 def migrate_bills_for_duplicate_briva(conn: sqlite3.Connection) -> None:
