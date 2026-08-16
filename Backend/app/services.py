@@ -989,9 +989,14 @@ def list_study_programs(db_path: str | Path = config.DB_PATH) -> list[dict[str, 
     rows = conn.execute(
         """
         select sp.id, sp.code, sp.name, sp.degree, sp.faculty, sp.is_active, sp.created_at, sp.updated_at,
-               count(s.id) as student_count
+               count(distinct s.id) as student_count
         from study_programs sp
-        left join students s on s.study_program_id = sp.id and s.deleted_at is null
+        left join students s on (
+            s.study_program_id = sp.id
+            or lower(trim(coalesce(s.program_study, ''))) = lower(trim(sp.name))
+            or lower(trim(coalesce(s.program_study, ''))) like '%' || lower(trim(sp.name)) || '%'
+            or lower(trim(sp.name)) like '%' || lower(trim(coalesce(s.program_study, ''))) || '%'
+        ) and s.deleted_at is null
         group by sp.id, sp.code, sp.name, sp.degree, sp.faculty, sp.is_active, sp.created_at, sp.updated_at
         order by sp.name asc
         """

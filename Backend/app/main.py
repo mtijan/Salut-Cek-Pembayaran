@@ -792,6 +792,9 @@ async def admin_import_commit(request: Request, admin=Depends(require_admin("imp
 async def admin_page(request: Request) -> FileResponse | RedirectResponse:
     if request.url.query:
         return RedirectResponse(url="/admin", status_code=303)
+    admin_dist_index = config.FRONTEND_DIR / "admin-dist" / "index.html"
+    if admin_dist_index.exists():
+        return FileResponse(admin_dist_index)
     return FileResponse(config.FRONTEND_DIR / "admin.html")
 
 
@@ -799,6 +802,20 @@ async def admin_page(request: Request) -> FileResponse | RedirectResponse:
 async def frontend(full_path: str):
     if full_path.startswith("api/"):
         return error_response(404, "NOT_FOUND", "Endpoint tidak ditemukan.")
+
+    if full_path.startswith("admin/"):
+        sub_path = full_path[len("admin/"):]
+        admin_dist_root = (config.FRONTEND_DIR / "admin-dist").resolve()
+        if admin_dist_root.exists():
+            admin_dist_file = (admin_dist_root / sub_path).resolve()
+            try:
+                admin_dist_file.relative_to(admin_dist_root)
+                if admin_dist_file.exists() and admin_dist_file.is_file():
+                    return FileResponse(admin_dist_file)
+            except ValueError:
+                pass
+            return FileResponse(admin_dist_root / "index.html")
+
     requested = full_path or "index.html"
     file_path = (config.FRONTEND_DIR / requested).resolve()
     frontend_root = config.FRONTEND_DIR.resolve()
