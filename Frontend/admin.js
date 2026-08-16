@@ -3,9 +3,6 @@ const loginCard = document.querySelector("#login-card");
 const authLoader = document.querySelector("#auth-loader");
 const adminWorkspace = document.querySelector("#admin-workspace");
 const adminMainContent = document.querySelector("#admin-main-content");
-const importCard = document.querySelector("#import-card");
-const studentsCard = document.querySelector("#students-card");
-const billsCard = document.querySelector("#bills-card");
 const adminViewButtons = document.querySelectorAll("[data-admin-view]");
 const adminViewKicker = document.querySelector("#admin-view-kicker");
 const adminViewTitle = document.querySelector("#admin-view-title");
@@ -13,12 +10,7 @@ const loginForm = document.querySelector("#login-form");
 const loginSubmitButton = document.querySelector("#login-submit-button");
 const passwordInput = document.querySelector("#password");
 const passwordToggle = document.querySelector("#password-toggle");
-const importForm = document.querySelector("#import-form");
-const billForm = document.querySelector("#bill-form");
 const loginMessage = document.querySelector("#login-message");
-const importMessage = document.querySelector("#import-message");
-const manualMessage = document.querySelector("#manual-message");
-const billsMessage = document.querySelector("#bills-message");
 const logoutButton = document.querySelector("#logout-button");
 const logoutButtonMobile = document.querySelector("#logout-button-mobile");
 const sidebarToggle = document.querySelector("#sidebar-toggle");
@@ -26,49 +18,18 @@ const adminSidebar = document.querySelector("#admin-sidebar");
 const sidebarOverlay = document.querySelector("#sidebar-overlay");
 const adminMobileViewTitle = document.querySelector("#admin-mobile-view-title");
 const adminEmail = document.querySelector("#admin-email");
-const fileInput = document.querySelector("#excel-file");
-const filePicker = document.querySelector("#excel-file-picker");
-const selectedFileName = document.querySelector("#selected-file-name");
-const previewButton = importForm.querySelector("button[type='submit']");
-const refreshManualButton = document.querySelector("#refresh-manual-button");
-const refreshBillsButton = document.querySelector("#refresh-bills-button");
-const addStudentButton = document.querySelector("#add-student-button");
-const clearSearchButton = document.querySelector("#clear-search-button");
-const resetBillButton = document.querySelector("#reset-bill-button");
-const closeEditorButton = document.querySelector("#close-editor-button");
-const studentEditor = document.querySelector("#student-editor");
-const studentEditorTitle = document.querySelector("#student-editor-title");
-const manualSearchForm = document.querySelector("#manual-search-form");
-const manualSearch = document.querySelector("#manual-search");
-const statusFilter = document.querySelector("#status-filter");
-const sourceFilter = document.querySelector("#source-filter");
-const previewState = document.querySelector("#preview-state");
-const validCount = document.querySelector("#valid-count");
-const newCount = document.querySelector("#new-count");
-const unchangedCount = document.querySelector("#unchanged-count");
-const updateCount = document.querySelector("#update-count");
-const amountChangeCount = document.querySelector("#amount-change-count");
-const criticalCount = document.querySelector("#critical-count");
-const issueCount = document.querySelector("#issue-count");
-const sampleTable = document.querySelector("#sample-table");
-const errorList = document.querySelector("#error-list");
-const commitButton = document.querySelector("#commit-button");
-const cancelPreviewButton = document.querySelector("#cancel-preview-button");
-const changeState = document.querySelector("#change-state");
-const changeTable = document.querySelector("#change-table");
-const confirmUpdatesRow = document.querySelector("#confirm-updates-row");
-const confirmUpdates = document.querySelector("#confirm-updates");
-const billsState = document.querySelector("#bills-state");
-const studentsState = document.querySelector("#students-state");
-const studentsPagination = document.querySelector("#students-pagination");
-const studentsPrevPage = document.querySelector("#students-prev-page");
-const studentsNextPage = document.querySelector("#students-next-page");
-const studentsPageNumbers = document.querySelector("#students-page-numbers");
-const studentsPageInfo = document.querySelector("#students-page-info");
-const studentsResultCount = document.querySelector("#students-result-count");
-const importIssuesState = document.querySelector("#import-issues-state");
-const importSteps = document.querySelectorAll("[data-import-step]");
 const toastRegion = document.querySelector("#toast-region");
+
+// Views
+const dashboardCard = document.querySelector("#dashboard-card");
+const studentsCard = document.querySelector("#students-card");
+const billsViewCard = document.querySelector("#bills-view-card");
+const reportsCard = document.querySelector("#reports-card");
+const filesCard = document.querySelector("#files-card");
+const uploadCard = document.querySelector("#upload-card");
+const masterCard = document.querySelector("#master-card");
+
+// Generic confirm modal
 const confirmModal = document.querySelector("#confirm-modal");
 const confirmModalTitle = document.querySelector("#confirm-modal-title");
 const confirmModalDescription = document.querySelector("#confirm-modal-description");
@@ -77,62 +38,47 @@ const confirmModalError = document.querySelector("#confirm-modal-error");
 const confirmModalClose = document.querySelector("#confirm-modal-close");
 const confirmModalCancel = document.querySelector("#confirm-modal-cancel");
 const confirmModalSubmit = document.querySelector("#confirm-modal-submit");
-const confirmModalDialog = confirmModal.querySelector(".admin-modal-dialog");
 
-const STUDENT_PAGE_SIZE = 100;
-const FILE_DETAIL_PAGE_SIZE = 50;
-let currentImportToken = "";
-let currentPreview = null;
-let isCommitting = false;
-let isUploading = false;
-let billRows = [];
-let currentStudentPage = 1;
-let totalStudentPages = 1;
-let activeAdminView = "upload";
-let importedBillGroups = [];
+// State variables
+let activeAdminView = "dashboard";
+let currentAdminRole = "admin";
 let modalResolver = null;
 let modalReturnFocus = null;
+let masterStudyPrograms = [];
+let masterAcademicPeriods = [];
+let currentBillsPage = 1;
+let totalBillsPages = 1;
+const BILLS_PAGE_SIZE = 100;
 
 const adminViews = {
-  upload: { card: importCard, kicker: "Upload Excel", title: "Upload File" },
+  dashboard: { card: dashboardCard, kicker: "Ringkasan Sistem", title: "Dashboard" },
   students: { card: studentsCard, kicker: "Data Akademik", title: "Data Mahasiswa" },
-  files: { card: billsCard, kicker: "Riwayat Import", title: "Data Mahasiswa per File" },
+  bills: { card: billsViewCard, kicker: "Manajemen Keuangan", title: "Tagihan Mahasiswa" },
+  reports: { card: reportsCard, kicker: "Laporan & Evaluasi", title: "Rekap Keuangan" },
+  files: { card: filesCard, kicker: "Riwayat Import", title: "Data File Import" },
+  upload: { card: uploadCard, kicker: "Upload Excel", title: "Upload File" },
+  master: { card: masterCard, kicker: "Master Data Akademik", title: "Master Data" },
 };
 
-function setText(node, text, type = "") {
-  node.textContent = text;
-  node.className = `form-message ${type}`.trim();
+// ==========================================
+// UTILITY FUNCTIONS
+// ==========================================
+
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
 }
 
-function renderLoadingState(container, message, compact = false) {
-  container.setAttribute("aria-busy", "true");
-  container.innerHTML = `
-    <div class="loading-state${compact ? " is-compact" : ""}" role="status">
-      <span class="loading-spinner" aria-hidden="true"></span>
-      <span>${escapeHtml(message)}</span>
-    </div>
-  `;
-}
-
-function renderErrorState(container, title, message, retryAction = "") {
-  container.removeAttribute("aria-busy");
-  container.innerHTML = `
-    <div class="state-panel is-error">
-      <strong>${escapeHtml(title)}</strong>
-      <p>${escapeHtml(message)}</p>
-      ${retryAction ? `<button type="button" class="ghost-button" data-retry-action="${escapeHtml(retryAction)}">Coba lagi</button>` : ""}
-    </div>
-  `;
-}
-
-function setSelectedFile(file = null) {
-  selectedFileName.textContent = file ? file.name : "Belum ada file dipilih";
-  selectedFileName.title = file ? file.name : "";
-  filePicker.classList.toggle("has-file", Boolean(file));
-  previewButton.disabled = isUploading || !file;
+function rupiah(value) {
+  return `Rp ${Number(value || 0).toLocaleString("id-ID")}`;
 }
 
 function showToast(message, type = "success") {
+  if (!toastRegion) return;
   const toast = document.createElement("div");
   toast.className = `admin-toast is-${type}`;
   toast.setAttribute("role", type === "error" ? "alert" : "status");
@@ -144,36 +90,63 @@ function showToast(message, type = "success") {
   }, 4200);
 }
 
-function setImportStep(step) {
-  for (const item of importSteps) {
-    const itemStep = Number(item.dataset.importStep || 0);
-    item.classList.toggle("is-active", itemStep === step);
-    item.classList.toggle("is-complete", itemStep < step);
+function renderLoadingState(container, message) {
+  if (!container) return;
+  container.innerHTML = `
+    <div class="loading-state" role="status">
+      <span class="loading-spinner" aria-hidden="true"></span>
+      <span>${escapeHtml(message)}</span>
+    </div>
+  `;
+}
+
+function renderErrorState(container, title, message) {
+  if (!container) return;
+  container.innerHTML = `
+    <div class="state-panel is-error">
+      <strong>${escapeHtml(title)}</strong>
+      <p>${escapeHtml(message)}</p>
+    </div>
+  `;
+}
+
+function renderEmptyState(container, title, message) {
+  if (!container) return;
+  container.innerHTML = `
+    <div class="state-panel">
+      <strong>${escapeHtml(title)}</strong>
+      <p>${escapeHtml(message)}</p>
+    </div>
+  `;
+}
+
+// Modal management
+function openModal(modalId) {
+  const modal = document.querySelector(`#${modalId}`);
+  if (modal) {
+    modal.classList.remove("hidden");
+    document.body.classList.add("modal-open");
   }
 }
 
-function resetImportPreview({ clearFile = false } = {}) {
-  previewState.classList.add("hidden");
-  currentImportToken = "";
-  currentPreview = null;
-  confirmUpdates.checked = false;
-  if (clearFile) {
-    importForm.reset();
-    setSelectedFile();
+function closeModal(modalId) {
+  const modal = document.querySelector(`#${modalId}`);
+  if (modal) {
+    modal.classList.add("hidden");
+    document.body.classList.remove("modal-open");
   }
-  setImportStep(1);
-  refreshCommitState();
 }
 
-function closeConfirmModal(result = null) {
-  confirmModal.classList.add("hidden");
-  document.body.classList.remove("modal-open");
-  const resolve = modalResolver;
-  modalResolver = null;
-  if (resolve) resolve(result);
-  if (modalReturnFocus instanceof HTMLElement) modalReturnFocus.focus();
-  modalReturnFocus = null;
-}
+document.querySelectorAll("[data-modal-close]").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    const target = btn.dataset.modalClose;
+    if (target === "student-360") closeModal("student-360-modal");
+    else if (target === "student-editor") closeModal("student-editor-modal");
+    else if (target === "bill-editor") closeModal("bill-editor-modal");
+    else if (target === "prodi-editor") closeModal("prodi-editor-modal");
+    else if (target === "period-editor") closeModal("period-editor-modal");
+  });
+});
 
 function requestDeleteConfirmation({ title, description, submitLabel = "Hapus Data" }) {
   if (modalResolver) closeConfirmModal(null);
@@ -191,1019 +164,1321 @@ function requestDeleteConfirmation({ title, description, submitLabel = "Hapus Da
   });
 }
 
-function escapeHtml(value) {
-  return String(value)
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
+function closeConfirmModal(result = null) {
+  confirmModal.classList.add("hidden");
+  document.body.classList.remove("modal-open");
+  const resolve = modalResolver;
+  modalResolver = null;
+  if (resolve) resolve(result);
+  if (modalReturnFocus instanceof HTMLElement) modalReturnFocus.focus();
+  modalReturnFocus = null;
 }
 
-function rupiah(value) {
-  return `Rp ${Number(value).toLocaleString("id-ID")}`;
-}
+if (confirmModalClose) confirmModalClose.addEventListener("click", () => closeConfirmModal(null));
+if (confirmModalCancel) confirmModalCancel.addEventListener("click", () => closeConfirmModal(null));
+const confirmBackdrop = confirmModal ? confirmModal.querySelector("[data-modal-cancel]") : null;
+if (confirmBackdrop) confirmBackdrop.addEventListener("click", () => closeConfirmModal(null));
 
-function refreshCommitState() {
-  if (!currentPreview || !currentImportToken) {
-    commitButton.disabled = true;
-    return;
-  }
-  const requiresConfirmation = currentPreview.requires_update_confirmation && !confirmUpdates.checked;
-  commitButton.disabled = isCommitting || currentPreview.critical_rows > 0 || requiresConfirmation;
-}
-
-function closeSidebar(restoreFocus = false) {
-  if (!adminSidebar || !sidebarOverlay || !sidebarToggle) return;
-  const wasOpen = adminSidebar.classList.contains("is-open");
-  adminSidebar.classList.remove("is-open");
-  sidebarOverlay.classList.remove("is-open");
-  sidebarToggle.setAttribute("aria-expanded", "false");
-  sidebarOverlay.setAttribute("aria-hidden", "true");
-  document.body.classList.remove("sidebar-open");
-  if (restoreFocus && wasOpen) sidebarToggle.focus();
-}
-
-function openSidebar() {
-  if (!adminSidebar || !sidebarOverlay || !sidebarToggle) return;
-  adminSidebar.classList.add("is-open");
-  sidebarOverlay.classList.add("is-open");
-  sidebarToggle.setAttribute("aria-expanded", "true");
-  sidebarOverlay.setAttribute("aria-hidden", "false");
-  document.body.classList.add("sidebar-open");
-  window.setTimeout(() => adminSidebar.querySelector(".admin-nav-button")?.focus(), 220);
-}
-
-function toggleSidebar() {
-  if (adminSidebar?.classList.contains("is-open")) {
-    closeSidebar();
-  } else {
-    openSidebar();
-  }
-}
-
-function setAdminView(view) {
-  const selected = adminViews[view] || adminViews.upload;
-  activeAdminView = adminViews[view] ? view : "upload";
-  for (const item of Object.values(adminViews)) {
-    item.card.classList.toggle("hidden", item !== selected);
-  }
-  for (const button of adminViewButtons) {
-    const isActive = button.dataset.adminView === activeAdminView;
-    button.classList.toggle("is-active", isActive);
-    if (isActive) button.setAttribute("aria-current", "page");
-    else button.removeAttribute("aria-current");
-  }
-  adminViewKicker.textContent = selected.kicker;
-  adminViewTitle.textContent = selected.title;
-  document.title = `${selected.title} | Admin SALUT`;
-  if (adminMobileViewTitle) {
-    adminMobileViewTitle.textContent = selected.title;
-  }
-  closeSidebar();
-  if (activeAdminView !== "students") closeStudentEditor();
-  if (activeAdminView === "upload") loadImportIssues();
-  if (activeAdminView === "students") loadStudentData();
-  if (activeAdminView === "files") loadImportedBills();
-}
-
-function showAdmin(user) {
-  document.body.classList.remove("auth-pending");
-  document.body.classList.remove("login-active");
-  document.body.classList.add("admin-active");
-  authLoader.classList.add("hidden");
-  if (loginShell) loginShell.classList.add("hidden");
-  loginCard.classList.add("hidden");
-  adminWorkspace.classList.remove("hidden");
-  adminEmail.textContent = user.email;
-  setAdminView(activeAdminView);
-}
-
-function showLogin() {
-  document.body.classList.remove("auth-pending");
-  document.body.classList.remove("admin-active");
-  document.body.classList.add("login-active");
-  document.title = "Masuk | Admin SALUT";
-  authLoader.classList.add("hidden");
-  closeSidebar();
-  if (loginShell) loginShell.classList.remove("hidden");
-  loginCard.classList.remove("hidden");
-  adminWorkspace.classList.add("hidden");
-  resetImportPreview({ clearFile: true });
-  isCommitting = false;
-  isUploading = false;
-  previewButton.disabled = false;
-  billsState.replaceChildren();
-  studentsState.replaceChildren();
-  studentsPagination.classList.add("hidden");
-  importIssuesState.replaceChildren();
-  billRows = [];
-  importedBillGroups = [];
-  currentStudentPage = 1;
-  totalStudentPages = 1;
-  setText(billsMessage, "");
-  setText(manualMessage, "");
-  closeStudentEditor();
-  refreshCommitState();
-  setSelectedFile();
-  passwordInput.type = "password";
-  passwordToggle.setAttribute("aria-pressed", "false");
-  passwordToggle.setAttribute("aria-label", "Tampilkan password");
-  passwordToggle.title = "Tampilkan password";
-  window.setTimeout(() => document.querySelector("#email")?.focus(), 0);
-}
-
-async function api(path, options = {}) {
-  const response = await fetch(path, options);
-  let payload = {};
-  try {
-    payload = await response.json();
-  } catch (error) {
-    throw new Error("Response server tidak valid. Coba refresh halaman atau hubungi developer.");
-  }
-  if (response.status === 401 && path !== "/api/admin/login" && path !== "/api/admin/me") {
-    showLogin();
-    setText(loginMessage, "Sesi admin telah berakhir. Silakan masuk kembali.", "error");
-  }
-  if (!response.ok || !payload.success) {
-    throw new Error(payload.error?.message || "Request gagal.");
-  }
-  return payload;
-}
-
-function renderPreview(data) {
-  currentImportToken = data.import_token;
-  currentPreview = data;
-  validCount.textContent = data.valid_rows;
-  newCount.textContent = data.new_rows;
-  unchangedCount.textContent = data.unchanged_rows;
-  updateCount.textContent = data.update_rows;
-  amountChangeCount.textContent = data.amount_change_rows;
-  criticalCount.textContent = data.critical_rows;
-  issueCount.textContent = data.issue_rows;
-
-  sampleTable.innerHTML = `
-    <table class="data-table preview-data-table">
-      <caption class="visually-hidden">Contoh data dari file yang akan diimport</caption>
-      <thead>
-        <tr><th scope="col">NIM</th><th scope="col">Nama</th><th scope="col">Program Studi</th><th scope="col">BRIVA</th><th scope="col">Jumlah</th><th scope="col">Batas Pembayaran</th></tr>
-      </thead>
-      <tbody>
-        ${data.sample
-          .map(
-            (row) =>
-              `<tr><td data-label="NIM">${escapeHtml(row.nim)}</td><th data-label="Nama" scope="row">${escapeHtml(row.full_name)}</th><td data-label="Program Studi">${escapeHtml(row.program_study || "-")}</td><td data-label="BRIVA">${escapeHtml(row.briva)}</td><td data-label="Jumlah">${rupiah(row.amount)}</td><td data-label="Batas Pembayaran">${escapeHtml(row.due_date || "-")}</td></tr>`,
-          )
-          .join("")}
-      </tbody>
-    </table>
-  `;
-
-  if (data.errors.length === 0) {
-    errorList.innerHTML = `<p class="muted">Tidak ada issue pada preview.</p>`;
-  } else {
-    errorList.innerHTML = [...data.errors]
-      .sort((left, right) => (left.severity === "critical" ? -1 : 0) - (right.severity === "critical" ? -1 : 0))
-      .map(
-        (item) =>
-          `<p><strong>${escapeHtml(item.sheet)} baris ${escapeHtml(item.row_number)}</strong><br />${escapeHtml(item.message)}</p>`,
-      )
-      .join("");
-  }
-
-  if (data.changes.length === 0) {
-    changeState.classList.add("hidden");
-  } else {
-    changeTable.innerHTML = `
-      <table class="data-table preview-data-table">
-        <caption class="visually-hidden">Perubahan data yang terdeteksi</caption>
-        <thead>
-          <tr><th scope="col">NIM</th><th scope="col">Jenis</th><th scope="col">BRIVA</th><th scope="col">Nominal</th></tr>
-        </thead>
-        <tbody>
-          ${data.changes
-            .map(
-              (change) =>
-                `<tr><th data-label="NIM" scope="row">${escapeHtml(change.nim)}</th><td data-label="Jenis">${escapeHtml(change.change_type)}</td><td data-label="BRIVA">${escapeHtml(change.old_briva)} -&gt; ${escapeHtml(change.new_briva)}</td><td data-label="Nominal">${rupiah(change.old_amount)} -&gt; ${rupiah(change.new_amount)}</td></tr>`,
-            )
-            .join("")}
-        </tbody>
-      </table>
-    `;
-    changeState.classList.remove("hidden");
-  }
-
-  confirmUpdates.checked = false;
-  confirmUpdatesRow.classList.toggle("hidden", !data.requires_update_confirmation);
-  refreshCommitState();
-  previewState.classList.remove("hidden");
-  setImportStep(2);
-}
-
-function resetBillForm() {
-  billForm.reset();
-  document.querySelector("#bill-id").value = "";
-  document.querySelector("#bill-form-period").value = "Semester Ganjil 2026";
-  document.querySelector("#bill-form-type").value = "UKT BRIVA";
-  document.querySelector("#bill-form-status").value = "unpaid";
-  document.querySelector("#save-bill-button").textContent = "Simpan Data";
-}
-
-function closeStudentEditor() {
-  studentEditor.classList.add("hidden");
-  addStudentButton.setAttribute("aria-expanded", "false");
-  resetBillForm();
-}
-
-function openStudentEditor(bill = null) {
-  resetBillForm();
-  if (bill) {
-    studentEditorTitle.textContent = "Edit Data Mahasiswa";
-    document.querySelector("#bill-id").value = bill.id;
-    document.querySelector("#student-form-nim").value = bill.nim;
-    document.querySelector("#student-form-name").value = bill.full_name;
-    document.querySelector("#bill-form-briva").value = bill.briva;
-    document.querySelector("#bill-form-amount").value = bill.amount;
-    document.querySelector("#bill-form-period").value = bill.period;
-    document.querySelector("#bill-form-type").value = bill.bill_type;
-    document.querySelector("#bill-form-status").value = bill.status;
-    document.querySelector("#bill-form-due-date").value = bill.due_date || "";
-    document.querySelector("#save-bill-button").textContent = "Simpan Perubahan";
-  } else {
-    studentEditorTitle.textContent = "Tambah Data Mahasiswa";
-  }
-  studentEditor.classList.remove("hidden");
-  addStudentButton.setAttribute("aria-expanded", "true");
-  studentEditor.scrollIntoView({ behavior: "smooth", block: "start" });
-  window.setTimeout(() => document.querySelector("#student-form-nim").focus(), 250);
-}
-
-function statusLabel(status) {
-  return { paid: "Lunas", partial: "Bayar sebagian", unpaid: "Belum lunas" }[status] || "Belum lunas";
-}
-
-function statusClass(status) {
-  return status === "paid" ? "is-paid" : status === "partial" ? "is-partial" : "is-unpaid";
-}
-
-function isManualSource(sourceFile) {
-  return ["manual", "manual admin"].includes(String(sourceFile || "").trim().toLowerCase());
-}
-
-function sourceBadge(sourceFile) {
-  const source = String(sourceFile || "-");
-  if (isManualSource(source)) return `<span class="source-badge is-manual">Manual admin</span>`;
-  return `<span class="source-badge is-import">File import</span><span class="source-file-name" title="${escapeHtml(source)}">${escapeHtml(source)}</span>`;
-}
-
-function dueDateDisplay(value) {
-  const text = String(value || "-").trim() || "-";
-  const parts = text.match(/^(.*?)\s+Pukul\s+(.+)$/i);
-  if (!parts) return `<span class="due-date-date">${escapeHtml(text)}</span>`;
-  return `
-    <span class="due-date-date">${escapeHtml(parts[1])}</span>
-    <span class="due-date-time">${escapeHtml(parts[2])}</span>
-  `;
-}
-
-function renderStudentBills(bills, offset = 0) {
-  if (!bills.length) {
-    const hasFilter = Boolean(manualSearch.value.trim() || statusFilter.value || sourceFilter.value);
-    studentsState.innerHTML = `
-      <div class="state-panel">
-        <strong>${hasFilter ? "Data tidak ditemukan" : "Belum ada data mahasiswa"}</strong>
-        <p>${hasFilter ? "Tidak ada data yang cocok dengan pencarian dan filter saat ini." : "Data mahasiswa yang ditambahkan atau diimport akan muncul di sini."}</p>
-        ${hasFilter ? `<button type="button" class="ghost-button" data-reset-student-filter>Reset pencarian</button>` : `<button type="button" data-open-student-editor>Tambah Data</button>`}
-      </div>
-    `;
-    return;
-  }
-
-  studentsState.innerHTML = `
-    <table class="data-table student-data-table">
-      <caption class="visually-hidden">Daftar mahasiswa dan tagihan</caption>
-      <thead>
-        <tr>
-          <th scope="col" class="number-column">No.</th>
-          <th scope="col" class="student-column">Mahasiswa</th>
-          <th scope="col" class="briva-column">BRIVA</th>
-          <th scope="col" class="amount-column">Nominal</th>
-          <th scope="col" class="period-column">Periode</th>
-          <th scope="col" class="type-column">Jenis</th>
-          <th scope="col" class="status-column">Status</th>
-          <th scope="col" class="due-date-column">Batas Aktif</th>
-          <th scope="col" class="source-column">Sumber</th>
-          <th scope="col" class="actions-column">Aksi</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${bills
-          .map(
-            (bill, index) => `
-              <tr data-bill-id="${escapeHtml(bill.id)}">
-                <td data-label="No." class="number-column">${offset + index + 1}</td>
-                <th data-label="Mahasiswa" scope="row" class="student-column"><strong>${escapeHtml(bill.full_name)}</strong><span class="student-nim">${escapeHtml(bill.nim)}</span></th>
-                <td data-label="BRIVA" class="briva-column numeric-value">${escapeHtml(bill.briva)}</td>
-                <td data-label="Nominal" class="amount-column numeric-value">${escapeHtml(bill.amount_formatted)}</td>
-                <td data-label="Periode" class="period-column">${escapeHtml(bill.period)}</td>
-                <td data-label="Jenis" class="type-column">${escapeHtml(bill.bill_type)}</td>
-                <td data-label="Status" class="status-column"><span class="status-badge ${statusClass(bill.status)}"><span aria-hidden="true"></span>${statusLabel(bill.status)}</span></td>
-                <td data-label="Batas Aktif" class="due-date-column">${dueDateDisplay(bill.due_date_formatted)}</td>
-                <td data-label="Sumber" class="source-column">${sourceBadge(bill.source_file)}</td>
-                <td data-label="Aksi" class="actions-column">
-                  <div class="row-actions">
-                    <button type="button" class="icon-action-button edit-bill-button ghost-button" data-bill-id="${escapeHtml(bill.id)}" title="Edit data" aria-label="Edit data mahasiswa ${escapeHtml(bill.nim)}">&#9998;</button>
-                    <button type="button" class="icon-action-button delete-bill-button danger-button" data-bill-id="${escapeHtml(bill.id)}" title="Hapus data" aria-label="Hapus data mahasiswa ${escapeHtml(bill.nim)}">&times;</button>
-                  </div>
-                </td>
-              </tr>
-            `,
-          )
-          .join("")}
-      </tbody>
-    </table>
-  `;
-}
-
-function renderStudentPagination(pagination) {
-  const total = Number(pagination.total || 0);
-  const limit = Number(pagination.limit || STUDENT_PAGE_SIZE);
-  const offset = Number(pagination.offset || 0);
-  currentStudentPage = Number(pagination.page || 1);
-  totalStudentPages = Number(pagination.total_pages || 1);
-  const firstRow = total ? offset + 1 : 0;
-  const lastRow = Math.min(offset + limit, total);
-  studentsResultCount.textContent = `${total.toLocaleString("id-ID")} data`;
-  studentsPageInfo.textContent = `${firstRow.toLocaleString("id-ID")}-${lastRow.toLocaleString("id-ID")} dari ${total.toLocaleString("id-ID")} data`;
-  studentsPrevPage.disabled = currentStudentPage <= 1;
-  studentsNextPage.disabled = currentStudentPage >= totalStudentPages;
-  studentsPageNumbers.replaceChildren();
-
-  const visiblePages = [];
-  if (totalStudentPages <= 7) {
-    for (let page = 1; page <= totalStudentPages; page += 1) visiblePages.push(page);
-  } else {
-    visiblePages.push(1);
-    if (currentStudentPage > 4) visiblePages.push("start-ellipsis");
-    const start = Math.max(2, currentStudentPage - 1);
-    const end = Math.min(totalStudentPages - 1, currentStudentPage + 1);
-    for (let page = start; page <= end; page += 1) visiblePages.push(page);
-    if (currentStudentPage < totalStudentPages - 3) visiblePages.push("end-ellipsis");
-    visiblePages.push(totalStudentPages);
-  }
-
-  for (const item of visiblePages) {
-    if (typeof item !== "number") {
-      const ellipsis = document.createElement("span");
-      ellipsis.className = "pagination-ellipsis";
-      ellipsis.textContent = "...";
-      studentsPageNumbers.append(ellipsis);
-      continue;
+if (confirmModalSubmit) {
+  confirmModalSubmit.addEventListener("click", () => {
+    const reason = confirmModalReason.value.trim();
+    if (!reason) {
+      confirmModalError.textContent = "Alasan wajib diisi.";
+      confirmModalReason.focus();
+      return;
     }
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = `pagination-number-button ghost-button${item === currentStudentPage ? " is-active" : ""}`;
-    button.dataset.page = String(item);
-    button.textContent = String(item);
-    button.setAttribute("aria-label", `Buka halaman ${item}`);
-    if (item === currentStudentPage) button.setAttribute("aria-current", "page");
-    studentsPageNumbers.append(button);
-  }
-  studentsPagination.classList.toggle("hidden", totalStudentPages <= 1);
+    closeConfirmModal(reason);
+  });
 }
 
-function renderImportIssues(issues) {
-  if (!issues.length) {
-    importIssuesState.innerHTML = `
-      <div class="state-panel is-compact is-success">
-        <strong>Tidak ada data yang perlu diperbaiki</strong>
-      </div>
-    `;
-    return;
-  }
-
-  importIssuesState.innerHTML = `
-    <table class="data-table issue-data-table">
-      <caption class="visually-hidden">Data import yang perlu diperbaiki</caption>
-      <thead>
-        <tr><th scope="col">File</th><th scope="col">Sheet</th><th scope="col">Baris</th><th scope="col">NIM</th><th scope="col">Nama</th><th scope="col">BRIVA</th><th scope="col">Nominal</th><th scope="col">Catatan</th></tr>
-      </thead>
-      <tbody>
-        ${issues
-          .map(
-            (issue) => `
-              <tr>
-                <td data-label="File">${escapeHtml(issue.source_file)}</td>
-                <td data-label="Sheet">${escapeHtml(issue.sheet_name)}</td>
-                <td data-label="Baris">${escapeHtml(issue.row_number)}</td>
-                <td data-label="NIM">${escapeHtml(issue.nim || "-")}</td>
-                <td data-label="Nama">${escapeHtml(issue.full_name || "-")}</td>
-                <td data-label="BRIVA">${escapeHtml(issue.briva || "-")}</td>
-                <td data-label="Nominal">${escapeHtml(issue.amount || "-")}</td>
-                <td data-label="Catatan">${escapeHtml(issue.note)}</td>
-              </tr>
-            `,
-          )
-          .join("")}
-      </tbody>
-    </table>
-  `;
-}
-
-async function loadStudentData(page = currentStudentPage) {
-  const query = manualSearch.value.trim();
-  const status = statusFilter.value;
-  const source = sourceFilter.value;
-  const requestedPage = Math.max(1, Number(page) || 1);
-  const offset = (requestedPage - 1) * STUDENT_PAGE_SIZE;
-  refreshManualButton.disabled = true;
-  renderLoadingState(studentsState, "Memuat data mahasiswa...");
-  setText(manualMessage, query ? `Mencari data "${query}"...` : "Memuat data mahasiswa...");
-  try {
-    const queryString = new URLSearchParams({
-      limit: String(STUDENT_PAGE_SIZE),
-      offset: String(offset),
-    });
-    if (query) queryString.set("query", query);
-    if (status) queryString.set("status", status);
-    if (source) queryString.set("source", source);
-    const billsResult = await api(`/api/admin/bills?${queryString.toString()}`);
-    billRows = billsResult.data.bills || [];
-    const pagination = billsResult.data.pagination || { total: billRows.length, page: 1, total_pages: 1, offset: 0 };
-    if (!billRows.length && Number(pagination.total || 0) > 0 && requestedPage > Number(pagination.total_pages || 1)) {
-      return loadStudentData(Number(pagination.total_pages || 1));
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") {
+    if (confirmModal && !confirmModal.classList.contains("hidden")) {
+      closeConfirmModal(null);
     }
-    renderStudentBills(billRows, Number(pagination.offset || 0));
-    studentsState.removeAttribute("aria-busy");
-    renderStudentPagination(pagination);
-    const hasFilter = Boolean(query || status || source);
-    setText(manualMessage, hasFilter ? `${Number(pagination.total || 0)} data sesuai pencarian dan filter.` : "Data mahasiswa siap.");
-  } catch (error) {
-    setText(manualMessage, error.message, "error");
-    renderErrorState(studentsState, "Data tidak dapat dimuat", error.message, "students");
-    studentsPagination.classList.add("hidden");
-  } finally {
-    refreshManualButton.disabled = false;
+    ["student-360-modal", "student-editor-modal", "bill-editor-modal", "prodi-editor-modal", "period-editor-modal"].forEach(closeModal);
   }
+});
+
+// Sidebar & View Switcher
+function switchAdminView(viewName) {
+  const target = adminViews[viewName];
+  if (!target || !target.card) return;
+
+  activeAdminView = viewName;
+  Object.values(adminViews).forEach((view) => {
+    if (view.card) view.card.classList.add("hidden");
+  });
+  target.card.classList.remove("hidden");
+
+  if (adminViewKicker) adminViewKicker.textContent = target.kicker;
+  if (adminViewTitle) adminViewTitle.textContent = target.title;
+  if (adminMobileViewTitle) adminMobileViewTitle.textContent = target.title;
+
+  adminViewButtons.forEach((btn) => {
+    btn.classList.toggle("is-active", btn.dataset.adminView === viewName);
+  });
+
+  closeSidebar();
+
+  // Load view-specific data
+  if (viewName === "dashboard") loadDashboardStats();
+  else if (viewName === "students") loadStudents();
+  else if (viewName === "bills") loadBills();
+  else if (viewName === "reports") loadFinancialReports();
+  else if (viewName === "files") loadImportedFiles();
+  else if (viewName === "master") loadMasterData();
 }
 
-async function loadImportIssues() {
-  renderLoadingState(importIssuesState, "Memuat data perbaikan...", true);
+adminViewButtons.forEach((btn) => {
+  btn.addEventListener("click", () => switchAdminView(btn.dataset.adminView));
+});
+
+document.querySelectorAll("[data-jump-view]").forEach((btn) => {
+  btn.addEventListener("click", () => switchAdminView(btn.dataset.jumpView));
+});
+
+function closeSidebar() {
+  if (adminSidebar) adminSidebar.classList.remove("is-open");
+  if (sidebarOverlay) sidebarOverlay.classList.remove("is-open");
+}
+
+if (sidebarToggle) {
+  sidebarToggle.addEventListener("click", () => {
+    adminSidebar.classList.toggle("is-open");
+    sidebarOverlay.classList.toggle("is-open");
+  });
+}
+
+if (sidebarOverlay) sidebarOverlay.addEventListener("click", closeSidebar);
+
+// Password toggle
+if (passwordToggle && passwordInput) {
+  passwordToggle.addEventListener("click", () => {
+    const isPassword = passwordInput.type === "password";
+    passwordInput.type = isPassword ? "text" : "password";
+    passwordToggle.setAttribute("aria-pressed", String(isPassword));
+  });
+}
+
+// ==========================================
+// AUTHENTICATION
+// ==========================================
+
+async function checkSession() {
   try {
-    const result = await api("/api/admin/import-issues?limit=500");
-    renderImportIssues(result.data.issues || []);
-    importIssuesState.removeAttribute("aria-busy");
-  } catch (error) {
-    renderErrorState(importIssuesState, "Data perbaikan tidak dapat dimuat", error.message, "issues");
+    const res = await fetch("/api/admin/me");
+    if (!res.ok) throw new Error("Unauthenticated");
+    const json = await res.json();
+    if (json.success && json.data) {
+      const admin = json.data.admin || json.data;
+      if (admin && admin.email) {
+        currentAdminRole = admin.role || "admin";
+        if (adminEmail) adminEmail.textContent = `${admin.email} (${currentAdminRole})`;
+        document.body.classList.remove("auth-pending");
+        if (loginShell) loginShell.classList.add("hidden");
+        if (adminWorkspace) adminWorkspace.classList.remove("hidden");
+        loadInitialMasterData();
+        switchAdminView("dashboard");
+        return;
+      }
+    }
+    throw new Error("Invalid session");
+  } catch {
+    document.body.classList.remove("auth-pending");
+    if (loginShell) loginShell.classList.remove("hidden");
+    if (adminWorkspace) adminWorkspace.classList.add("hidden");
   }
 }
 
-function formatImportedAt(value) {
-  if (!value) return "-";
-  const timestamp = new Date(`${String(value).replace(" ", "T")}Z`);
-  if (Number.isNaN(timestamp.getTime())) return String(value);
-  return new Intl.DateTimeFormat("id-ID", { dateStyle: "medium", timeStyle: "short" }).format(timestamp);
+if (loginForm) {
+  loginForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    loginSubmitButton.disabled = true;
+    loginMessage.textContent = "Memverifikasi...";
+    loginMessage.className = "form-message";
+
+    const email = document.querySelector("#email").value.trim();
+    const password = passwordInput.value;
+
+    try {
+      const res = await fetch("/api/admin/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error?.message || "Email atau password salah.");
+      }
+      showToast("Berhasil login!");
+      await checkSession();
+    } catch (err) {
+      loginMessage.textContent = err.message;
+      loginMessage.className = "form-message error";
+    } finally {
+      loginSubmitButton.disabled = false;
+    }
+  });
 }
 
-function renderImportedBills(groups) {
-  importedBillGroups = groups;
-  if (!groups.length) {
-    billsState.innerHTML = `
-      <div class="empty-state">
-        <strong>Belum ada file import</strong>
-        <p>File yang sudah disimpan akan muncul di halaman ini.</p>
-      </div>
-    `;
-    return;
+async function doLogout() {
+  try {
+    await fetch("/api/admin/logout", { method: "POST" });
+  } catch {}
+  showToast("Anda telah keluar.");
+  window.location.reload();
+}
+
+if (logoutButton) logoutButton.addEventListener("click", doLogout);
+if (logoutButtonMobile) logoutButtonMobile.addEventListener("click", doLogout);
+
+// ==========================================
+// 1. DASHBOARD STATS
+// ==========================================
+
+async function loadDashboardStats() {
+  try {
+    const res = await fetch("/api/admin/dashboard/stats");
+    const json = await res.json();
+    if (!res.ok || !json.success) throw new Error(json.error?.message || "Gagal memuat statistik");
+
+    const data = json.data;
+    document.querySelector("#dash-total-students").textContent = data.total_students.toLocaleString("id-ID");
+    document.querySelector("#dash-active-students").textContent = data.active_students.toLocaleString("id-ID");
+    document.querySelector("#dash-total-bills").textContent = data.total_bills.toLocaleString("id-ID");
+    document.querySelector("#dash-paid-bills").textContent = data.paid_bills.toLocaleString("id-ID");
+    document.querySelector("#dash-unpaid-bills").textContent = data.unpaid_bills.toLocaleString("id-ID");
+    document.querySelector("#dash-total-billed").textContent = data.total_billed_amount_formatted;
+    document.querySelector("#dash-total-paid").textContent = data.total_paid_amount_formatted;
+    document.querySelector("#dash-total-outstanding").textContent = data.total_outstanding_amount_formatted;
+    document.querySelector("#dash-payment-rate").textContent = `${data.payment_rate_percentage}%`;
+    document.querySelector("#dash-progress-bar").style.width = `${Math.min(100, Math.max(0, data.payment_rate_percentage))}%`;
+  } catch (err) {
+    showToast(`Gagal memuat statistik: ${err.message}`, "error");
   }
-
-  billsState.innerHTML = groups
-    .map((group, index) => {
-      const version = String(groups.length - index).padStart(2, "0");
-      return `
-        <article class="file-record-card">
-          <header class="file-record-header">
-            <div>
-              <span class="file-version">Versi import ${version}</span>
-              <h3>${escapeHtml(group.file_name)}</h3>
-              <p class="muted">Diimport ${escapeHtml(formatImportedAt(group.imported_at))}</p>
-            </div>
-            <button type="button" class="delete-import-file-button danger-button" data-file-name="${escapeHtml(group.file_name)}" aria-label="Hapus file import ${escapeHtml(group.file_name)}">Hapus File</button>
-          </header>
-
-          <dl class="file-record-metrics">
-            <div><dt>Mahasiswa</dt><dd>${escapeHtml(group.student_count)}</dd></div>
-            <div><dt>Tagihan</dt><dd>${escapeHtml(group.total)}</dd></div>
-            <div><dt>Total nominal</dt><dd>${escapeHtml(rupiah(group.total_amount))}</dd></div>
-          </dl>
-
-          <div class="file-status-summary" aria-label="Ringkasan status pembayaran">
-            <span class="status-summary is-paid"><span aria-hidden="true"></span>${escapeHtml(group.paid)} Lunas</span>
-            <span class="status-summary is-partial"><span aria-hidden="true"></span>${escapeHtml(group.partial)} Bayar sebagian</span>
-            <span class="status-summary is-unpaid"><span aria-hidden="true"></span>${escapeHtml(group.unpaid)} Belum lunas</span>
-          </div>
-
-          <details class="file-record-details" data-group-index="${index}">
-            <summary>Lihat ${escapeHtml(group.total)} data mahasiswa</summary>
-            <div class="file-detail-content"></div>
-          </details>
-        </article>
-      `;
-    })
-    .join("");
 }
 
-function renderFileDetail(groupIndex, page = 1) {
-  const group = importedBillGroups[groupIndex];
-  const details = billsState.querySelector(`.file-record-details[data-group-index="${groupIndex}"]`);
-  const content = details?.querySelector(".file-detail-content");
-  if (!group || !content) return;
+// ==========================================
+// 2. DATA MAHASISWA & STUDENT 360
+// ==========================================
 
-  const total = group.bills.length;
-  const totalPages = Math.max(1, Math.ceil(total / FILE_DETAIL_PAGE_SIZE));
-  const currentPage = Math.min(Math.max(1, Number(page) || 1), totalPages);
-  const offset = (currentPage - 1) * FILE_DETAIL_PAGE_SIZE;
-  const rows = group.bills.slice(offset, offset + FILE_DETAIL_PAGE_SIZE);
-  const firstRow = total ? offset + 1 : 0;
-  const lastRow = Math.min(offset + FILE_DETAIL_PAGE_SIZE, total);
+const studentSearchForm = document.querySelector("#student-search-form");
+const studentSearchInput = document.querySelector("#student-search-input");
+const studentProdiFilter = document.querySelector("#student-prodi-filter");
+const studentStatusFilter = document.querySelector("#student-status-filter");
+const studentResetFilterBtn = document.querySelector("#student-reset-filter-button");
+const studentsTableContainer = document.querySelector("#students-table-container");
+const studentsTotalCount = document.querySelector("#students-total-count");
+const addStudentModalBtn = document.querySelector("#add-student-modal-button");
+const studentModalForm = document.querySelector("#student-modal-form");
+const studentModalError = document.querySelector("#student-modal-error");
 
-  content.innerHTML = `
-    <div class="table-mini">
-      <table class="data-table file-detail-table">
-        <caption class="visually-hidden">Rincian mahasiswa dari file ${escapeHtml(group.file_name)}</caption>
+async function loadStudents() {
+  renderLoadingState(studentsTableContainer, "Memuat data mahasiswa...");
+  const query = studentSearchInput.value.trim();
+  const prodiId = studentProdiFilter.value;
+  const status = studentStatusFilter.value;
+
+  const params = new URLSearchParams();
+  if (query) params.set("query", query);
+  if (prodiId) params.set("study_program_id", prodiId);
+  if (status) params.set("academic_status", status);
+
+  try {
+    const res = await fetch(`/api/admin/students?${params.toString()}`);
+    const json = await res.json();
+    if (!res.ok || !json.success) throw new Error(json.error?.message || "Gagal memuat data mahasiswa");
+
+    const students = json.data.students || [];
+    studentsTotalCount.textContent = `${students.length} mahasiswa`;
+
+    if (!students.length) {
+      renderEmptyState(studentsTableContainer, "Tidak Ada Data", "Tidak ada data mahasiswa yang cocok dengan filter.");
+      return;
+    }
+
+    let html = `
+      <table class="admin-data-table">
         <thead>
           <tr>
-            <th scope="col">No.</th>
-            <th scope="col">Status</th>
-            <th scope="col">NIM</th>
-            <th scope="col">Nama</th>
-            <th scope="col">BRIVA</th>
-            <th scope="col">Nominal</th>
-            <th scope="col">Periode</th>
-            <th scope="col">Batas Aktif</th>
+            <th>NIM</th>
+            <th>Nama Lengkap</th>
+            <th>Program Studi</th>
+            <th>Status</th>
+            <th>Angkatan</th>
+            <th>Jml Tagihan</th>
+            <th>Total Nominal</th>
+            <th style="text-align: right;">Aksi</th>
           </tr>
         </thead>
         <tbody>
-          ${rows
-            .map(
-              (bill, index) => `
-                <tr>
-                  <td data-label="No.">${offset + index + 1}</td>
-                  <td data-label="Status"><span class="status-badge ${statusClass(bill.status)}"><span aria-hidden="true"></span>${statusLabel(bill.status)}</span></td>
-                  <td data-label="NIM" class="numeric-value">${escapeHtml(bill.nim)}</td>
-                  <th data-label="Nama" scope="row">${escapeHtml(bill.full_name)}</th>
-                  <td data-label="BRIVA" class="numeric-value">${escapeHtml(bill.briva)}</td>
-                  <td data-label="Nominal" class="numeric-value">${escapeHtml(bill.amount_formatted)}</td>
-                  <td data-label="Periode">${escapeHtml(bill.period)}</td>
-                  <td data-label="Batas Aktif" class="due-date-cell">${dueDateDisplay(bill.due_date_formatted)}</td>
-                </tr>
-              `,
-            )
-            .join("")}
-        </tbody>
-      </table>
-    </div>
-    ${
-      totalPages > 1
-        ? `<nav class="file-detail-pagination" aria-label="Navigasi rincian ${escapeHtml(group.file_name)}">
-            <button type="button" class="pagination-button ghost-button file-detail-page-button" data-page="${currentPage - 1}" ${currentPage <= 1 ? "disabled" : ""} aria-label="Halaman rincian sebelumnya">&lsaquo;</button>
-            <span aria-live="polite">${firstRow}-${lastRow} dari ${total} data</span>
-            <button type="button" class="pagination-button ghost-button file-detail-page-button" data-page="${currentPage + 1}" ${currentPage >= totalPages ? "disabled" : ""} aria-label="Halaman rincian berikutnya">&rsaquo;</button>
-          </nav>`
-        : ""
-    }
-  `;
-  details.dataset.rendered = "true";
-  details.dataset.page = String(currentPage);
-}
+    `;
 
-async function loadImportedBills() {
-  setText(billsMessage, "Memuat data mahasiswa per file...");
-  refreshBillsButton.disabled = true;
-  renderLoadingState(billsState, "Memuat file import...");
-  try {
-    const result = await api("/api/admin/imported-bills");
-    const groups = result.data.groups || [];
-    renderImportedBills(groups);
-    billsState.removeAttribute("aria-busy");
-    setText(billsMessage, `${groups.length} file import tersimpan.`);
-  } catch (error) {
-    setText(billsMessage, error.message, "error");
-    renderErrorState(billsState, "File import tidak dapat dimuat", error.message, "files");
-  } finally {
-    refreshBillsButton.disabled = false;
-  }
-}
-
-loginForm.addEventListener("submit", async (event) => {
-  event.preventDefault();
-  if (!loginForm.reportValidity()) return;
-  setText(loginMessage, "Memeriksa login...");
-  loginSubmitButton.disabled = true;
-  loginSubmitButton.setAttribute("aria-busy", "true");
-  loginSubmitButton.textContent = "Memproses...";
-  const body = JSON.stringify(Object.fromEntries(new FormData(loginForm)));
-
-  try {
-    const result = await api("/api/admin/login", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body,
+    students.forEach((s) => {
+      const statusClass = s.academic_status === "aktif" ? "status-aktif" : s.academic_status === "cuti" ? "status-cuti" : "status-unpaid";
+      html += `
+        <tr>
+          <td><strong>${escapeHtml(s.nim)}</strong></td>
+          <td>${escapeHtml(s.full_name)}</td>
+          <td>${escapeHtml(s.study_program_name || s.program_study || "-")}</td>
+          <td><span class="status-badge ${statusClass}">${escapeHtml(s.academic_status || "aktif")}</span></td>
+          <td>${escapeHtml(s.entry_year || "-")}</td>
+          <td>${s.bill_count}</td>
+          <td>${escapeHtml(s.total_amount_formatted)}</td>
+          <td style="text-align: right; white-space: nowrap;">
+            <button type="button" class="table-btn btn-primary" onclick="openStudentProfile360('${s.id}')">Profil 360</button>
+            <button type="button" class="table-btn btn-secondary" onclick="openEditStudentModal('${s.id}')">Edit</button>
+            <button type="button" class="table-btn btn-danger" onclick="deleteStudentAction('${s.id}', '${escapeHtml(s.full_name)}')">Hapus</button>
+          </td>
+        </tr>
+      `;
     });
-    setText(loginMessage, "");
-    loginForm.reset();
-    showAdmin(result.data);
-  } catch (error) {
-    setText(loginMessage, error.message, "error");
-    document.querySelector("#email").setAttribute("aria-invalid", "true");
-    passwordInput.setAttribute("aria-invalid", "true");
-  } finally {
-    loginSubmitButton.disabled = false;
-    loginSubmitButton.removeAttribute("aria-busy");
-    loginSubmitButton.textContent = "Masuk";
+
+    html += `</tbody></table>`;
+    studentsTableContainer.innerHTML = html;
+  } catch (err) {
+    renderErrorState(studentsTableContainer, "Gagal Memuat Data", err.message);
   }
-});
+}
 
-passwordToggle.addEventListener("click", () => {
-  const shouldShow = passwordInput.type === "password";
-  passwordInput.type = shouldShow ? "text" : "password";
-  passwordToggle.setAttribute("aria-pressed", String(shouldShow));
-  passwordToggle.setAttribute("aria-label", shouldShow ? "Sembunyikan password" : "Tampilkan password");
-  passwordToggle.title = shouldShow ? "Sembunyikan password" : "Tampilkan password";
-  passwordInput.focus();
-});
-
-for (const input of loginForm.querySelectorAll("input")) {
-  input.addEventListener("input", () => {
-    input.removeAttribute("aria-invalid");
-    setText(loginMessage, "");
+if (studentSearchForm) {
+  studentSearchForm.addEventListener("submit", (e) => {
+    e.preventDefault();
+    loadStudents();
   });
 }
 
-importForm.addEventListener("submit", async (event) => {
-  event.preventDefault();
-  if (!fileInput.files.length) {
-    setText(importMessage, "Pilih file Excel .xlsx terlebih dahulu.", "error");
-    return;
-  }
-  const selectedFile = fileInput.files[0];
-  if (!selectedFile.name.toLowerCase().endsWith(".xlsx")) {
-    setText(importMessage, "File harus berformat .xlsx.", "error");
-    return;
-  }
-  if (selectedFile.size > 5 * 1024 * 1024) {
-    setText(importMessage, "Ukuran file melebihi batas 5 MB.", "error");
-    return;
-  }
-  isUploading = true;
-  previewButton.disabled = true;
-  commitButton.disabled = true;
-  setText(importMessage, "Mengunggah dan membaca Excel...");
-  resetImportPreview();
-
-  try {
-    const result = await api("/api/admin/import/preview", {
-      method: "POST",
-      body: new FormData(importForm),
-    });
-    renderPreview(result.data);
-    setText(
-      importMessage,
-      result.data.critical_rows > 0
-        ? "Ada baris kritis. Perbaiki file sebelum import dapat di-commit."
-        : result.data.requires_update_confirmation
-          ? "Ada perubahan nominal atau BRIVA. Periksa daftar perubahan dan setujui sebelum commit."
-          : result.data.skipped_rows > 0
-            ? `Preview siap. ${result.data.skipped_rows} baris tidak valid akan dilewati dan perlu diperbaiki manual setelah commit.`
-            : "Preview siap. Periksa ringkasan sebelum commit.",
-      result.data.critical_rows > 0 ? "error" : "",
-    );
-  } catch (error) {
-    setText(importMessage, error.message, "error");
-    showToast(error.message, "error");
-  } finally {
-    isUploading = false;
-    previewButton.disabled = !fileInput.files.length;
-    refreshCommitState();
-  }
-});
-
-fileInput.addEventListener("change", () => {
-  if (currentPreview) resetImportPreview();
-  const file = fileInput.files[0] || null;
-  setSelectedFile(file);
-  if (file) setText(importMessage, `${file.name} siap diperiksa.`);
-  else setText(importMessage, "");
-});
-
-for (const eventName of ["dragenter", "dragover"]) {
-  filePicker.addEventListener(eventName, () => filePicker.classList.add("is-dragging"));
-}
-for (const eventName of ["dragleave", "drop"]) {
-  filePicker.addEventListener(eventName, () => filePicker.classList.remove("is-dragging"));
+if (studentResetFilterBtn) {
+  studentResetFilterBtn.addEventListener("click", () => {
+    studentSearchInput.value = "";
+    studentProdiFilter.value = "";
+    studentStatusFilter.value = "";
+    loadStudents();
+  });
 }
 
-confirmUpdates.addEventListener("change", refreshCommitState);
-cancelPreviewButton.addEventListener("click", () => {
-  resetImportPreview({ clearFile: true });
-  setText(importMessage, "Preview dibatalkan.");
-});
-
-commitButton.addEventListener("click", async () => {
-  if (!currentImportToken || !currentPreview) {
-    setText(importMessage, "Preview file terlebih dahulu sebelum commit import.", "error");
-    return;
-  }
-  if (currentPreview.critical_rows > 0) {
-    setText(importMessage, "Commit belum bisa dilakukan karena masih ada baris kritis. Perbaiki file lalu preview ulang.", "error");
-    return;
-  }
-  if (currentPreview.requires_update_confirmation && !confirmUpdates.checked) {
-    setText(importMessage, "Centang persetujuan perubahan nominal atau BRIVA sebelum commit import.", "error");
-    return;
-  }
-  isCommitting = true;
-  setImportStep(3);
-  commitButton.disabled = true;
-  previewButton.disabled = true;
-  setText(importMessage, "Menyimpan data ke SQLite...");
-
+// Student Profile 360 Viewer
+window.openStudentProfile360 = async function (studentId) {
   try {
-    const result = await api("/api/admin/import/commit", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ import_token: currentImportToken, confirm_updates: confirmUpdates.checked }),
-    });
-    const issueDetails = (result.data.issue_details || [])
-      .map((issue) => `${issue.sheet} baris ${issue.row_number}`)
-      .join(", ");
-    const importSummary = `Import selesai: ${result.data.created} baru, ${result.data.updated} diperbarui, ${result.data.unchanged} tidak berubah.`;
-    if (result.data.issues > 0) {
-      const notification = `${importSummary} ${result.data.issues} baris dilewati dan dicatat untuk perbaikan manual${issueDetails ? `: ${issueDetails}` : ""}.`;
-      setText(importMessage, notification, "warning");
-      showToast("Import selesai dengan data yang perlu diperbaiki.", "warning");
+    const res = await fetch(`/api/admin/students/${studentId}/detail`);
+    const json = await res.json();
+    if (!res.ok || !json.success) throw new Error(json.error?.message || "Gagal memuat profil mahasiswa");
+
+    const data = json.data;
+    const st = data.student;
+    const sm = data.summary;
+
+    document.querySelector("#student-360-title").textContent = st.full_name;
+    document.querySelector("#s360-nim").textContent = st.nim;
+    document.querySelector("#s360-prodi").textContent = st.study_program_name || st.program_study || "-";
+    document.querySelector("#s360-year").textContent = st.entry_year || "-";
+    document.querySelector("#s360-phone").textContent = st.phone_number || "-";
+    document.querySelector("#s360-email").textContent = st.email || "-";
+    document.querySelector("#s360-address").textContent = st.address || "-";
+
+    const statusEl = document.querySelector("#s360-status");
+    statusEl.textContent = st.academic_status || "aktif";
+    statusEl.className = `status-badge ${st.academic_status === "aktif" ? "status-aktif" : st.academic_status === "cuti" ? "status-cuti" : "status-unpaid"}`;
+
+    document.querySelector("#s360-total-amount").textContent = sm.total_amount_formatted;
+    document.querySelector("#s360-paid-amount").textContent = sm.total_paid_formatted;
+    document.querySelector("#s360-outstanding-amount").textContent = sm.total_outstanding_formatted;
+
+    const overallEl = document.querySelector("#s360-overall-status");
+    overallEl.textContent = sm.overall_status === "paid" ? "Lunas" : sm.overall_status === "partial" ? "Bayar Sebagian" : "Belum Lunas";
+    overallEl.className = `status-badge status-${sm.overall_status}`;
+
+    const billsContainer = document.querySelector("#s360-bills-table");
+    if (!data.bills.length) {
+      billsContainer.innerHTML = `<p class="field-hint" style="padding: 1rem 0;">Belum ada riwayat tagihan terdaftar.</p>`;
     } else {
-      setText(importMessage, importSummary);
-      showToast("Import berhasil disimpan.");
+      let bHtml = `
+        <table class="admin-data-table">
+          <thead>
+            <tr>
+              <th>Periode</th>
+              <th>Jenis</th>
+              <th>Nominal</th>
+              <th>Status</th>
+              <th>Batas Aktif</th>
+              <th>BRIVA</th>
+            </tr>
+          </thead>
+          <tbody>
+      `;
+      data.bills.forEach((b) => {
+        bHtml += `
+          <tr>
+            <td>${escapeHtml(b.period)}</td>
+            <td>${escapeHtml(b.bill_type)}</td>
+            <td><strong>${escapeHtml(b.amount_formatted)}</strong></td>
+            <td><span class="status-badge status-${b.status}">${b.status === "paid" ? "Lunas" : b.status === "partial" ? "Cicilan" : "Belum Lunas"}</span></td>
+            <td>${escapeHtml(b.due_date_formatted || "-")}</td>
+            <td><code>${escapeHtml(b.briva)}</code></td>
+          </tr>
+        `;
+      });
+      bHtml += `</tbody></table>`;
+      billsContainer.innerHTML = bHtml;
     }
-    resetImportPreview({ clearFile: true });
-    loadImportIssues();
-  } catch (error) {
-    setText(importMessage, error.message, "error");
-    setImportStep(2);
-    showToast(error.message, "error");
-  } finally {
-    isCommitting = false;
-    previewButton.disabled = false;
-    refreshCommitState();
+
+    openModal("student-360-modal");
+  } catch (err) {
+    showToast(`Gagal membuka profil 360: ${err.message}`, "error");
   }
-});
+};
 
-billForm.addEventListener("submit", async (event) => {
-  event.preventDefault();
-  const billId = document.querySelector("#bill-id").value;
-  const payload = Object.fromEntries(new FormData(billForm));
-  delete payload.id;
-  setText(manualMessage, billId ? "Menyimpan perubahan data..." : "Menambah data mahasiswa...");
+// Student Edit / Create Modal
+if (addStudentModalBtn) {
+  addStudentModalBtn.addEventListener("click", () => {
+    document.querySelector("#student-editor-modal-title").textContent = "Tambah Mahasiswa";
+    document.querySelector("#edit-student-id").value = "";
+    studentModalForm.reset();
+    studentModalError.textContent = "";
+    openModal("student-editor-modal");
+  });
+}
 
+window.openEditStudentModal = async function (studentId) {
   try {
-    await api(billId ? `/api/admin/bills/${encodeURIComponent(billId)}` : "/api/admin/bills", {
-      method: billId ? "PATCH" : "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-    closeStudentEditor();
-    currentStudentPage = 1;
-    setText(manualMessage, "Data mahasiswa berhasil disimpan.");
-    showToast(billId ? "Perubahan data berhasil disimpan." : "Data mahasiswa berhasil ditambahkan.");
-    await loadStudentData();
-  } catch (error) {
-    setText(manualMessage, error.message, "error");
-    showToast(error.message, "error");
+    const res = await fetch(`/api/admin/students/${studentId}/detail`);
+    const json = await res.json();
+    if (!res.ok || !json.success) throw new Error(json.error?.message || "Gagal mengambil data");
+
+    const st = json.data.student;
+    document.querySelector("#student-editor-modal-title").textContent = "Edit Data Mahasiswa";
+    document.querySelector("#edit-student-id").value = st.id;
+    document.querySelector("#modal-student-nim").value = st.nim;
+    document.querySelector("#modal-student-name").value = st.full_name;
+    document.querySelector("#modal-student-prodi").value = st.study_program_id || "";
+    document.querySelector("#modal-student-status").value = st.academic_status || "aktif";
+    document.querySelector("#modal-student-year").value = st.entry_year || "";
+    document.querySelector("#modal-student-phone").value = st.phone_number || "";
+    document.querySelector("#modal-student-email").value = st.email || "";
+    document.querySelector("#modal-student-address").value = st.address || "";
+    studentModalError.textContent = "";
+    openModal("student-editor-modal");
+  } catch (err) {
+    showToast(`Gagal membuka form edit: ${err.message}`, "error");
   }
-});
+};
 
-addStudentButton.addEventListener("click", () => openStudentEditor());
-resetBillButton.addEventListener("click", closeStudentEditor);
-closeEditorButton.addEventListener("click", closeStudentEditor);
-refreshManualButton.addEventListener("click", () => loadStudentData(currentStudentPage));
-clearSearchButton.addEventListener("click", () => {
-  manualSearch.value = "";
-  statusFilter.value = "";
-  sourceFilter.value = "";
-  currentStudentPage = 1;
-  loadStudentData(1);
-});
+if (studentModalForm) {
+  studentModalForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    studentModalError.textContent = "";
+    const studentId = document.querySelector("#edit-student-id").value;
+    const isEdit = Boolean(studentId);
 
-manualSearchForm.addEventListener("submit", async (event) => {
-  event.preventDefault();
-  currentStudentPage = 1;
-  await loadStudentData(1);
-});
+    const payload = {
+      nim: document.querySelector("#modal-student-nim").value.trim(),
+      full_name: document.querySelector("#modal-student-name").value.trim(),
+      study_program_id: document.querySelector("#modal-student-prodi").value || null,
+      academic_status: document.querySelector("#modal-student-status").value,
+      entry_year: document.querySelector("#modal-student-year").value ? Number(document.querySelector("#modal-student-year").value) : null,
+      phone_number: document.querySelector("#modal-student-phone").value.trim() || null,
+      email: document.querySelector("#modal-student-email").value.trim() || null,
+      address: document.querySelector("#modal-student-address").value.trim() || null,
+    };
 
-statusFilter.addEventListener("change", () => {
-  currentStudentPage = 1;
-  loadStudentData(1);
-});
+    try {
+      const url = isEdit ? `/api/admin/students/${studentId}` : "/api/admin/students";
+      const method = isEdit ? "PATCH" : "POST";
+      const res = await fetch(url, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) throw new Error(json.error?.message || "Gagal menyimpan mahasiswa");
 
-sourceFilter.addEventListener("change", () => {
-  currentStudentPage = 1;
-  loadStudentData(1);
-});
+      showToast(isEdit ? "Data mahasiswa diperbarui." : "Mahasiswa baru ditambahkan.");
+      closeModal("student-editor-modal");
+      loadStudents();
+      loadDashboardStats();
+    } catch (err) {
+      studentModalError.textContent = err.message;
+    }
+  });
+}
 
-studentsPrevPage.addEventListener("click", () => {
-  if (currentStudentPage > 1) loadStudentData(currentStudentPage - 1);
-});
-
-studentsNextPage.addEventListener("click", () => {
-  if (currentStudentPage < totalStudentPages) loadStudentData(currentStudentPage + 1);
-});
-
-studentsPageNumbers.addEventListener("click", (event) => {
-  const target = event.target;
-  if (!(target instanceof HTMLButtonElement)) return;
-  const page = Number(target.dataset.page || 0);
-  if (page >= 1 && page <= totalStudentPages && page !== currentStudentPage) loadStudentData(page);
-});
-
-refreshBillsButton.addEventListener("click", loadImportedBills);
-
-billsState.addEventListener(
-  "toggle",
-  (event) => {
-    const details = event.target;
-    if (!(details instanceof HTMLDetailsElement) || !details.open || details.dataset.rendered === "true") return;
-    renderFileDetail(Number(details.dataset.groupIndex || 0), 1);
-  },
-  true,
-);
-
-billsCard.addEventListener("click", async (event) => {
-  const target = event.target;
-  if (!(target instanceof HTMLButtonElement)) return;
-
-  if (target.classList.contains("file-detail-page-button")) {
-    const details = target.closest(".file-record-details");
-    if (!(details instanceof HTMLDetailsElement)) return;
-    const currentPage = Number(details.dataset.page || 1);
-    const targetPage = Number(target.dataset.page || 1);
-    renderFileDetail(Number(details.dataset.groupIndex || 0), targetPage);
-    const buttons = Array.from(details.querySelectorAll(".file-detail-page-button:not([disabled])"));
-    const focusTarget = targetPage > currentPage ? buttons.at(-1) : buttons[0];
-    focusTarget?.focus();
-    return;
-  }
-
-  if (!target.classList.contains("delete-import-file-button")) return;
-
-  const fileName = target.dataset.fileName || "";
-  if (!fileName) return;
+window.deleteStudentAction = async function (studentId, studentName) {
   const reason = await requestDeleteConfirmation({
-    title: "Hapus File Import",
-    description: `File ${fileName} beserta seluruh data hasil impornya akan dihapus. Tindakan ini tidak dapat dibatalkan.`,
-    submitLabel: "Hapus File",
+    title: "Hapus Mahasiswa",
+    description: `Apakah Anda yakin ingin menghapus mahasiswa "${studentName}" beserta seluruh riwayat tagihannya?`,
+    submitLabel: "Hapus Mahasiswa",
   });
   if (!reason) return;
 
-  target.disabled = true;
-  setText(billsMessage, `Menghapus file ${fileName}...`);
   try {
-    const result = await api("/api/admin/imported-files", {
+    const res = await fetch(`/api/admin/students/${studentId}`, {
       method: "DELETE",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ file_name: fileName, reason }),
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ reason }),
     });
-    await loadImportedBills();
-    setText(billsMessage, `File ${fileName} dan ${result.data.deleted_bills} data berhasil dihapus.`);
-    showToast(`File ${fileName} berhasil dihapus.`);
-  } catch (error) {
-    setText(billsMessage, error.message, "error");
-    showToast(error.message, "error");
-  } finally {
-    target.disabled = false;
-  }
-});
+    const json = await res.json();
+    if (!res.ok || !json.success) throw new Error(json.error?.message || "Gagal menghapus mahasiswa");
 
-studentsCard.addEventListener("click", async (event) => {
-  const target = event.target;
-  if (!(target instanceof HTMLButtonElement)) {
-    return;
+    showToast("Mahasiswa berhasil dihapus.");
+    loadStudents();
+    loadDashboardStats();
+  } catch (err) {
+    showToast(`Gagal menghapus: ${err.message}`, "error");
   }
+};
 
-  if (target.hasAttribute("data-reset-student-filter")) {
-    clearSearchButton.click();
-    return;
-  }
+// ==========================================
+// 3. TAGIHAN MAHASISWA (BILLS)
+// ==========================================
 
-  if (target.hasAttribute("data-open-student-editor")) {
-    openStudentEditor();
-    return;
-  }
+const billsFilterForm = document.querySelector("#bills-filter-form");
+const billsSearchInput = document.querySelector("#bills-search-input");
+const billsStatusFilter = document.querySelector("#bills-status-filter");
+const billsSourceFilter = document.querySelector("#bills-source-filter");
+const billsResetFilterBtn = document.querySelector("#bills-reset-filter-button");
+const billsTableContainer = document.querySelector("#bills-table-container");
+const billsTotalCount = document.querySelector("#bills-total-count");
+const billsPagination = document.querySelector("#bills-pagination");
+const billsPrevPage = document.querySelector("#bills-prev-page");
+const billsNextPage = document.querySelector("#bills-next-page");
+const billsPageNumbers = document.querySelector("#bills-page-numbers");
+const billsPageInfo = document.querySelector("#bills-page-info");
+const addBillBtn = document.querySelector("#add-bill-button");
+const billModalForm = document.querySelector("#bill-modal-form");
+const billModalError = document.querySelector("#bill-modal-error");
 
-  if (target.classList.contains("edit-bill-button")) {
-    const bill = billRows.find((item) => item.id === (target.dataset.billId || ""));
-    if (!bill) return;
-    openStudentEditor(bill);
-    return;
-  }
+async function loadBills(page = 1) {
+  currentBillsPage = page;
+  renderLoadingState(billsTableContainer, "Memuat daftar tagihan...");
 
-  if (target.classList.contains("delete-bill-button")) {
-    const billId = target.dataset.billId || "";
-    const bill = billRows.find((item) => item.id === billId);
-    if (!bill) return;
-    const reason = await requestDeleteConfirmation({
-      title: "Hapus Data Mahasiswa",
-      description: `${bill.full_name} (${bill.nim}) dengan BRIVA ${bill.briva} akan dihapus. Tindakan ini tidak dapat dibatalkan.`,
-    });
-    if (!reason) return;
-    target.disabled = true;
-    setText(manualMessage, "Menghapus data mahasiswa...");
-    try {
-      await api(`/api/admin/bills/${encodeURIComponent(billId)}?reason=${encodeURIComponent(reason)}`, { method: "DELETE" });
-      setText(manualMessage, "Data mahasiswa berhasil dihapus.");
-      showToast("Data mahasiswa berhasil dihapus.");
-      closeStudentEditor();
-      await loadStudentData();
-    } catch (error) {
-      setText(manualMessage, error.message, "error");
-      showToast(error.message, "error");
-    } finally {
-      target.disabled = false;
+  const query = billsSearchInput.value.trim();
+  const status = billsStatusFilter.value;
+  const source = billsSourceFilter.value;
+  const offset = (page - 1) * BILLS_PAGE_SIZE;
+
+  const params = new URLSearchParams({
+    limit: String(BILLS_PAGE_SIZE),
+    offset: String(offset),
+  });
+  if (query) params.set("query", query);
+  if (status) params.set("status", status);
+  if (source) params.set("source", source);
+
+  try {
+    const res = await fetch(`/api/admin/bills?${params.toString()}`);
+    const json = await res.json();
+    if (!res.ok || !json.success) throw new Error(json.error?.message || "Gagal memuat tagihan");
+
+    const bills = json.data.bills || [];
+    const pag = json.data.pagination;
+    totalBillsPages = pag.total_pages;
+    billsTotalCount.textContent = `${pag.total} tagihan`;
+
+    if (!bills.length) {
+      renderEmptyState(billsTableContainer, "Tidak Ada Tagihan", "Tidak ada data tagihan yang sesuai.");
+      billsPagination.classList.add("hidden");
+      return;
     }
+
+    let html = `
+      <table class="admin-data-table">
+        <thead>
+          <tr>
+            <th>NIM</th>
+            <th>Nama Mahasiswa</th>
+            <th>BRIVA</th>
+            <th>Nominal</th>
+            <th>Periode</th>
+            <th>Jenis</th>
+            <th>Status Bayar</th>
+            <th>Batas Aktif</th>
+            <th style="text-align: right;">Aksi</th>
+          </tr>
+        </thead>
+        <tbody>
+    `;
+
+    bills.forEach((b) => {
+      html += `
+        <tr>
+          <td><strong>${escapeHtml(b.nim)}</strong></td>
+          <td>${escapeHtml(b.full_name)}</td>
+          <td><code>${escapeHtml(b.briva)}</code></td>
+          <td>${escapeHtml(b.amount_formatted)}</td>
+          <td>${escapeHtml(b.period)}</td>
+          <td>${escapeHtml(b.bill_type)}</td>
+          <td>
+            <select class="status-select status-${b.status}" onchange="changeBillStatus('${b.id}', this.value)">
+              <option value="unpaid" ${b.status === "unpaid" ? "selected" : ""}>Belum lunas</option>
+              <option value="partial" ${b.status === "partial" ? "selected" : ""}>Bayar sebagian</option>
+              <option value="paid" ${b.status === "paid" ? "selected" : ""}>Lunas</option>
+            </select>
+          </td>
+          <td>${escapeHtml(b.due_date_formatted || "-")}</td>
+          <td style="text-align: right; white-space: nowrap;">
+            <button type="button" class="table-btn btn-secondary" onclick="openEditBillModal('${b.id}')">Edit</button>
+            <button type="button" class="table-btn btn-danger" onclick="deleteBillAction('${b.id}', '${escapeHtml(b.full_name)}')">Hapus</button>
+          </td>
+        </tr>
+      `;
+    });
+
+    html += `</tbody></table>`;
+    billsTableContainer.innerHTML = html;
+
+    // Render pagination
+    if (totalBillsPages > 1) {
+      billsPagination.classList.remove("hidden");
+      billsPrevPage.disabled = currentBillsPage <= 1;
+      billsNextPage.disabled = currentBillsPage >= totalBillsPages;
+      billsPageInfo.textContent = `Halaman ${currentBillsPage} dari ${totalBillsPages} (${pag.total} total data)`;
+      renderPaginationButtons(billsPageNumbers, currentBillsPage, totalBillsPages, (p) => loadBills(p));
+    } else {
+      billsPagination.classList.add("hidden");
+    }
+  } catch (err) {
+    renderErrorState(billsTableContainer, "Gagal Memuat Tagihan", err.message);
   }
-});
-
-confirmModalSubmit.addEventListener("click", () => {
-  const reason = confirmModalReason.value.trim();
-  if (!reason) {
-    confirmModalError.textContent = "Alasan penghapusan wajib diisi.";
-    confirmModalReason.focus();
-    return;
-  }
-  closeConfirmModal(reason);
-});
-
-confirmModalReason.addEventListener("input", () => {
-  confirmModalError.textContent = "";
-});
-
-confirmModalCancel.addEventListener("click", () => closeConfirmModal(null));
-confirmModalClose.addEventListener("click", () => closeConfirmModal(null));
-confirmModal.addEventListener("click", (event) => {
-  if (event.target instanceof HTMLElement && event.target.hasAttribute("data-modal-cancel")) closeConfirmModal(null);
-});
-
-document.addEventListener("click", (event) => {
-  const target = event.target;
-  if (!(target instanceof HTMLButtonElement)) return;
-  const action = target.dataset.retryAction;
-  if (action === "students") loadStudentData();
-  if (action === "issues") loadImportIssues();
-  if (action === "files") loadImportedBills();
-});
-
-document.addEventListener("keydown", (event) => {
-  if (confirmModal.classList.contains("hidden")) {
-    if (event.key === "Escape" && adminSidebar?.classList.contains("is-open")) closeSidebar(true);
-    return;
-  }
-  if (event.key === "Escape") {
-    closeConfirmModal(null);
-    return;
-  }
-  if (event.key !== "Tab") return;
-
-  const focusable = Array.from(
-    confirmModalDialog.querySelectorAll("button:not([disabled]), textarea:not([disabled])"),
-  ).filter((element) => element instanceof HTMLElement && element.offsetParent !== null);
-  if (!focusable.length) return;
-  const first = focusable[0];
-  const last = focusable[focusable.length - 1];
-  if (event.shiftKey && document.activeElement === first) {
-    event.preventDefault();
-    last.focus();
-  } else if (!event.shiftKey && document.activeElement === last) {
-    event.preventDefault();
-    first.focus();
-  }
-});
-
-logoutButton?.addEventListener("click", async () => {
-  await fetch("/api/admin/logout", { method: "POST" });
-  showLogin();
-});
-
-logoutButtonMobile?.addEventListener("click", async () => {
-  await fetch("/api/admin/logout", { method: "POST" });
-  showLogin();
-});
-
-sidebarToggle?.addEventListener("click", toggleSidebar);
-sidebarOverlay?.addEventListener("click", () => closeSidebar(true));
-
-for (const button of adminViewButtons) {
-  button.addEventListener("click", () => setAdminView(button.dataset.adminView || "upload"));
 }
 
-setSelectedFile();
-api("/api/admin/me").then((result) => showAdmin(result.data)).catch(() => showLogin());
+function renderPaginationButtons(container, current, total, onPageClick) {
+  container.innerHTML = "";
+  for (let i = 1; i <= Math.min(total, 5); i++) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = `pagination-page-button ${i === current ? "is-active" : "ghost-button"}`;
+    btn.textContent = String(i);
+    btn.addEventListener("click", () => onPageClick(i));
+    container.append(btn);
+  }
+}
+
+if (billsFilterForm) {
+  billsFilterForm.addEventListener("submit", (e) => {
+    e.preventDefault();
+    loadBills(1);
+  });
+}
+
+if (billsResetFilterBtn) {
+  billsResetFilterBtn.addEventListener("click", () => {
+    billsSearchInput.value = "";
+    billsStatusFilter.value = "";
+    billsSourceFilter.value = "";
+    loadBills(1);
+  });
+}
+
+if (billsPrevPage) billsPrevPage.addEventListener("click", () => loadBills(currentBillsPage - 1));
+if (billsNextPage) billsNextPage.addEventListener("click", () => loadBills(currentBillsPage + 1));
+
+window.changeBillStatus = async function (billId, status) {
+  try {
+    const res = await fetch("/api/admin/bills/status", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ bill_id: billId, status }),
+    });
+    const json = await res.json();
+    if (!res.ok || !json.success) throw new Error(json.error?.message || "Gagal mengubah status tagihan");
+
+    showToast("Status pembayaran tagihan diperbarui.");
+    loadDashboardStats();
+  } catch (err) {
+    showToast(`Gagal update status: ${err.message}`, "error");
+    loadBills(currentBillsPage);
+  }
+};
+
+// Bill Create / Edit Modal
+if (addBillBtn) {
+  addBillBtn.addEventListener("click", () => {
+    document.querySelector("#bill-editor-modal-title").textContent = "Buat Tagihan Baru";
+    document.querySelector("#edit-bill-id").value = "";
+    billModalForm.reset();
+    billModalError.textContent = "";
+    openModal("bill-editor-modal");
+  });
+}
+
+window.openEditBillModal = async function (billId) {
+  try {
+    const res = await fetch(`/api/admin/bills?limit=100`);
+    const json = await res.json();
+    const bills = json.data.bills || [];
+    const b = bills.find((item) => item.id === billId);
+    if (!b) throw new Error("Tagihan tidak ditemukan.");
+
+    document.querySelector("#bill-editor-modal-title").textContent = "Edit Tagihan";
+    document.querySelector("#edit-bill-id").value = b.id;
+    document.querySelector("#modal-bill-nim").value = b.nim;
+    document.querySelector("#modal-bill-name").value = b.full_name;
+    document.querySelector("#modal-bill-briva").value = b.briva;
+    document.querySelector("#modal-bill-amount").value = b.amount;
+    document.querySelector("#modal-bill-period").value = b.period;
+    document.querySelector("#modal-bill-type").value = b.bill_type;
+    document.querySelector("#modal-bill-status").value = b.status;
+    document.querySelector("#modal-bill-due-date").value = b.due_date || "";
+    billModalError.textContent = "";
+    openModal("bill-editor-modal");
+  } catch (err) {
+    showToast(`Gagal membuka edit: ${err.message}`, "error");
+  }
+};
+
+if (billModalForm) {
+  billModalForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    billModalError.textContent = "";
+    const billId = document.querySelector("#edit-bill-id").value;
+    const isEdit = Boolean(billId);
+
+    const payload = {
+      nim: document.querySelector("#modal-bill-nim").value.trim(),
+      full_name: document.querySelector("#modal-bill-name").value.trim(),
+      briva: document.querySelector("#modal-bill-briva").value.trim(),
+      amount: Number(document.querySelector("#modal-bill-amount").value),
+      period: document.querySelector("#modal-bill-period").value.trim(),
+      bill_type: document.querySelector("#modal-bill-type").value.trim(),
+      status: document.querySelector("#modal-bill-status").value,
+      due_date: document.querySelector("#modal-bill-due-date").value || null,
+    };
+
+    try {
+      const url = isEdit ? `/api/admin/bills/${billId}` : "/api/admin/bills";
+      const method = isEdit ? "PATCH" : "POST";
+      const res = await fetch(url, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) throw new Error(json.error?.message || "Gagal menyimpan tagihan");
+
+      showToast(isEdit ? "Tagihan berhasil diperbarui." : "Tagihan baru dibuat.");
+      closeModal("bill-editor-modal");
+      loadBills(currentBillsPage);
+      loadDashboardStats();
+    } catch (err) {
+      billModalError.textContent = err.message;
+    }
+  });
+}
+
+window.deleteBillAction = async function (billId, studentName) {
+  const reason = await requestDeleteConfirmation({
+    title: "Hapus Tagihan",
+    description: `Apakah Anda yakin ingin menghapus tagihan milik "${studentName}"?`,
+    submitLabel: "Hapus Tagihan",
+  });
+  if (!reason) return;
+
+  try {
+    const res = await fetch(`/api/admin/bills/${billId}`, {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ reason }),
+    });
+    const json = await res.json();
+    if (!res.ok || !json.success) throw new Error(json.error?.message || "Gagal menghapus tagihan");
+
+    showToast("Tagihan berhasil dihapus.");
+    loadBills(currentBillsPage);
+    loadDashboardStats();
+  } catch (err) {
+    showToast(`Gagal menghapus: ${err.message}`, "error");
+  }
+};
+
+// ==========================================
+// 4. REKAPITULASI KEUANGAN (REPORTS)
+// ==========================================
+
+const reportsTableContainer = document.querySelector("#reports-table-container");
+const refreshReportsBtn = document.querySelector("#refresh-reports-button");
+
+async function loadFinancialReports() {
+  renderLoadingState(reportsTableContainer, "Memuat rekapitulasi keuangan...");
+  try {
+    const res = await fetch("/api/admin/reports/financial-summary");
+    const json = await res.json();
+    if (!res.ok || !json.success) throw new Error(json.error?.message || "Gagal memuat rekap keuangan");
+
+    const data = json.data;
+    const list = data.by_study_program || [];
+    const totals = data.totals;
+
+    let html = `
+      <div class="dashboard-stats-grid" style="margin-bottom: 2rem;">
+        <div class="stat-card">
+          <span class="stat-label">Total Tagihan (Piutang)</span>
+          <strong class="stat-value">${escapeHtml(totals.billed_amount_formatted)}</strong>
+        </div>
+        <div class="stat-card">
+          <span class="stat-label">Realisasi Penerimaan</span>
+          <strong class="stat-value text-success">${escapeHtml(totals.paid_amount_formatted)}</strong>
+        </div>
+        <div class="stat-card">
+          <span class="stat-label">Sisa Tunggakan Global</span>
+          <strong class="stat-value text-danger">${escapeHtml(totals.outstanding_amount_formatted)}</strong>
+        </div>
+        <div class="stat-card">
+          <span class="stat-label">Persentase Realisasi</span>
+          <strong class="stat-value">${totals.percentage_paid}%</strong>
+        </div>
+      </div>
+
+      <table class="admin-data-table">
+        <thead>
+          <tr>
+            <th>Program Studi</th>
+            <th>Mahasiswa</th>
+            <th>Jml Tagihan</th>
+            <th>Total Tagihan</th>
+            <th>Sudah Lunas</th>
+            <th>Sisa Tunggakan</th>
+            <th>% Realisasi</th>
+          </tr>
+        </thead>
+        <tbody>
+    `;
+
+    list.forEach((item) => {
+      html += `
+        <tr>
+          <td><strong>${escapeHtml(item.program_study)}</strong></td>
+          <td>${item.total_students}</td>
+          <td>${item.total_bills}</td>
+          <td>${escapeHtml(item.billed_amount_formatted)}</td>
+          <td class="text-success">${escapeHtml(item.paid_amount_formatted)}</td>
+          <td class="text-danger">${escapeHtml(item.outstanding_amount_formatted)}</td>
+          <td><strong>${item.percentage_paid}%</strong></td>
+        </tr>
+      `;
+    });
+
+    html += `</tbody></table>`;
+    reportsTableContainer.innerHTML = html;
+  } catch (err) {
+    renderErrorState(reportsTableContainer, "Gagal Memuat Laporan", err.message);
+  }
+}
+
+if (refreshReportsBtn) refreshReportsBtn.addEventListener("click", loadFinancialReports);
+
+// ==========================================
+// 5. MASTER DATA (PRODI & ACADEMIC PERIODS)
+// ==========================================
+
+const masterProdiTable = document.querySelector("#master-prodi-table");
+const masterPeriodTable = document.querySelector("#master-period-table");
+const addProdiBtn = document.querySelector("#add-prodi-btn");
+const addPeriodBtn = document.querySelector("#add-period-btn");
+const prodiModalForm = document.querySelector("#prodi-modal-form");
+const periodModalForm = document.querySelector("#period-modal-form");
+const prodiModalError = document.querySelector("#prodi-modal-error");
+const periodModalError = document.querySelector("#period-modal-error");
+
+document.querySelectorAll(".master-tab-btn").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".master-tab-btn").forEach((b) => b.classList.remove("is-active"));
+    btn.classList.add("is-active");
+    const tab = btn.dataset.masterTab;
+    document.querySelector("#master-prodi-panel").classList.toggle("hidden", tab !== "prodi");
+    document.querySelector("#master-period-panel").classList.toggle("hidden", tab !== "period");
+  });
+});
+
+async function loadInitialMasterData() {
+  try {
+    const res = await fetch("/api/admin/study-programs");
+    const json = await res.json();
+    if (json.success) {
+      masterStudyPrograms = json.data.study_programs || [];
+      populateProdiDropdowns();
+    }
+  } catch {}
+}
+
+function populateProdiDropdowns() {
+  const options = `<option value="">Semua Program Studi</option>` + masterStudyPrograms.map((p) => `<option value="${p.id}">${escapeHtml(p.name)} (${escapeHtml(p.code)})</option>`).join("");
+  if (studentProdiFilter) studentProdiFilter.innerHTML = options;
+
+  const modalOptions = `<option value="">Pilih Program Studi</option>` + masterStudyPrograms.map((p) => `<option value="${p.id}">${escapeHtml(p.name)} (${escapeHtml(p.code)})</option>`).join("");
+  const modalProdiSelect = document.querySelector("#modal-student-prodi");
+  if (modalProdiSelect) modalProdiSelect.innerHTML = modalOptions;
+}
+
+async function loadMasterData() {
+  loadMasterProdi();
+  loadMasterPeriods();
+}
+
+async function loadMasterProdi() {
+  renderLoadingState(masterProdiTable, "Memuat master program studi...");
+  try {
+    const res = await fetch("/api/admin/study-programs");
+    const json = await res.json();
+    if (!res.ok || !json.success) throw new Error(json.error?.message || "Gagal memuat prodi");
+
+    masterStudyPrograms = json.data.study_programs || [];
+    populateProdiDropdowns();
+
+    let html = `
+      <table class="admin-data-table">
+        <thead>
+          <tr>
+            <th>Kode</th>
+            <th>Nama Program Studi</th>
+            <th>Jenjang</th>
+            <th>Fakultas</th>
+            <th>Jml Mahasiswa</th>
+            <th style="text-align: right;">Aksi</th>
+          </tr>
+        </thead>
+        <tbody>
+    `;
+
+    masterStudyPrograms.forEach((p) => {
+      html += `
+        <tr>
+          <td><code>${escapeHtml(p.code)}</code></td>
+          <td><strong>${escapeHtml(p.name)}</strong></td>
+          <td>${escapeHtml(p.degree)}</td>
+          <td>${escapeHtml(p.faculty || "-")}</td>
+          <td>${p.student_count} mhs</td>
+          <td style="text-align: right; white-space: nowrap;">
+            <button type="button" class="table-btn btn-secondary" onclick="openEditProdiModal('${p.id}')">Edit</button>
+            <button type="button" class="table-btn btn-danger" onclick="deleteProdiAction('${p.id}', '${escapeHtml(p.name)}')">Hapus</button>
+          </td>
+        </tr>
+      `;
+    });
+
+    html += `</tbody></table>`;
+    masterProdiTable.innerHTML = html;
+  } catch (err) {
+    renderErrorState(masterProdiTable, "Gagal Memuat Master Prodi", err.message);
+  }
+}
+
+async function loadMasterPeriods() {
+  renderLoadingState(masterPeriodTable, "Memuat master periode akademik...");
+  try {
+    const res = await fetch("/api/admin/academic-periods");
+    const json = await res.json();
+    if (!res.ok || !json.success) throw new Error(json.error?.message || "Gagal memuat periode");
+
+    masterAcademicPeriods = json.data.academic_periods || [];
+
+    let html = `
+      <table class="admin-data-table">
+        <thead>
+          <tr>
+            <th>Kode</th>
+            <th>Nama Periode</th>
+            <th>Tipe Semester</th>
+            <th>Status Aktif</th>
+            <th>Default Batas Aktif</th>
+            <th style="text-align: right;">Aksi</th>
+          </tr>
+        </thead>
+        <tbody>
+    `;
+
+    masterAcademicPeriods.forEach((p) => {
+      const activeBadge = p.is_active ? `<span class="status-badge status-aktif">Semester Aktif</span>` : `<span class="status-badge">Non-Aktif</span>`;
+      html += `
+        <tr>
+          <td><code>${escapeHtml(p.code)}</code></td>
+          <td><strong>${escapeHtml(p.name)}</strong></td>
+          <td>${escapeHtml(p.semester_type)}</td>
+          <td>${activeBadge}</td>
+          <td>${escapeHtml(p.default_due_date_formatted || "-")}</td>
+          <td style="text-align: right; white-space: nowrap;">
+            ${!p.is_active ? `<button type="button" class="table-btn btn-primary" onclick="setActivePeriodAction('${p.id}')">Jadikan Aktif</button>` : ""}
+            <button type="button" class="table-btn btn-secondary" onclick="openEditPeriodModal('${p.id}')">Edit</button>
+          </td>
+        </tr>
+      `;
+    });
+
+    html += `</tbody></table>`;
+    masterPeriodTable.innerHTML = html;
+  } catch (err) {
+    renderErrorState(masterPeriodTable, "Gagal Memuat Master Periode", err.message);
+  }
+}
+
+// Prodi CRUD
+if (addProdiBtn) {
+  addProdiBtn.addEventListener("click", () => {
+    document.querySelector("#prodi-editor-modal-title").textContent = "Tambah Program Studi";
+    document.querySelector("#edit-prodi-id").value = "";
+    prodiModalForm.reset();
+    prodiModalError.textContent = "";
+    openModal("prodi-editor-modal");
+  });
+}
+
+window.openEditProdiModal = function (prodiId) {
+  const p = masterStudyPrograms.find((item) => item.id === prodiId);
+  if (!p) return;
+
+  document.querySelector("#prodi-editor-modal-title").textContent = "Edit Program Studi";
+  document.querySelector("#edit-prodi-id").value = p.id;
+  document.querySelector("#modal-prodi-code").value = p.code;
+  document.querySelector("#modal-prodi-name").value = p.name;
+  document.querySelector("#modal-prodi-degree").value = p.degree || "S1";
+  document.querySelector("#modal-prodi-faculty").value = p.faculty || "";
+  prodiModalError.textContent = "";
+  openModal("prodi-editor-modal");
+};
+
+if (prodiModalForm) {
+  prodiModalForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    prodiModalError.textContent = "";
+    const prodiId = document.querySelector("#edit-prodi-id").value;
+    const isEdit = Boolean(prodiId);
+
+    const payload = {
+      code: document.querySelector("#modal-prodi-code").value.trim().toUpperCase(),
+      name: document.querySelector("#modal-prodi-name").value.trim(),
+      degree: document.querySelector("#modal-prodi-degree").value,
+      faculty: document.querySelector("#modal-prodi-faculty").value.trim() || null,
+    };
+
+    try {
+      const url = isEdit ? `/api/admin/study-programs/${prodiId}` : "/api/admin/study-programs";
+      const method = isEdit ? "PATCH" : "POST";
+      const res = await fetch(url, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) throw new Error(json.error?.message || "Gagal menyimpan program studi");
+
+      showToast(isEdit ? "Program studi diperbarui." : "Program studi baru ditambahkan.");
+      closeModal("prodi-editor-modal");
+      loadMasterProdi();
+    } catch (err) {
+      prodiModalError.textContent = err.message;
+    }
+  });
+}
+
+window.deleteProdiAction = async function (prodiId, prodiName) {
+  if (!confirm(`Hapus program studi "${prodiName}"?`)) return;
+  try {
+    const res = await fetch(`/api/admin/study-programs/${prodiId}`, { method: "DELETE" });
+    const json = await res.json();
+    if (!res.ok || !json.success) throw new Error(json.error?.message || "Gagal menghapus");
+
+    showToast("Program studi dihapus.");
+    loadMasterProdi();
+  } catch (err) {
+    showToast(`Gagal: ${err.message}`, "error");
+  }
+};
+
+// Period CRUD
+if (addPeriodBtn) {
+  addPeriodBtn.addEventListener("click", () => {
+    document.querySelector("#period-editor-modal-title").textContent = "Tambah Periode Akademik";
+    document.querySelector("#edit-period-id").value = "";
+    periodModalForm.reset();
+    periodModalError.textContent = "";
+    openModal("period-editor-modal");
+  });
+}
+
+window.openEditPeriodModal = function (periodId) {
+  const p = masterAcademicPeriods.find((item) => item.id === periodId);
+  if (!p) return;
+
+  document.querySelector("#period-editor-modal-title").textContent = "Edit Periode Akademik";
+  document.querySelector("#edit-period-id").value = p.id;
+  document.querySelector("#modal-period-code").value = p.code;
+  document.querySelector("#modal-period-name").value = p.name;
+  document.querySelector("#modal-period-type").value = p.semester_type;
+  document.querySelector("#modal-period-due-date").value = p.default_due_date || "";
+  document.querySelector("#modal-period-active").checked = Boolean(p.is_active);
+  periodModalError.textContent = "";
+  openModal("period-editor-modal");
+};
+
+if (periodModalForm) {
+  periodModalForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    periodModalError.textContent = "";
+    const periodId = document.querySelector("#edit-period-id").value;
+    const isEdit = Boolean(periodId);
+
+    const payload = {
+      code: document.querySelector("#modal-period-code").value.trim(),
+      name: document.querySelector("#modal-period-name").value.trim(),
+      semester_type: document.querySelector("#modal-period-type").value,
+      default_due_date: document.querySelector("#modal-period-due-date").value || null,
+      is_active: document.querySelector("#modal-period-active").checked ? 1 : 0,
+    };
+
+    try {
+      const url = isEdit ? `/api/admin/academic-periods/${periodId}` : "/api/admin/academic-periods";
+      const method = isEdit ? "PATCH" : "POST";
+      const res = await fetch(url, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) throw new Error(json.error?.message || "Gagal menyimpan periode");
+
+      showToast(isEdit ? "Periode akademik diperbarui." : "Periode akademik ditambahkan.");
+      closeModal("period-editor-modal");
+      loadMasterPeriods();
+    } catch (err) {
+      periodModalError.textContent = err.message;
+    }
+  });
+}
+
+window.setActivePeriodAction = async function (periodId) {
+  try {
+    const res = await fetch(`/api/admin/academic-periods/${periodId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ is_active: 1 }),
+    });
+    const json = await res.json();
+    if (!res.ok || !json.success) throw new Error(json.error?.message || "Gagal mengaktifkan periode");
+
+    showToast("Periode aktif saat ini diperbarui.");
+    loadMasterPeriods();
+  } catch (err) {
+    showToast(`Gagal: ${err.message}`, "error");
+  }
+};
+
+// ==========================================
+// 6. DATA FILE IMPORT & EXCEL UPLOAD
+// ==========================================
+
+const filesState = document.querySelector("#files-state");
+const refreshFilesBtn = document.querySelector("#refresh-files-button");
+const importForm = document.querySelector("#import-form");
+const fileInput = document.querySelector("#excel-file");
+const filePicker = document.querySelector("#excel-file-picker");
+const selectedFileName = document.querySelector("#selected-file-name");
+const previewButton = importForm ? importForm.querySelector("button[type='submit']") : null;
+const previewState = document.querySelector("#preview-state");
+const validCount = document.querySelector("#valid-count");
+const newCount = document.querySelector("#new-count");
+const unchangedCount = document.querySelector("#unchanged-count");
+const updateCount = document.querySelector("#update-count");
+const amountChangeCount = document.querySelector("#amount-change-count");
+const criticalCount = document.querySelector("#critical-count");
+const issueCount = document.querySelector("#issue-count");
+const sampleTable = document.querySelector("#sample-table");
+const errorList = document.querySelector("#error-list");
+const commitButton = document.querySelector("#commit-button");
+const cancelPreviewButton = document.querySelector("#cancel-preview-button");
+const changeState = document.querySelector("#change-state");
+const changeTable = document.querySelector("#change-table");
+const confirmUpdatesRow = document.querySelector("#confirm-updates-row");
+const confirmUpdates = document.querySelector("#confirm-updates");
+const importIssuesState = document.querySelector("#import-issues-state");
+
+let currentImportToken = "";
+let currentPreview = null;
+
+async function loadImportedFiles() {
+  renderLoadingState(filesState, "Memuat daftar file import...");
+  try {
+    const res = await fetch("/api/admin/imported-bills");
+    const json = await res.json();
+    if (!res.ok || !json.success) throw new Error(json.error?.message || "Gagal memuat data file import");
+
+    const groups = json.data.groups || [];
+    if (!groups.length) {
+      renderEmptyState(filesState, "Belum Ada File Terimport", "Silakan upload file XLSX pada menu Upload File.");
+      return;
+    }
+
+    let html = "";
+    groups.forEach((g) => {
+      html += `
+        <div class="file-group-card">
+          <div class="file-group-header">
+            <div>
+              <h4>${escapeHtml(g.file_name)}</h4>
+              <p class="field-hint">Diimport pada ${escapeHtml(g.imported_at)}</p>
+            </div>
+            <button type="button" class="table-btn btn-danger" onclick="deleteImportFileAction('${escapeHtml(g.file_name)}')">Hapus Kumpulan File</button>
+          </div>
+          <div class="summary-grid" style="margin-top: 1rem;">
+            <div><span class="label-small">Mahasiswa</span><strong>${g.student_count}</strong></div>
+            <div><span class="label-small">Tagihan</span><strong>${g.total}</strong></div>
+            <div><span class="label-small">Lunas</span><strong class="text-success">${g.paid}</strong></div>
+            <div><span class="label-small">Belum Lunas</span><strong class="text-danger">${g.unpaid}</strong></div>
+            <div><span class="label-small">Total Nominal</span><strong>${rupiah(g.total_amount)}</strong></div>
+          </div>
+        </div>
+      `;
+    });
+    filesState.innerHTML = html;
+  } catch (err) {
+    renderErrorState(filesState, "Gagal Memuat File Import", err.message);
+  }
+}
+
+if (refreshFilesBtn) refreshFilesBtn.addEventListener("click", loadImportedFiles);
+
+window.deleteImportFileAction = async function (fileName) {
+  const reason = await requestDeleteConfirmation({
+    title: "Hapus File Import",
+    description: `Apakah Anda yakin ingin menghapus seluruh tagihan yang berasal dari file "${fileName}"?`,
+    submitLabel: "Hapus Seluruh Tagihan File",
+  });
+  if (!reason) return;
+
+  try {
+    const res = await fetch("/api/admin/imported-files", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ file_name: fileName, reason }),
+    });
+    const json = await res.json();
+    if (!res.ok || !json.success) throw new Error(json.error?.message || "Gagal menghapus file");
+
+    showToast(`File ${fileName} dan seluruh tagihannya dihapus.`);
+    loadImportedFiles();
+    loadDashboardStats();
+  } catch (err) {
+    showToast(`Gagal: ${err.message}`, "error");
+  }
+};
+
+// Excel Upload Wizard
+if (fileInput) {
+  fileInput.addEventListener("change", () => {
+    const file = fileInput.files && fileInput.files[0];
+    selectedFileName.textContent = file ? file.name : "Belum ada file dipilih";
+    if (previewButton) previewButton.disabled = !file;
+  });
+}
+
+if (importForm) {
+  importForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const file = fileInput.files && fileInput.files[0];
+    if (!file) return;
+
+    previewButton.disabled = true;
+    const formData = new FormData();
+    formData.append("file", file);
+
+    try {
+      const res = await fetch("/api/admin/import/preview", {
+        method: "POST",
+        body: formData,
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) throw new Error(json.error?.message || "Gagal memproses preview");
+
+      currentImportToken = json.data.token;
+      currentPreview = json.data.preview;
+      renderImportPreview(json.data.preview);
+    } catch (err) {
+      showToast(`Error preview: ${err.message}`, "error");
+    } finally {
+      previewButton.disabled = false;
+    }
+  });
+}
+
+function renderImportPreview(prev) {
+  previewState.classList.remove("hidden");
+  validCount.textContent = prev.valid_rows;
+  newCount.textContent = prev.new_bills_count;
+  unchangedCount.textContent = prev.unchanged_bills_count;
+  updateCount.textContent = prev.will_update_count;
+  amountChangeCount.textContent = prev.amount_or_briva_changed_count;
+  criticalCount.textContent = prev.critical_rows;
+  issueCount.textContent = prev.issue_rows;
+
+  if (prev.changes && prev.changes.length) {
+    changeState.classList.remove("hidden");
+    confirmUpdatesRow.classList.toggle("hidden", !prev.requires_update_confirmation);
+    let cHtml = `<table class="admin-data-table"><thead><tr><th>NIM</th><th>Nama</th><th>Perubahan</th></tr></thead><tbody>`;
+    prev.changes.forEach((c) => {
+      cHtml += `<tr><td>${escapeHtml(c.nim)}</td><td>${escapeHtml(c.full_name)}</td><td>${escapeHtml(c.change_summary || c.notes)}</td></tr>`;
+    });
+    cHtml += `</tbody></table>`;
+    changeTable.innerHTML = cHtml;
+  } else {
+    changeState.classList.add("hidden");
+  }
+
+  // Sample table
+  if (prev.sample_rows && prev.sample_rows.length) {
+    let sHtml = `<table class="admin-data-table"><thead><tr><th>NIM</th><th>Nama</th><th>BRIVA</th><th>Nominal</th></tr></thead><tbody>`;
+    prev.sample_rows.slice(0, 5).forEach((s) => {
+      sHtml += `<tr><td>${escapeHtml(s.nim)}</td><td>${escapeHtml(s.full_name)}</td><td>${escapeHtml(s.briva)}</td><td>${rupiah(s.amount)}</td></tr>`;
+    });
+    sHtml += `</tbody></table>`;
+    sampleTable.innerHTML = sHtml;
+  }
+
+  commitButton.disabled = prev.critical_rows > 0 || (prev.requires_update_confirmation && !confirmUpdates.checked);
+}
+
+if (confirmUpdates) {
+  confirmUpdates.addEventListener("change", () => {
+    if (currentPreview) {
+      commitButton.disabled = currentPreview.critical_rows > 0 || (currentPreview.requires_update_confirmation && !confirmUpdates.checked);
+    }
+  });
+}
+
+if (cancelPreviewButton) {
+  cancelPreviewButton.addEventListener("click", () => {
+    previewState.classList.add("hidden");
+    currentImportToken = "";
+    currentPreview = null;
+    importForm.reset();
+    selectedFileName.textContent = "Belum ada file dipilih";
+  });
+}
+
+if (commitButton) {
+  commitButton.addEventListener("click", async () => {
+    if (!currentImportToken) return;
+    commitButton.disabled = true;
+    try {
+      const res = await fetch("/api/admin/import/commit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token: currentImportToken }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) throw new Error(json.error?.message || "Gagal menyimpan data import");
+
+      showToast("Data import berhasil disimpan ke database.");
+      previewState.classList.add("hidden");
+      currentImportToken = "";
+      currentPreview = null;
+      importForm.reset();
+      selectedFileName.textContent = "Belum ada file dipilih";
+      loadDashboardStats();
+    } catch (err) {
+      showToast(`Error commit: ${err.message}`, "error");
+      commitButton.disabled = false;
+    }
+  });
+}
+
+// Initial Boot
+checkSession();
