@@ -1,4 +1,4 @@
-﻿# Salut Cek Pembayaran
+# Salut Cek Pembayaran
 
 Aplikasi web untuk membantu mahasiswa Universitas Terbuka yang berafiliasi dengan SALUT Awwabin mengecek tagihan dan melihat instruksi pembayaran secara mandiri.
 
@@ -42,9 +42,10 @@ Untuk membaca dokumentasi dalam tampilan yang lebih nyaman, buka file `docs/inde
 ## Rekomendasi Stack
 
 - Backend: FastAPI dan Uvicorn di VPS.
-- Frontend: HTML, CSS, dan JavaScript statis.
+- Frontend Publik: HTML, CSS, dan JavaScript statis.
+- Frontend Admin: Modern Single Page Application (SPA) berbasis React 19 + Vite dan Vanilla Admin Dashboard.
 - Database: SQLite.
-- Auth admin: session/password internal berbasis database.
+- Auth admin: session/password internal berbasis database dengan kontrol peran RBAC.
 - File import: upload langsung melalui API route dan penyimpanan file mentah di Filesystem VPS bila diperlukan.
 - Security: pemeriksaan role server-side, prepared statement SQLite, rate limit, cookie aman di production, audit log, dan backup SQLite terjadwal.
 
@@ -52,19 +53,25 @@ Untuk membaca dokumentasi dalam tampilan yang lebih nyaman, buka file `docs/inde
 
 | Folder | Isi |
 |---|---|
-| `Backend/` | API lookup, schema SQLite, importer Excel. |
-| `Frontend/` | Halaman cek pembayaran mahasiswa dan dashboard admin import/CRUD manual. |
+| `Backend/` | API lookup, schema SQLite, services master data & analytics, importer Excel. |
+| `Frontend/` | Halaman cek pembayaran mahasiswa dan dashboard admin classic (`admin-dist/` untuk build SPA). |
+| `Frontend-Admin/` | Source code Single Page Application (React + Vite) untuk portal admin modern. |
 | `docs/` | Dokumentasi requirement, desain, deployment, dan runbook. |
 
 ## Menjalankan Lokal
 
 ```powershell
+# 1. Menjalankan Backend & Public Frontend
 python -m unittest Backend.test_core
-python -m py_compile Backend\*.py Backend\app\*.py
-node --check .\Frontend\app.js
-node --check .\Frontend\admin.js
-python .\Backend\import_excel.py
 python -m uvicorn Backend.app.main:app --host 127.0.0.1 --port 8000
+
+# 2. Menjalankan Frontend Admin React (Development)
+cd Frontend-Admin
+npm install
+npm run dev
+
+# 3. Melakukan Build Frontend Admin untuk Produksi
+npm run build
 ```
 
 Buka `http://127.0.0.1:8000`, lalu coba data contoh:
