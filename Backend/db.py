@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 import sqlite3
 from pathlib import Path
 
@@ -31,10 +32,15 @@ def init_db(conn: sqlite3.Connection) -> None:
     migrate_students_for_profile(conn)
     migrate_soft_delete(conn)
     migrate_master_data_and_student_siakad(conn)
+    migrate_students_for_master_data(conn)
     conn.execute("create index if not exists idx_bills_source_file_row on bills(source_file, source_row_number)")
     conn.execute("create index if not exists idx_students_academic_status on students(academic_status)")
     conn.execute("create index if not exists idx_students_entry_year on students(entry_year)")
     conn.execute("create index if not exists idx_students_study_program_id on students(study_program_id)")
+    conn.execute("create index if not exists idx_students_no_ktp on students(no_ktp)")
+    conn.execute("create index if not exists idx_students_email on students(email)")
+    conn.execute("create index if not exists idx_students_phone on students(phone_number)")
+    conn.execute("create index if not exists idx_students_entry_period on students(entry_period)")
 
 
 def _table_sql(conn: sqlite3.Connection, table: str) -> str:
@@ -44,6 +50,32 @@ def _table_sql(conn: sqlite3.Connection, table: str) -> str:
 
 def _table_columns(conn: sqlite3.Connection, table: str) -> set[str]:
     return {str(row["name"]) for row in conn.execute(f"pragma table_info({table})").fetchall()}
+
+
+def parse_entry_registration(initial_registration: object) -> tuple[int | None, str | None, str | None]:
+    """
+    Parse initial_registration text to extract:
+    (entry_year, entry_semester, entry_period)
+    e.g. 'UNIVERSITAS TERBUKA 2023.1' -> (2023, 'ganjil', '2023.1')
+         'UNIVERSITAS TERBUKA 2023.2' -> (2023, 'genap', '2023.2')
+         '2024.1' -> (2024, 'ganjil', '2024.1')
+    """
+    import re
+    text = str(initial_registration or "").strip()
+    match = re.search(r"(20\d{2})\s*\.\s*([12])", text)
+    if match:
+        year = int(match.group(1))
+        sem_code = match.group(2)
+        sem_type = "ganjil" if sem_code == "1" else "genap"
+        period = f"{year}.{sem_code}"
+        return year, sem_type, period
+
+    year_match = re.search(r"(20\d{2})", text)
+    if year_match:
+        year = int(year_match.group(1))
+        return year, None, str(year)
+
+    return None, None, None
 
 
 def migrate_bills_for_due_date(conn: sqlite3.Connection) -> None:
@@ -59,6 +91,32 @@ def migrate_students_for_profile(conn: sqlite3.Connection) -> None:
             conn.execute(f"alter table students add column {column} text")
 
 
+def migrate_students_for_master_data(conn: sqlite3.Connection) -> None:
+    columns = _table_columns(conn, "students")
+    for column in ("no_ktp", "tempat_lahir", "tanggal_lahir", "nama_ibu_kandung", "entry_semester", "entry_period"):
+        if column not in columns:
+            conn.execute(f"alter table students add column {column} text")
+
+    # Update existing students' entry_year, entry_semester, entry_period from initial_registration if not filled
+    rows = conn.execute(
+        "select id, initial_registration, entry_year, entry_semester, entry_period from students where initial_registration is not null"
+    ).fetchall()
+    for row in rows:
+        if not row["entry_period"] or not row["entry_semester"]:
+            year, sem, period = parse_entry_registration(row["initial_registration"])
+            if year or sem or period:
+                conn.execute(
+                    """
+                    update students
+                    set entry_year = coalesce(entry_year, ?),
+                        entry_semester = coalesce(entry_semester, ?),
+                        entry_period = coalesce(entry_period, ?)
+                    where id = ?
+                    """,
+                    (year, sem, period, row["id"]),
+                )
+
+
 def migrate_master_data_and_student_siakad(conn: sqlite3.Connection) -> None:
     columns = _table_columns(conn, "students")
     if "study_program_id" not in columns:
@@ -72,23 +130,8 @@ def migrate_master_data_and_student_siakad(conn: sqlite3.Connection) -> None:
     if "address" not in columns:
         conn.execute("alter table students add column address text")
 
-    # Seed initial study programs if empty
-    row = conn.execute("select count(*) as cnt from study_programs").fetchone()
-    if row and row["cnt"] == 0:
-        default_prodis = [
-            ("sp_hkm", "HKM", "S1 Ilmu Hukum", "S1", "FHISIP"),
-            ("sp_mnj", "MNJ", "S1 Manajemen", "S1", "FEB"),
-            ("sp_akt", "AKT", "S1 Akuntansi", "S1", "FEB"),
-            ("sp_kom", "KOM", "S1 Ilmu Komunikasi", "S1", "FHISIP"),
-            ("sp_sif", "SIF", "S1 Sistem Informasi", "S1", "FST"),
-            ("sp_pgsd", "PGSD", "S1 PGSD", "S1", "FKIP"),
-            ("sp_ipem", "IPEM", "S1 Ilmu Pemerintahan", "S1", "FHISIP"),
-            ("sp_adm", "ADM", "S1 Ilmu Administrasi Negara", "S1", "FHISIP"),
-        ]
-        conn.executemany(
-            "insert into study_programs (id, code, name, degree, faculty, is_active) values (?, ?, ?, ?, ?, 1)",
-            default_prodis,
-        )
+    # Seed initial study programs if empty or partial
+    migrate_study_programs_to_4char_codes(conn)
 
     # Seed initial academic periods if empty
     p_row = conn.execute("select count(*) as cnt from academic_periods").fetchone()
@@ -116,15 +159,14 @@ def migrate_master_data_and_student_siakad(conn: sqlite3.Connection) -> None:
         )
 
     # Auto-link study_program_id and extract entry_year for existing students
-    conn.execute(
-        """
-        update students
-        set study_program_id = (
-            select id from study_programs where lower(study_programs.name) = lower(students.program_study) limit 1
-        )
-        where study_program_id is null and program_study is not null
-        """
-    )
+    unlinked_students = conn.execute(
+        "select id, program_study from students where study_program_id is null and program_study is not null"
+    ).fetchall()
+    for st in unlinked_students:
+        sp_id = resolve_study_program_id(conn, st["program_study"])
+        if sp_id:
+            conn.execute("update students set study_program_id = ? where id = ?", (sp_id, st["id"]))
+
     conn.execute(
         """
         update students
@@ -132,13 +174,97 @@ def migrate_master_data_and_student_siakad(conn: sqlite3.Connection) -> None:
         where academic_status is null
         """
     )
-    conn.execute(
-        """
-        update students
-        set entry_year = cast(substr(initial_registration, instr(initial_registration, '20'), 4) as integer)
-        where entry_year is null and initial_registration like '%20%'
-        """
-    )
+
+
+DEFAULT_STUDY_PROGRAMS: list[tuple[str, str, str, str, str, list[str]]] = [
+    ("sp_hkum", "HKUM", "S1 Ilmu Hukum", "S1", "FHISIP", ["ilmu hukum", "hukum"]),
+    ("sp_manj", "MANJ", "S1 Manajemen", "S1", "FEB", ["manajemen", "managemen"]),
+    ("sp_akkp", "AKKP", "S1 Akuntansi Keuangan Publik", "S1", "FEB", ["akuntansi keuangan publik"]),
+    ("sp_akun", "AKUN", "S1 Akuntansi", "S1", "FEB", ["akuntansi"]),
+    ("sp_agri", "AGRI", "S1 Agribisnis", "S1", "FEB", ["agribisnis"]),
+    ("sp_ekpb", "EKPB", "S1 Ekonomi Pembangunan", "S1", "FEB", ["ekonomi pembangunan"]),
+    ("sp_eksy", "EKSY", "S1 Ekonomi Syariah", "S1", "FEB", ["ekonomi syariah"]),
+    ("sp_kwir", "KWIR", "S1 Kewirausahaan", "S1", "FEB", ["kewirausahaan"]),
+    ("sp_pari", "PARI", "S1 Pariwisata", "S1", "FEB", ["pariwisata"]),
+    ("sp_pajk", "PAJK", "S1 Perpajakan", "S1", "FEB", ["perpajakan"]),
+    ("sp_komu", "KOMU", "S1 Ilmu Komunikasi", "S1", "FHISIP", ["ilmu komunikasi", "komunikasi"]),
+    ("sp_ipem", "IPEM", "S1 Ilmu Pemerintahan", "S1", "FHISIP", ["ilmu pemerintahan", "pemerintahan"]),
+    ("sp_admn", "ADMN", "S1 Ilmu Administrasi Negara", "S1", "FHISIP", ["ilmu administrasi negara", "administrasi negara"]),
+    ("sp_admb", "ADMB", "S1 Administrasi Bisnis", "S1", "FHISIP", ["administrasi bisnis"]),
+    ("sp_sosi", "SOSI", "S1 Sosiologi", "S1", "FHISIP", ["sosiologi"]),
+    ("sp_sing", "SING", "S1 Sastra Inggris", "S1", "FHISIP", ["sastra inggris"]),
+    ("sp_pgsd", "PGSD", "S1 PGSD", "S1", "FKIP", ["pgsd"]),
+    ("sp_paud", "PAUD", "S1 PGPAUD", "S1", "FKIP", ["pgpaud", "paud"]),
+    ("sp_pgai", "PGAI", "S1 PAI", "S1", "FKIP", ["pai", "pendidikan agama islam"]),
+    ("sp_ppkn", "PPKN", "S1 PPKN", "S1", "FKIP", ["ppkn"]),
+    ("sp_pbin", "PBIN", "S1 Pendidikan Bahasa dan Sastra Indonesia", "S1", "FKIP", ["pendidikan bahasa dan sastra indonesia", "pendidikan bahasa indonesia"]),
+    ("sp_pbig", "PBIG", "S1 Pendidikan Bahasa Inggris", "S1", "FKIP", ["pendidikan bahasa inggris"]),
+    ("sp_pbio", "PBIO", "S1 Pendidikan Biologi", "S1", "FKIP", ["pendidikan biologi"]),
+    ("sp_peko", "PEKO", "S1 Pendidikan Ekonomi", "S1", "FKIP", ["pendidikan ekonomi"]),
+    ("sp_pfis", "PFIS", "S1 Pendidikan Fisika", "S1", "FKIP", ["pendidikan fisika"]),
+    ("sp_pmat", "PMAT", "S1 Pendidikan Matematika", "S1", "FKIP", ["pendidikan matematika", "pendidikan matematikan"]),
+    ("sp_tpen", "TPEN", "S1 Teknologi Pendidikan", "S1", "FKIP", ["teknologi pendidikan"]),
+    ("sp_sifo", "SIFO", "S1 Sistem Informasi", "S1", "FST", ["sistem informasi"]),
+    ("sp_biol", "BIOL", "S1 Biologi", "S1", "FST", ["biologi"]),
+    ("sp_tpan", "TPAN", "S1 Teknologi Pangan", "S1", "FST", ["teknologi pangan"]),
+    ("sp_mate", "MATE", "S1 Matematika", "S1", "FST", ["matematika"]),
+]
+
+
+def resolve_study_program_id(conn: sqlite3.Connection, raw_program: str | None) -> str | None:
+    if not raw_program or not str(raw_program).strip():
+        return None
+    raw_clean = re.sub(r"\s+", " ", str(raw_program)).strip()
+    fac_match = re.match(r"^(FEB|FHISIP|FKIP|FST)\s*[-–—]\s*(.*)$", raw_clean, flags=re.IGNORECASE)
+    faculty = fac_match.group(1).upper() if fac_match else ""
+    prodi_name = fac_match.group(2).strip().lower() if fac_match else raw_clean.lower()
+
+    # 1. Exact name or code match in DB first
+    row = conn.execute(
+        "select id from study_programs where lower(name) = ? or lower(code) = ? limit 1",
+        (raw_clean.lower(), raw_clean.lower()),
+    ).fetchone()
+    if row:
+        return str(row[0])
+
+    candidates = [p for p in DEFAULT_STUDY_PROGRAMS if not faculty or p[4].upper() == faculty]
+    if not candidates:
+        candidates = DEFAULT_STUDY_PROGRAMS
+
+    for sp_id, code, name, deg, fac, keywords in sorted(candidates, key=lambda x: max(len(k) for k in x[5]), reverse=True):
+        for kw in sorted(keywords, key=len, reverse=True):
+            if kw in prodi_name:
+                db_sp = conn.execute("select id from study_programs where upper(code) = ? limit 1", (code,)).fetchone()
+                if db_sp:
+                    return str(db_sp[0])
+                return sp_id
+    return None
+
+
+def migrate_study_programs_to_4char_codes(conn: sqlite3.Connection) -> None:
+    legacy_map = {
+        "HKM": "HKUM",
+        "MNJ": "MANJ",
+        "AKT": "AKUN",
+        "KOM": "KOMU",
+        "SIF": "SIFO",
+        "ADM": "ADMN",
+    }
+    for old_code, new_code in legacy_map.items():
+        conn.execute("update study_programs set code = ? where upper(code) = ?", (new_code, old_code))
+
+    for sp_id, code, name, deg, fac, _ in DEFAULT_STUDY_PROGRAMS:
+        conn.execute(
+            """
+            insert into study_programs (id, code, name, degree, faculty, is_active)
+            values (?, ?, ?, ?, ?, 1)
+            on conflict(code) do update set
+                name = excluded.name,
+                degree = excluded.degree,
+                faculty = excluded.faculty
+            """,
+            (sp_id, code, name, deg, fac),
+        )
 
 
 

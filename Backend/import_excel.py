@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import io
 import re
 import sqlite3
 import uuid
@@ -8,14 +9,36 @@ from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
 
-try:
-    from Backend.db import DEFAULT_DB_PATH, connect, init_db
-    from Backend.excel_reader import clean_excel_text, normalize_imported_name, normalize_name, normalize_nim, normalize_text, read_sheet, read_sheet_headers, workbook_sheet_names
-except ModuleNotFoundError:
-    from db import DEFAULT_DB_PATH, connect, init_db
-    from excel_reader import clean_excel_text, normalize_imported_name, normalize_name, normalize_nim, normalize_text, read_sheet, read_sheet_headers, workbook_sheet_names
+import openpyxl
 
-DEFAULT_WORKBOOK = Path(__file__).resolve().parents[1] / "Data_Sinkron_BRIVA_UKT_2023_1_sd_2025_2.xlsx"
+try:
+    from Backend.db import DEFAULT_DB_PATH, connect, init_db, parse_entry_registration, resolve_study_program_id
+    from Backend.excel_reader import (
+        clean_demographic_value,
+        clean_excel_text,
+        normalize_imported_name,
+        normalize_name,
+        normalize_nim,
+        normalize_text,
+        read_sheet,
+        read_sheet_headers,
+        workbook_sheet_names,
+    )
+except ModuleNotFoundError:
+    from db import DEFAULT_DB_PATH, connect, init_db, parse_entry_registration, resolve_study_program_id
+    from excel_reader import (
+        clean_demographic_value,
+        clean_excel_text,
+        normalize_imported_name,
+        normalize_name,
+        normalize_nim,
+        normalize_text,
+        read_sheet,
+        read_sheet_headers,
+        workbook_sheet_names,
+    )
+
+DEFAULT_WORKBOOK = Path(__file__).resolve().parents[1] / "MASTER_DATA_2023_1_2026_1.xlsx"
 DEFAULT_PERIOD = "UKT 2023.1 s/d 2025.2"
 DEFAULT_BILL_TYPE = "UKT BRIVA"
 DEFAULT_CURRENT_PERIOD = "Semester Ganjil 2026"
@@ -26,6 +49,73 @@ DEFAULT_INSTRUCTIONS = (
 REQUIRED_SYNC_HEADERS = ("NIM", "Nama Mahasiswa", "BRIVA", "Jumlah")
 OPTIONAL_ISSUE_HEADERS = ("NIM", "Nama Mahasiswa", "BRIVA", "Jumlah", "Keterangan")
 CURRENT_REQUIRED_HEADERS = ("NIM", "Nama", "No Rek", "Jumlah")
+
+MASTER_TEMPLATE_HEADERS = [
+    "NIM",
+    "Nama",
+    "NO KTP",
+    "Tempat Lahir",
+    "Tanggal Lahir",
+    "Nama Ibu Kandung",
+    "e-Mail",
+    "No Kontak",
+    "Registrasi Awal",
+    "Program Studi",
+    "No Rek",
+    "Jumlah",
+    "Batas Pembayaran",
+]
+
+MASTER_SAMPLE_ROWS = [
+    [
+        "049530265",
+        "Muhamad Romli",
+        "3603100510860014",
+        "Tangerang",
+        "14 September 2000",
+        "Siti Aminah",
+        "rhomly0496@gmail.com",
+        "082310867195",
+        "UNIVERSITAS TERBUKA 2023.1",
+        "FEB - Akuntansi",
+        "178100023200085",
+        1850000,
+        "22 Januari 2027 Pukul 11.59 WIB",
+    ],
+    [
+        "049532688",
+        "Ria Anggraeni",
+        "3603115601060002",
+        "Serang",
+        "25 Mei 2001",
+        "Nurjanah",
+        "riaa1390@gmail.com",
+        "0895411921596",
+        "UNIVERSITAS TERBUKA 2023.2",
+        "FHISIP - Sosiologi",
+        "178100023200060",
+        1850000,
+        "22 Januari 2027 Pukul 11.59 WIB",
+    ],
+]
+
+
+def generate_master_data_template() -> bytes:
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Master_Data_Mahasiswa"
+    ws.append(MASTER_TEMPLATE_HEADERS)
+    for sample in MASTER_SAMPLE_ROWS:
+        ws.append(sample)
+
+    for col in ws.columns:
+        max_len = max(len(str(cell.value or "")) for cell in col)
+        col_letter = openpyxl.utils.get_column_letter(col[0].column)
+        ws.column_dimensions[col_letter].width = max(max_len + 4, 14)
+
+    buf = io.BytesIO()
+    wb.save(buf)
+    return buf.getvalue()
 
 
 @dataclass(frozen=True)
@@ -52,6 +142,14 @@ def _normalized_headers(headers: list[str]) -> dict[str, str]:
     }
 
 
+def _find_header_key(headers: dict[str, str], aliases: tuple[str, ...]) -> str:
+    for alias in aliases:
+        key = alias.casefold()
+        if key in headers:
+            return headers[key]
+    return ""
+
+
 def _require_headers(workbook: Path) -> ImportLayout:
     sheet_names = workbook_sheet_names(workbook)
     if "Data Sinkron" in sheet_names and "Data Belum Lengkap" in sheet_names:
@@ -76,11 +174,15 @@ def _require_headers(workbook: Path) -> ImportLayout:
 
     for sheet_name in sheet_names:
         headers = _normalized_headers(read_sheet_headers(workbook, sheet_name))
-        if all(header.casefold() in headers for header in CURRENT_REQUIRED_HEADERS):
+        has_nim = any(a in headers for a in ("nim", "nomor induk mahasiswa"))
+        has_name = any(a in headers for a in ("nama", "nama mahasiswa", "nama lengkap"))
+        has_briva = any(a in headers for a in ("no rek", "no. rek", "no rekening", "briva", "nomor briva", "va"))
+        has_amount = any(a in headers for a in ("jumlah", "nominal", "tagihan", "biaya"))
+        if has_nim and has_name and has_briva and has_amount:
             return ImportLayout("current", sheet_name, None, headers, DEFAULT_CURRENT_PERIOD)
 
     raise ValueError(
-        "Struktur Excel tidak dikenali. Gunakan format Data Sinkron lama atau format terbaru "
+        "Struktur Excel tidak dikenali. Gunakan format Data Sinkron lama atau format Master Data "
         "dengan kolom NIM, Nama, No Rek, dan Jumlah."
     )
 
@@ -90,8 +192,14 @@ def _get_existing_id(conn: sqlite3.Connection, table: str, column: str, value: s
     return str(row["id"]) if row else None
 
 
-def _record_value(record: dict[str, str], headers: dict[str, str], name: str) -> str:
-    return record.get(headers.get(name.casefold(), ""), "")
+def _record_value(record: dict[str, str], headers: dict[str, str], aliases: str | tuple[str, ...]) -> str:
+    if isinstance(aliases, str):
+        aliases = (aliases,)
+    for alias in aliases:
+        key = alias.casefold()
+        if key in headers:
+            return record.get(headers[key], "")
+    return ""
 
 
 def _normalize_briva(value: object) -> str:
@@ -110,12 +218,10 @@ def _read_sync_rows(
     skipped_issues: list[dict[str, object]] = []
 
     for record in read_sheet(workbook, layout.data_sheet):
-        nim = normalize_nim(_record_value(record, layout.headers, "NIM"))
-        name_header = "Nama Mahasiswa" if layout.kind == "legacy" else "Nama"
-        briva_header = "BRIVA" if layout.kind == "legacy" else "No Rek"
-        full_name = normalize_imported_name(_record_value(record, layout.headers, name_header))
-        briva = _normalize_briva(_record_value(record, layout.headers, briva_header))
-        amount = _amount_to_int(_record_value(record, layout.headers, "Jumlah"))
+        nim = normalize_nim(_record_value(record, layout.headers, ("NIM", "Nomor Induk Mahasiswa")))
+        full_name = normalize_imported_name(_record_value(record, layout.headers, ("Nama", "Nama Mahasiswa", "Nama Lengkap")))
+        briva = _normalize_briva(_record_value(record, layout.headers, ("No Rek", "No. Rek", "No Rekening", "BRIVA", "Nomor BRIVA", "VA")))
+        amount = _amount_to_int(_record_value(record, layout.headers, ("Jumlah", "Nominal", "Tagihan", "Biaya")))
         row_number = int(record.get("_row_number") or 0)
         if not nim or not full_name or not briva or amount is None:
             message = "Baris dilewati karena NIM, nama, BRIVA, atau nominal tidak valid."
@@ -134,11 +240,25 @@ def _read_sync_rows(
                     "nim": nim,
                     "full_name": full_name,
                     "briva": briva,
-                    "amount": clean_excel_text(_record_value(record, layout.headers, "Jumlah")),
+                    "amount": clean_excel_text(_record_value(record, layout.headers, ("Jumlah", "Nominal"))),
                     "note": message,
                 }
             )
             continue
+
+        raw_ktp = _record_value(record, layout.headers, ("NO KTP", "No. KTP", "NIK", "KTP", "Nomor KTP"))
+        raw_tempat = _record_value(record, layout.headers, ("Tempat Lahir", "Tempat_Lahir"))
+        raw_tgl = _record_value(record, layout.headers, ("Tanggal Lahir", "Tanggal_Lahir", "Tgl Lahir"))
+        raw_ibu = _record_value(record, layout.headers, ("Nama Ibu Kandung", "Nama Ibu", "Ibu Kandung"))
+        raw_email = _record_value(record, layout.headers, ("e-Mail", "Email", "E-mail", "Surel"))
+        raw_kontak = _record_value(record, layout.headers, ("No Kontak", "No. Kontak", "No Hp", "No. HP", "No Telepon", "Telepon"))
+        raw_reg = _record_value(record, layout.headers, ("Registrasi Awal", "Periode Masuk", "Registrasi_Awal"))
+        raw_prodi = _record_value(record, layout.headers, ("Program Studi", "Prodi", "Jurusan"))
+        raw_due = _record_value(record, layout.headers, ("Batas Pembayaran", "Jatuh Tempo", "Due Date"))
+
+        initial_reg = clean_demographic_value(raw_reg)
+        entry_year, entry_semester, entry_period = parse_entry_registration(initial_reg)
+
         row = {
             "nim": nim,
             "full_name": full_name,
@@ -146,10 +266,18 @@ def _read_sync_rows(
             "amount": amount,
             "row_number": row_number,
             "period": period,
-            "program_study": clean_excel_text(_record_value(record, layout.headers, "Program Studi")),
-            "initial_registration": clean_excel_text(_record_value(record, layout.headers, "Registrasi Awal")),
-            "phone_number": normalize_nim(_record_value(record, layout.headers, "No Hp")),
-            "due_date": clean_excel_text(_record_value(record, layout.headers, "Batas Pembayaran")),
+            "no_ktp": clean_demographic_value(raw_ktp),
+            "tempat_lahir": clean_demographic_value(raw_tempat),
+            "tanggal_lahir": clean_demographic_value(raw_tgl),
+            "nama_ibu_kandung": clean_demographic_value(raw_ibu),
+            "email": clean_demographic_value(raw_email),
+            "phone_number": normalize_nim(raw_kontak) if raw_kontak and clean_demographic_value(raw_kontak) else None,
+            "initial_registration": initial_reg,
+            "entry_year": entry_year,
+            "entry_semester": entry_semester,
+            "entry_period": entry_period,
+            "program_study": clean_demographic_value(raw_prodi),
+            "due_date": clean_demographic_value(raw_due),
         }
         rows.append(row)
         if len(sample) < 5:
@@ -172,8 +300,13 @@ def _read_sync_rows(
                     "message": "NIM muncul dengan nama berbeda. Nama pada baris pertama digunakan untuk profil mahasiswa.",
                 }
             )
-        for field in ("full_name", "program_study", "initial_registration", "phone_number"):
-            row[field] = canonical[field]
+        for field in (
+            "full_name", "no_ktp", "tempat_lahir", "tanggal_lahir", "nama_ibu_kandung",
+            "email", "phone_number", "program_study", "initial_registration",
+            "entry_year", "entry_semester", "entry_period",
+        ):
+            if canonical.get(field):
+                row[field] = canonical[field]
 
     return rows, errors, sample, identity_conflict_rows, skipped_issues
 
@@ -502,16 +635,47 @@ def _upsert_student(conn: sqlite3.Connection, row: dict[str, object]) -> str:
     nim = str(row["nim"])
     full_name = normalize_imported_name(row["full_name"])
     student_id = _get_existing_id(conn, "students", "nim", nim) or str(uuid.uuid4())
+
+    no_ktp = clean_demographic_value(row.get("no_ktp"))
+    tempat_lahir = clean_demographic_value(row.get("tempat_lahir"))
+    tanggal_lahir = clean_demographic_value(row.get("tanggal_lahir"))
+    nama_ibu_kandung = clean_demographic_value(row.get("nama_ibu_kandung"))
+    email = clean_demographic_value(row.get("email"))
+    phone_number = normalize_nim(row.get("phone_number")) if row.get("phone_number") else None
+    initial_reg = clean_demographic_value(row.get("initial_registration"))
+    program_study = clean_demographic_value(row.get("program_study"))
+
+    entry_year = row.get("entry_year")
+    entry_semester = row.get("entry_semester")
+    entry_period = row.get("entry_period")
+    if entry_year is None or entry_semester is None or entry_period is None:
+        y, s, p = parse_entry_registration(initial_reg)
+        entry_year = entry_year or y
+        entry_semester = entry_semester or s
+        entry_period = entry_period or p
+
     conn.execute(
         """
-        insert into students (id, nim, full_name, name_norm, program_study, initial_registration, phone_number, updated_at)
-        values (?, ?, ?, ?, ?, ?, ?, datetime('now'))
+        insert into students (
+            id, nim, full_name, name_norm, no_ktp, tempat_lahir, tanggal_lahir, nama_ibu_kandung,
+            program_study, initial_registration, entry_year, entry_semester, entry_period,
+            phone_number, email, academic_status, updated_at
+        )
+        values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'aktif', datetime('now'))
         on conflict(nim) do update set
           full_name = excluded.full_name,
           name_norm = excluded.name_norm,
-          program_study = case when excluded.program_study <> '' then excluded.program_study else students.program_study end,
-          initial_registration = case when excluded.initial_registration <> '' then excluded.initial_registration else students.initial_registration end,
-          phone_number = case when excluded.phone_number <> '' then excluded.phone_number else students.phone_number end,
+          no_ktp = case when excluded.no_ktp is not null and excluded.no_ktp <> '' then excluded.no_ktp else students.no_ktp end,
+          tempat_lahir = case when excluded.tempat_lahir is not null and excluded.tempat_lahir <> '' then excluded.tempat_lahir else students.tempat_lahir end,
+          tanggal_lahir = case when excluded.tanggal_lahir is not null and excluded.tanggal_lahir <> '' then excluded.tanggal_lahir else students.tanggal_lahir end,
+          nama_ibu_kandung = case when excluded.nama_ibu_kandung is not null and excluded.nama_ibu_kandung <> '' then excluded.nama_ibu_kandung else students.nama_ibu_kandung end,
+          program_study = case when excluded.program_study is not null and excluded.program_study <> '' then excluded.program_study else students.program_study end,
+          initial_registration = case when excluded.initial_registration is not null and excluded.initial_registration <> '' then excluded.initial_registration else students.initial_registration end,
+          entry_year = case when excluded.entry_year is not null then excluded.entry_year else students.entry_year end,
+          entry_semester = case when excluded.entry_semester is not null then excluded.entry_semester else students.entry_semester end,
+          entry_period = case when excluded.entry_period is not null then excluded.entry_period else students.entry_period end,
+          phone_number = case when excluded.phone_number is not null and excluded.phone_number <> '' then excluded.phone_number else students.phone_number end,
+          email = case when excluded.email is not null and excluded.email <> '' then excluded.email else students.email end,
           updated_at = datetime('now')
         """,
         (
@@ -519,11 +683,23 @@ def _upsert_student(conn: sqlite3.Connection, row: dict[str, object]) -> str:
             nim,
             full_name,
             normalize_name(full_name),
-            clean_excel_text(row.get("program_study")),
-            clean_excel_text(row.get("initial_registration")),
-            normalize_nim(row.get("phone_number")),
+            no_ktp,
+            tempat_lahir,
+            tanggal_lahir,
+            nama_ibu_kandung,
+            program_study,
+            initial_reg,
+            entry_year,
+            entry_semester,
+            entry_period,
+            phone_number,
+            email,
         ),
     )
+    if program_study:
+        sp_id = resolve_study_program_id(conn, program_study)
+        if sp_id:
+            conn.execute("update students set study_program_id = ? where id = ?", (sp_id, student_id))
     return student_id
 
 

@@ -4,7 +4,7 @@ from contextlib import asynccontextmanager
 from json import JSONDecodeError
 from pathlib import Path
 
-from fastapi import Depends, FastAPI, File, Request, UploadFile
+from fastapi import Depends, FastAPI, File, Request, Response, UploadFile
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 
@@ -57,7 +57,7 @@ from Backend.app.services import (
 )
 from Backend.db import connect
 from Backend.excel_reader import normalize_nim
-from Backend.import_excel import import_workbook, preview_workbook
+from Backend.import_excel import generate_master_data_template, import_workbook, preview_workbook
 
 
 class AuthError(Exception):
@@ -493,14 +493,30 @@ async def admin_update_academic_period(period_id: str, request: Request, admin=D
 
 
 # ==========================================
+# TEMPLATES & MASTER DATA
+# ==========================================
+
+@app.get("/api/admin/template/master-data")
+async def admin_download_master_data_template(admin=Depends(require_admin("manage_data"))) -> Response:
+    content = generate_master_data_template()
+    return Response(
+        content=content,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": 'attachment; filename="Template_Master_Data_Mahasiswa.xlsx"'},
+    )
+
+
+# ==========================================
 # STUDENTS & STUDENT PROFILE 360
 # ==========================================
 
 @app.get("/api/admin/students")
 async def admin_students(request: Request, admin=Depends(require_admin("manage_data"))) -> JSONResponse:
     query = str(request.query_params.get("query") or "")
-    study_program_id = str(request.query_params.get("study_program_id") or "")
+    study_program_id = str(request.query_params.get("study_program_id") or request.query_params.get("prodi") or "")
     academic_status = str(request.query_params.get("academic_status") or "")
+    entry_period = str(request.query_params.get("entry_period") or "")
+    sort_by = str(request.query_params.get("sort_by") or "")
     raw_year = request.query_params.get("entry_year")
     entry_year = int(raw_year) if raw_year and raw_year.isdigit() else None
     try:
@@ -515,6 +531,8 @@ async def admin_students(request: Request, admin=Depends(require_admin("manage_d
             study_program_id=study_program_id,
             academic_status=academic_status,
             entry_year=entry_year,
+            entry_period=entry_period,
+            sort_by=sort_by,
         )
     })
 
@@ -739,7 +757,7 @@ async def admin_import_commit(request: Request, admin=Depends(require_admin("imp
         return error_response(429, "RATE_LIMITED", "Terlalu banyak permintaan. Coba lagi nanti.", {"Retry-After": str(retry_after)})
 
     payload = await read_json(request)
-    import_token = str(payload.get("import_token") or "")
+    import_token = str(payload.get("import_token") or payload.get("token") or "")
     confirm_updates = payload.get("confirm_updates") is True
     if not re.fullmatch(r"imp_[0-9a-f]{32}", import_token):
         return error_response(400, "VALIDATION_ERROR", "Token import tidak valid.")

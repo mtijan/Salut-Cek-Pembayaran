@@ -25,7 +25,20 @@ def normalize_name(value: object) -> str:
 
 
 def normalize_imported_name(value: object) -> str:
-    return clean_excel_text(value).upper()
+    """Format student name to clean Capital Each Word (Title Case)."""
+    text = clean_excel_text(value)
+    if not text:
+        return ""
+    words = text.split()
+    return " ".join(word.capitalize() for word in words)
+
+
+def clean_demographic_value(value: object) -> str | None:
+    """Clean demographic fields (e.g. KTP, Tempat Lahir, Tgl Lahir, Ibu, Email), converting '-', '', 'None' to None."""
+    cleaned = clean_excel_text(value)
+    if not cleaned or cleaned in {"-", "None", "null", "N/A"}:
+        return None
+    return cleaned
 
 
 def normalize_nim(value: object) -> str:

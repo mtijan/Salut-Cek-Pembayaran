@@ -9,8 +9,14 @@ from pathlib import Path
 
 from Backend.app import config
 from Backend.app.security import digest, hash_password, token_hash, verify_password
-from Backend.db import connect, init_db
-from Backend.excel_reader import normalize_name, normalize_nim, normalize_text
+from Backend.db import connect, init_db, parse_entry_registration
+from Backend.excel_reader import (
+    clean_demographic_value,
+    normalize_imported_name,
+    normalize_name,
+    normalize_nim,
+    normalize_text,
+)
 
 
 MONTH_NAMES_ID = [
@@ -47,6 +53,21 @@ def format_due_date(due_date_str: str | None) -> str:
     except (ValueError, IndexError):
         pass
     return cleaned
+
+
+def format_entry_period(entry_period: str | None, entry_semester: str | None = None) -> str:
+    if not entry_period:
+        return ""
+    p = str(entry_period).strip()
+    if "." in p:
+        parts = p.split(".")
+        sem_num = parts[1] if len(parts) > 1 else ""
+        sem_name = "Ganjil" if sem_num == "1" else "Genap" if sem_num == "2" else f"Semester {sem_num}"
+        return f"{p} ({sem_name})"
+    if entry_semester:
+        sem_name = "Ganjil" if str(entry_semester).lower() == "ganjil" else "Genap" if str(entry_semester).lower() == "genap" else str(entry_semester).title()
+        return f"{p} ({sem_name})"
+    return p
 
 
 def sanitize_filename(filename: str) -> str:
@@ -130,15 +151,25 @@ def bill_row_to_dict(row: sqlite3.Row) -> dict[str, object]:
 
 def student_row_to_dict(row: sqlite3.Row) -> dict[str, object]:
     keys = row.keys()
+    entry_period = row["entry_period"] if "entry_period" in keys and row["entry_period"] else ""
+    entry_semester = row["entry_semester"] if "entry_semester" in keys and row["entry_semester"] else ""
     return {
         "id": row["id"],
         "nim": row["nim"],
         "full_name": row["full_name"],
+        "no_ktp": row["no_ktp"] if "no_ktp" in keys and row["no_ktp"] else "",
+        "tempat_lahir": row["tempat_lahir"] if "tempat_lahir" in keys and row["tempat_lahir"] else "",
+        "tanggal_lahir": row["tanggal_lahir"] if "tanggal_lahir" in keys and row["tanggal_lahir"] else "",
+        "nama_ibu_kandung": row["nama_ibu_kandung"] if "nama_ibu_kandung" in keys and row["nama_ibu_kandung"] else "",
         "program_study": row["program_study"] if "program_study" in keys and row["program_study"] else "",
         "study_program_id": row["study_program_id"] if "study_program_id" in keys and row["study_program_id"] else "",
         "study_program_name": row["study_program_name"] if "study_program_name" in keys and row["study_program_name"] else (row["program_study"] if "program_study" in keys and row["program_study"] else ""),
+        "study_program_code": row["study_program_code"] if "study_program_code" in keys and row["study_program_code"] else "",
         "academic_status": row["academic_status"] if "academic_status" in keys and row["academic_status"] else "aktif",
         "entry_year": row["entry_year"] if "entry_year" in keys and row["entry_year"] is not None else None,
+        "entry_semester": entry_semester,
+        "entry_period": entry_period,
+        "entry_period_formatted": format_entry_period(entry_period, entry_semester),
         "email": row["email"] if "email" in keys and row["email"] else "",
         "address": row["address"] if "address" in keys and row["address"] else "",
         "phone_number": row["phone_number"] if "phone_number" in keys and row["phone_number"] else "",
@@ -221,24 +252,48 @@ def ensure_student(
     email: object = None,
     address: object = None,
     phone_number: object = None,
+    no_ktp: object = None,
+    tempat_lahir: object = None,
+    tanggal_lahir: object = None,
+    nama_ibu_kandung: object = None,
+    initial_registration: object = None,
+    entry_semester: object = None,
+    entry_period: object = None,
 ) -> sqlite3.Row:
     normalized_nim = normalize_nim(nim)
-    normalized_name = normalize_text(full_name)
+    normalized_name = normalize_imported_name(full_name)
     if not normalized_nim:
         raise ValueError("NIM wajib diisi.")
     if not normalized_name:
         raise ValueError("Nama mahasiswa wajib diisi.")
 
-    norm_prodi = normalize_text(program_study) or None
+    norm_prodi = clean_demographic_value(program_study)
     norm_prodi_id = normalize_text(study_program_id) or None
+    if norm_prodi_id:
+        sp_row = conn.execute("select name from study_programs where id = ? or upper(code) = ?", (norm_prodi_id, norm_prodi_id.upper())).fetchone()
+        if sp_row and not norm_prodi:
+            norm_prodi = str(sp_row["name"])
+    elif norm_prodi:
+        from Backend.db import resolve_study_program_id
+        norm_prodi_id = resolve_study_program_id(conn, norm_prodi)
+
     norm_status = normalize_text(academic_status) or None
-    norm_email = normalize_text(email) or None
-    norm_address = normalize_text(address) or None
-    norm_phone = normalize_text(phone_number) or None
+    norm_email = clean_demographic_value(email)
+    norm_address = clean_demographic_value(address)
+    norm_phone = normalize_nim(phone_number) if phone_number and clean_demographic_value(phone_number) else None
+    norm_ktp = clean_demographic_value(no_ktp)
+    norm_tempat = clean_demographic_value(tempat_lahir)
+    norm_tgl = clean_demographic_value(tanggal_lahir)
+    norm_ibu = clean_demographic_value(nama_ibu_kandung)
+    norm_reg = clean_demographic_value(initial_registration)
+
+    parsed_year, parsed_sem, parsed_period = parse_entry_registration(norm_reg)
     try:
-        norm_year = int(str(entry_year).strip()) if entry_year is not None and str(entry_year).strip().isdigit() else None
+        norm_year = int(str(entry_year).strip()) if entry_year is not None and str(entry_year).strip().isdigit() else parsed_year
     except (ValueError, TypeError):
-        norm_year = None
+        norm_year = parsed_year
+    norm_sem = clean_demographic_value(entry_semester) or parsed_sem
+    norm_period = clean_demographic_value(entry_period) or parsed_period
 
     row = conn.execute("select id, nim, full_name from students where nim = ? and deleted_at is null", (normalized_nim,)).fetchone()
     if row:
@@ -256,6 +311,12 @@ def ensure_student(
         if norm_year is not None:
             updates.append("entry_year = ?")
             params.append(norm_year)
+        if norm_sem:
+            updates.append("entry_semester = ?")
+            params.append(norm_sem)
+        if norm_period:
+            updates.append("entry_period = ?")
+            params.append(norm_period)
         if norm_email:
             updates.append("email = ?")
             params.append(norm_email)
@@ -265,18 +326,42 @@ def ensure_student(
         if norm_phone:
             updates.append("phone_number = ?")
             params.append(norm_phone)
+        if norm_ktp:
+            updates.append("no_ktp = ?")
+            params.append(norm_ktp)
+        if norm_tempat:
+            updates.append("tempat_lahir = ?")
+            params.append(norm_tempat)
+        if norm_tgl:
+            updates.append("tanggal_lahir = ?")
+            params.append(norm_tgl)
+        if norm_ibu:
+            updates.append("nama_ibu_kandung = ?")
+            params.append(norm_ibu)
+        if norm_reg:
+            updates.append("initial_registration = ?")
+            params.append(norm_reg)
         params.append(row["id"])
         conn.execute(f"update students set {', '.join(updates)} where id = ?", params)
         return conn.execute("select id, nim, full_name from students where id = ?", (row["id"],)).fetchone()
 
-    student_id = str(uuid.uuid4())
+    student_id = f"stu_{uuid.uuid4().hex[:12]}"
     conn.execute(
         """
-        insert into students
-          (id, nim, full_name, name_norm, program_study, study_program_id, academic_status, entry_year, email, address, phone_number)
-        values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        insert into students (
+            id, nim, full_name, name_norm,
+            no_ktp, tempat_lahir, tanggal_lahir, nama_ibu_kandung,
+            program_study, study_program_id, academic_status, entry_year, entry_semester, entry_period,
+            email, address, phone_number, initial_registration
+        )
+        values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
-        (student_id, normalized_nim, normalized_name, normalize_name(normalized_name), norm_prodi, norm_prodi_id, norm_status or "aktif", norm_year, norm_email, norm_address, norm_phone),
+        (
+            student_id, normalized_nim, normalized_name, normalize_name(normalized_name),
+            norm_ktp, norm_tempat, norm_tgl, norm_ibu,
+            norm_prodi, norm_prodi_id, norm_status or "aktif", norm_year, norm_sem, norm_period,
+            norm_email, norm_address, norm_phone, norm_reg,
+        ),
     )
     return conn.execute("select id, nim, full_name from students where id = ?", (student_id,)).fetchone()
 
@@ -288,6 +373,8 @@ def list_students(
     study_program_id: str = "",
     academic_status: str = "",
     entry_year: int | None = None,
+    entry_period: str = "",
+    sort_by: str = "",
 ) -> list[dict[str, object]]:
     search = normalize_text(query)
     limit = max(1, min(int(limit or 2000), 5000))
@@ -296,31 +383,50 @@ def list_students(
     params: list[object] = []
     where_clauses = ["s.deleted_at is null"]
     if search:
-        where_clauses.append("(s.nim like ? or s.full_name like ? or s.program_study like ?)")
-        params.extend([f"%{search}%", f"%{search}%", f"%{search}%"])
+        where_clauses.append(
+            "(s.nim like ? or s.full_name like ? or s.program_study like ? or sp.name like ? or sp.code like ? or s.no_ktp like ? or s.email like ? or s.phone_number like ?)"
+        )
+        params.extend([f"%{search}%", f"%{search}%", f"%{search}%", f"%{search}%", f"%{search}%", f"%{search}%", f"%{search}%", f"%{search}%"])
     if study_program_id:
-        where_clauses.append("(s.study_program_id = ? or sp.code = ?)")
-        params.extend([study_program_id, study_program_id])
+        where_clauses.append("(s.study_program_id = ? or sp.code = ? or lower(s.program_study) = lower(?) or lower(sp.name) = lower(?))")
+        params.extend([study_program_id.strip(), study_program_id.strip(), study_program_id.strip(), study_program_id.strip()])
     if academic_status:
         where_clauses.append("s.academic_status = ?")
         params.append(academic_status.lower().strip())
     if entry_year is not None and str(entry_year).isdigit():
         where_clauses.append("s.entry_year = ?")
         params.append(int(entry_year))
+    if entry_period:
+        where_clauses.append("(s.entry_period = ? or s.initial_registration like ?)")
+        params.extend([entry_period.strip(), f"%{entry_period.strip()}%"])
+
+    order_by = "order by s.nim asc"
+    if sort_by == "entry_period_asc":
+        order_by = "order by s.entry_period asc nulls last, s.nim asc"
+    elif sort_by == "entry_period_desc":
+        order_by = "order by s.entry_period desc nulls last, s.nim asc"
+    elif sort_by == "name_asc":
+        order_by = "order by s.full_name asc"
+    elif sort_by == "updated_at_desc":
+        order_by = "order by s.updated_at desc"
 
     where = "where " + " and ".join(where_clauses)
     rows = conn.execute(
         f"""
-        select s.id, s.nim, s.full_name, s.program_study, s.study_program_id, s.academic_status,
-               s.entry_year, s.email, s.address, s.phone_number, s.initial_registration,
-               sp.name as study_program_name,
+        select s.id, s.nim, s.full_name, s.no_ktp, s.tempat_lahir, s.tanggal_lahir, s.nama_ibu_kandung,
+               s.program_study, s.study_program_id, s.academic_status,
+               s.entry_year, s.entry_semester, s.entry_period,
+               s.email, s.address, s.phone_number, s.initial_registration,
+               sp.name as study_program_name, sp.code as study_program_code,
                count(b.id) as bill_count, coalesce(sum(b.amount), 0) as total_amount
         from students s
         left join study_programs sp on sp.id = s.study_program_id
         left join bills b on b.student_id = s.id and b.deleted_at is null
         {where}
-        group by s.id, s.nim, s.full_name, s.program_study, s.study_program_id, s.academic_status, s.entry_year, s.email, s.address, s.phone_number, s.initial_registration, sp.name
-        order by s.nim asc
+        group by s.id, s.nim, s.full_name, s.no_ktp, s.tempat_lahir, s.tanggal_lahir, s.nama_ibu_kandung,
+                 s.program_study, s.study_program_id, s.academic_status, s.entry_year, s.entry_semester, s.entry_period,
+                 s.email, s.address, s.phone_number, s.initial_registration, sp.name, sp.code
+        {order_by}
         limit ?
         """,
         (*params, limit),
@@ -334,8 +440,10 @@ def get_student_detail(db_path: str | Path, student_id: str) -> dict[str, object
     init_db(conn)
     student = conn.execute(
         """
-        select s.id, s.nim, s.full_name, s.program_study, s.study_program_id, s.academic_status,
-               s.entry_year, s.email, s.address, s.phone_number, s.initial_registration, s.created_at,
+        select s.id, s.nim, s.full_name, s.no_ktp, s.tempat_lahir, s.tanggal_lahir, s.nama_ibu_kandung,
+               s.program_study, s.study_program_id, s.academic_status,
+               s.entry_year, s.entry_semester, s.entry_period,
+               s.email, s.address, s.phone_number, s.initial_registration, s.created_at,
                sp.name as study_program_name, sp.code as study_program_code, sp.degree as study_program_degree
         from students s
         left join study_programs sp on sp.id = s.study_program_id
@@ -395,31 +503,28 @@ def create_student(
     else:
         data = {"nim": nim_or_payload, "full_name": full_name}
 
-    nim_val = data.get("nim")
-    name_val = data.get("full_name")
-    prodi = data.get("program_study")
-    prodi_id = data.get("study_program_id")
-    status = data.get("academic_status") or "aktif"
-    year = data.get("entry_year")
-    email = data.get("email")
-    address = data.get("address")
-    phone = data.get("phone_number")
-
     conn = connect(db_path)
     init_db(conn)
     try:
         with conn:
             student = ensure_student(
                 conn,
-                nim=nim_val,
-                full_name=name_val,
-                program_study=prodi,
-                study_program_id=prodi_id,
-                academic_status=status,
-                entry_year=year,
-                email=email,
-                address=address,
-                phone_number=phone,
+                nim=data.get("nim"),
+                full_name=data.get("full_name"),
+                program_study=data.get("program_study"),
+                study_program_id=data.get("study_program_id"),
+                academic_status=data.get("academic_status") or "aktif",
+                entry_year=data.get("entry_year"),
+                email=data.get("email"),
+                address=data.get("address"),
+                phone_number=data.get("phone_number"),
+                no_ktp=data.get("no_ktp"),
+                tempat_lahir=data.get("tempat_lahir"),
+                tanggal_lahir=data.get("tanggal_lahir"),
+                nama_ibu_kandung=data.get("nama_ibu_kandung"),
+                initial_registration=data.get("initial_registration"),
+                entry_semester=data.get("entry_semester"),
+                entry_period=data.get("entry_period"),
             )
     finally:
         conn.close()
@@ -435,22 +540,31 @@ def require_delete_reason(reason: str) -> str:
 
 def update_student(db_path: str | Path, student_id: str, payload: dict[str, object]) -> sqlite3.Row | None:
     normalized_nim = normalize_nim(payload.get("nim"))
-    normalized_name = normalize_text(payload.get("full_name"))
+    normalized_name = normalize_imported_name(payload.get("full_name"))
     if not normalized_nim:
         raise ValueError("NIM wajib diisi.")
     if not normalized_name:
         raise ValueError("Nama mahasiswa wajib diisi.")
 
-    prodi = normalize_text(payload.get("program_study")) or None
+    prodi = clean_demographic_value(payload.get("program_study"))
     prodi_id = normalize_text(payload.get("study_program_id")) or None
     status = normalize_text(payload.get("academic_status")) or "aktif"
-    email = normalize_text(payload.get("email")) or None
-    address = normalize_text(payload.get("address")) or None
-    phone = normalize_text(payload.get("phone_number")) or None
+    email = clean_demographic_value(payload.get("email"))
+    address = clean_demographic_value(payload.get("address"))
+    phone = normalize_nim(payload.get("phone_number")) if payload.get("phone_number") and clean_demographic_value(payload.get("phone_number")) else None
+    no_ktp = clean_demographic_value(payload.get("no_ktp"))
+    tempat = clean_demographic_value(payload.get("tempat_lahir"))
+    tgl = clean_demographic_value(payload.get("tanggal_lahir"))
+    ibu = clean_demographic_value(payload.get("nama_ibu_kandung"))
+    reg = clean_demographic_value(payload.get("initial_registration"))
+
+    parsed_year, parsed_sem, parsed_period = parse_entry_registration(reg)
     try:
-        year = int(str(payload.get("entry_year")).strip()) if payload.get("entry_year") is not None and str(payload.get("entry_year")).strip().isdigit() else None
+        year = int(str(payload.get("entry_year")).strip()) if payload.get("entry_year") is not None and str(payload.get("entry_year")).strip().isdigit() else parsed_year
     except (ValueError, TypeError):
-        year = None
+        year = parsed_year
+    sem = clean_demographic_value(payload.get("entry_semester")) or parsed_sem
+    period = clean_demographic_value(payload.get("entry_period")) or parsed_period
 
     conn = connect(db_path)
     init_db(conn)
@@ -465,12 +579,18 @@ def update_student(db_path: str | Path, student_id: str, payload: dict[str, obje
             conn.execute(
                 """
                 update students
-                set nim = ?, full_name = ?, name_norm = ?, program_study = ?, study_program_id = ?,
-                    academic_status = ?, entry_year = ?, email = ?, address = ?, phone_number = ?,
+                set nim = ?, full_name = ?, name_norm = ?, no_ktp = ?, tempat_lahir = ?, tanggal_lahir = ?, nama_ibu_kandung = ?,
+                    program_study = ?, study_program_id = ?, academic_status = ?, entry_year = ?, entry_semester = ?, entry_period = ?,
+                    email = ?, address = ?, phone_number = ?, initial_registration = ?,
                     updated_at = datetime('now')
                 where id = ?
                 """,
-                (normalized_nim, normalized_name, normalize_name(normalized_name), prodi, prodi_id, status, year, email, address, phone, student_id),
+                (
+                    normalized_nim, normalized_name, normalize_name(normalized_name),
+                    no_ktp, tempat, tgl, ibu,
+                    prodi, prodi_id, status, year, sem, period,
+                    email, address, phone, reg, student_id,
+                ),
             )
             return conn.execute("select * from students where id = ?", (student_id,)).fetchone()
     finally:
@@ -1027,6 +1147,8 @@ def create_study_program(db_path: str | Path, payload: dict[str, object]) -> dic
 
     if not code:
         raise ValueError("Kode program studi wajib diisi.")
+    if len(code) != 4 or not code.isalnum():
+        raise ValueError("Kode program studi harus terdiri dari 4 karakter alfanumerik huruf kapital (contoh: HKUM, MANJ, SIFO).")
     if not name:
         raise ValueError("Nama program studi wajib diisi.")
 
@@ -1074,6 +1196,8 @@ def update_study_program(db_path: str | Path, program_id: str, payload: dict[str
 
             if not new_code:
                 raise ValueError("Kode program studi tidak boleh kosong.")
+            if len(new_code) != 4 or not new_code.isalnum():
+                raise ValueError("Kode program studi harus terdiri dari 4 karakter alfanumerik huruf kapital (contoh: HKUM, MANJ, SIFO).")
             if not new_name:
                 raise ValueError("Nama program studi tidak boleh kosong.")
 

@@ -490,7 +490,7 @@ class CoreBehaviorTests(unittest.TestCase):
             ).fetchone()
             bill = conn.execute("select briva, amount, due_date from bills").fetchone()
             conn.close()
-            self.assertEqual(student, ("01010", "DINI PUTRI", "UT Serang/2025-Ganjil", "081234567890", "FST - Sistem Informasi"))
+            self.assertEqual(student, ("01010", "Dini Putri", "UT Serang/2025-Ganjil", "081234567890", "FST - Sistem Informasi"))
             self.assertEqual(bill, ("178100023200891", 1850000, "07 Agustus 2026 Pukul 11.59 WIB"))
 
     def test_admin_manual_student_and_bill_crud_api(self) -> None:
@@ -893,14 +893,20 @@ class CoreBehaviorTests(unittest.TestCase):
 
         with tempfile.TemporaryDirectory() as temporary_directory:
             database = Path(temporary_directory) / "salut.sqlite"
-            # Create
-            created = create_study_program(database, {"code": "TIK", "name": "Teknik Informatika", "degree": "S1", "faculty": "FST"})
-            self.assertEqual(created["code"], "TIK")
+            # Invalid code length (< 4 or > 4) must fail
+            with self.assertRaises(ValueError):
+                create_study_program(database, {"code": "TI", "name": "Teknik Informatika"})
+            with self.assertRaises(ValueError):
+                create_study_program(database, {"code": "TINFOR", "name": "Teknik Informatika"})
+
+            # Create with valid 4-character code
+            created = create_study_program(database, {"code": "TINF", "name": "Teknik Informatika", "degree": "S1", "faculty": "FST"})
+            self.assertEqual(created["code"], "TINF")
             self.assertEqual(created["name"], "Teknik Informatika")
 
             # List
             prodis = list_study_programs(database)
-            self.assertTrue(any(p["code"] == "TIK" for p in prodis))
+            self.assertTrue(any(p["code"] == "TINF" for p in prodis))
 
             # Update
             updated = update_study_program(database, created["id"], {"name": "S1 Teknik Informatika"})
@@ -911,7 +917,7 @@ class CoreBehaviorTests(unittest.TestCase):
             deleted = delete_study_program(database, created["id"])
             self.assertTrue(deleted)
             prodis_after = list_study_programs(database)
-            self.assertFalse(any(p["code"] == "TIK" for p in prodis_after))
+            self.assertFalse(any(p["code"] == "TINF" for p in prodis_after))
 
     def test_academic_periods_crud(self) -> None:
         from Backend.app.services import create_academic_period, list_academic_periods, update_academic_period
@@ -1105,6 +1111,208 @@ class CoreBehaviorTests(unittest.TestCase):
             archive.writestr("xl/workbook.xml", workbook)
             archive.writestr("xl/_rels/workbook.xml.rels", relationships)
             archive.writestr("xl/worksheets/sheet1.xml", worksheet)
+
+    def test_master_data_13_columns_import_and_period_parsing(self) -> None:
+        from Backend.excel_reader import normalize_imported_name
+        from Backend.db import parse_entry_registration
+
+        # Test Title Case Normalization
+        self.assertEqual(normalize_imported_name("MUHAMAD ROMLI"), "Muhamad Romli")
+        self.assertEqual(normalize_imported_name("   riyanita   meirina   "), "Riyanita Meirina")
+
+        # Test Entry Period Parsing (Tahun.1 = Ganjil, Tahun.2 = Genap)
+        self.assertEqual(parse_entry_registration("UNIVERSITAS TERBUKA 2023.1"), (2023, "ganjil", "2023.1"))
+        self.assertEqual(parse_entry_registration("UNIVERSITAS TERBUKA 2023.2"), (2023, "genap", "2023.2"))
+        self.assertEqual(parse_entry_registration("2024.1"), (2024, "ganjil", "2024.1"))
+        self.assertEqual(parse_entry_registration("2025.2"), (2025, "genap", "2025.2"))
+
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            database = Path(temporary_directory) / "salut.sqlite"
+            workbook = Path(temporary_directory) / "MASTER_DATA_TEST.xlsx"
+
+            rows = [
+                (
+                    "049530265", "MUHAMAD ROMLI", "3603100510860014", "Tangerang", "14 September 2000",
+                    "Siti Aminah", "rhomly0496@gmail.com", "082310867195", "UNIVERSITAS TERBUKA 2023.1",
+                    "FEB - Akuntansi", "178100023200085", 1850000, "22 Januari 2027 Pukul 11.59 WIB",
+                ),
+                (
+                    "049532688", "RIA ANGGRAENI", "-", "-", "-",
+                    "-", "riaa1390@gmail.com", "'0895411921596", "UNIVERSITAS TERBUKA 2023.2",
+                    "FHISIP - Sosiologi", "178100023200060", 1850000, "22 Januari 2027 Pukul 11.59 WIB",
+                ),
+            ]
+            self._write_master_13_workbook(workbook, rows)
+
+            preview = preview_workbook(workbook, database)
+            self.assertEqual(preview["valid_rows"], 2)
+            self.assertEqual(preview["critical_rows"], 0)
+
+            result = import_workbook(workbook, database)
+            self.assertEqual(result["created"], 2)
+
+            conn = sqlite3.connect(database)
+            s1 = conn.execute(
+                "select nim, full_name, no_ktp, tempat_lahir, tanggal_lahir, nama_ibu_kandung, email, phone_number, entry_year, entry_semester, entry_period from students where nim = '049530265'"
+            ).fetchone()
+            s2 = conn.execute(
+                "select nim, full_name, no_ktp, tempat_lahir, tanggal_lahir, nama_ibu_kandung, email, phone_number, entry_year, entry_semester, entry_period from students where nim = '049532688'"
+            ).fetchone()
+            conn.close()
+
+            # Verify s1 has Title Case, demography, and parsed entry period
+            self.assertEqual(s1, ("049530265", "Muhamad Romli", "3603100510860014", "Tangerang", "14 September 2000", "Siti Aminah", "rhomly0496@gmail.com", "082310867195", 2023, "ganjil", "2023.1"))
+            # Verify s2 cleaned '-' to None and stripped apostrophe in phone number
+            self.assertEqual(s2, ("049532688", "Ria Anggraeni", None, None, None, None, "riaa1390@gmail.com", "0895411921596", 2023, "genap", "2023.2"))
+
+    def test_master_data_template_download_and_api_filters(self) -> None:
+        from Backend.app.security import hash_password
+        from Backend.app.services import create_student, list_students, get_student_detail
+        from Backend.import_excel import generate_master_data_template
+
+        # Test Template Generator
+        template_bytes = generate_master_data_template()
+        self.assertTrue(len(template_bytes) > 100)
+
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            database = Path(temporary_directory) / "salut.sqlite"
+            conn = connect(database)
+            init_db(conn)
+            with conn:
+                conn.execute(
+                    "insert into admin_users (id, email, password_hash, full_name, role) values (?, ?, ?, ?, ?)",
+                    ("admin-m", "master@example.test", hash_password("PasswordBaru123!"), "Admin Master", "admin"),
+                )
+            conn.close()
+
+            s1 = create_student(database, {
+                "nim": "0301",
+                "full_name": "andi saputra",
+                "no_ktp": "32010101",
+                "entry_period": "2024.1",
+                "initial_registration": "UNIVERSITAS TERBUKA 2024.1",
+                "email": "andi@test.com",
+            })
+            s2 = create_student(database, {
+                "nim": "0302",
+                "full_name": "budi santoso",
+                "no_ktp": "32010102",
+                "entry_period": "2023.2",
+                "initial_registration": "UNIVERSITAS TERBUKA 2023.2",
+                "email": "budi@test.com",
+            })
+
+            # Verify sorting by entry_period
+            sorted_asc = list_students(database, sort_by="entry_period_asc")
+            self.assertEqual([s["nim"] for s in sorted_asc], ["0302", "0301"])
+
+            sorted_desc = list_students(database, sort_by="entry_period_desc")
+            self.assertEqual([s["nim"] for s in sorted_desc], ["0301", "0302"])
+
+            # Verify filter by entry_period
+            filtered = list_students(database, entry_period="2024.1")
+            self.assertEqual(len(filtered), 1)
+            self.assertEqual(filtered[0]["nim"], "0301")
+
+            # Verify search by KTP
+            ktp_search = list_students(database, query="32010102")
+            self.assertEqual(len(ktp_search), 1)
+            self.assertEqual(ktp_search[0]["nim"], "0302")
+
+            # Verify 360 detail contains entry_period and formatted label
+            detail = get_student_detail(database, s1["id"])
+            self.assertEqual(detail["student"]["entry_period"], "2024.1")
+            self.assertEqual(detail["student"]["entry_period_formatted"], "2024.1 (Ganjil)")
+
+            # Test Template download API
+            original_db_path = app_config.DB_PATH
+            app_config.DB_PATH = database
+            try:
+                client = TestClient(server.app)
+                login = client.post("/api/admin/login", json={"email": "master@example.test", "password": "PasswordBaru123!"})
+                session_token = login.cookies["salut_admin_session"]
+
+                resp = client.get("/api/admin/template/master-data", cookies={"salut_admin_session": session_token})
+                self.assertEqual(resp.status_code, 200)
+                self.assertIn("application/vnd.openxmlformats", resp.headers["content-type"])
+            finally:
+                app_config.DB_PATH = original_db_path
+
+    @staticmethod
+    def _write_master_13_workbook(path: Path, rows: list[tuple]) -> None:
+        import openpyxl
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = "Master"
+        headers = [
+            "NIM", "Nama", "NO KTP", "Tempat Lahir", "Tanggal Lahir", "Nama Ibu Kandung",
+            "e-Mail", "No Kontak", "Registrasi Awal", "Program Studi", "No Rek", "Jumlah", "Batas Pembayaran",
+        ]
+        ws.append(headers)
+        for row in rows:
+            ws.append(list(row))
+        wb.save(path)
+
+
+    def test_study_program_4_char_codes_and_student_filtering(self) -> None:
+        from Backend.app.services import create_student, list_study_programs, list_students
+        from Backend.db import connect, init_db, resolve_study_program_id
+
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            database = Path(temporary_directory) / "salut.sqlite"
+            conn = connect(database)
+            init_db(conn)
+            conn.close()
+
+            # Verify all seeded prodis have exactly 4 character codes
+            prodis = list_study_programs(database)
+            self.assertGreaterEqual(len(prodis), 30)
+            for p in prodis:
+                self.assertEqual(len(p["code"]), 4, f"Prodi {p['code']} length is not 4")
+                self.assertTrue(p["code"].isupper(), f"Prodi {p['code']} is not uppercase")
+
+            # Test resolve_study_program_id
+            conn = connect(database)
+            self.assertIsNotNone(resolve_study_program_id(conn, "FHISIP - Ilmu Hukum"))
+            self.assertIsNotNone(resolve_study_program_id(conn, "FEB - Manajemen"))
+            self.assertIsNotNone(resolve_study_program_id(conn, "FST - Sistem Informasi"))
+            self.assertIsNotNone(resolve_study_program_id(conn, "FKIP - PGSD"))
+            conn.close()
+
+            # Create students with different prodis
+            s1 = create_student(database, {
+                "nim": "1001",
+                "full_name": "Mahasiswa Hukum",
+                "program_study": "FHISIP - Ilmu Hukum",
+                "study_program_id": "sp_hkum",
+            })
+            s2 = create_student(database, {
+                "nim": "1002",
+                "full_name": "Mahasiswa Sistem Informasi",
+                "program_study": "FST - Sistem Informasi",
+                "study_program_id": "sp_sifo",
+            })
+
+            # Filter by study_program_id
+            hukum_list = list_students(database, study_program_id="sp_hkum")
+            self.assertEqual(len(hukum_list), 1)
+            self.assertEqual(hukum_list[0]["nim"], "1001")
+            self.assertEqual(hukum_list[0]["study_program_code"], "HKUM")
+
+            sifo_list = list_students(database, study_program_id="sp_sifo")
+            self.assertEqual(len(sifo_list), 1)
+            self.assertEqual(sifo_list[0]["nim"], "1002")
+            self.assertEqual(sifo_list[0]["study_program_code"], "SIFO")
+
+            # Search by prodi code in general search
+            code_search = list_students(database, query="HKUM")
+            self.assertEqual(len(code_search), 1)
+            self.assertEqual(code_search[0]["nim"], "1001")
+
+            # Search by prodi name in general search
+            name_search = list_students(database, query="Sistem Informasi")
+            self.assertEqual(len(name_search), 1)
+            self.assertEqual(name_search[0]["nim"], "1002")
 
 
 if __name__ == "__main__":
