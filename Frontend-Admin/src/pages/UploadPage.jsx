@@ -8,8 +8,9 @@ import {
   ArrowRight,
   RefreshCw,
   FileCheck,
+  Download,
 } from 'lucide-react';
-import { importApi } from '../services/api';
+import { importApi, templateApi } from '../services/api';
 import { useToast } from '../components/common/Toast';
 import { useAuth } from '../context/AuthContext';
 
@@ -57,10 +58,14 @@ export default function UploadPage({ setActiveView }) {
   };
 
   const handleCommit = async () => {
-    if (!previewData?.token) return;
+    const token = previewData?.import_token || previewData?.token;
+    if (!token) {
+      showToast('Token preview tidak ditemukan.', 'error');
+      return;
+    }
     setCommitting(true);
     try {
-      const res = await importApi.commit(previewData.token);
+      const res = await importApi.commit(token, confirmSensitive);
       setCommitResult(res);
       setStep(3);
       showToast('Data tagihan berhasil diimpor ke database.');
@@ -91,9 +96,9 @@ export default function UploadPage({ setActiveView }) {
     );
   }
 
-  const s = previewData?.summary;
-  const critical = s?.critical_rows > 0;
-  const hasSensitive = (s?.sensitive_changes || 0) > 0;
+  const s = previewData || {};
+  const critical = (s.critical_rows || 0) > 0;
+  const hasSensitive = Boolean(s.requires_update_confirmation || (s.amount_change_rows || 0) > 0 || (s.briva_change_rows || 0) > 0);
   const canCommit = !critical && (!hasSensitive || confirmSensitive);
 
   return (
@@ -141,13 +146,32 @@ export default function UploadPage({ setActiveView }) {
       {/* STEP 1: CHOOSE FILE */}
       {step === 1 && (
         <div className="panel-card">
-          <div style={{ textAlign: 'center', padding: '32px 20px', border: '2px dashed var(--line-strong)', borderRadius: 'var(--radius-lg)', background: '#f8fafc' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
+            <div>
+              <h3 style={{ fontSize: 16, fontWeight: 800, color: 'var(--brand-strong)', margin: 0 }}>
+                Impor Data Mahasiswa & Tagihan
+              </h3>
+              <p style={{ fontSize: 13, color: 'var(--muted)', margin: '4px 0 0' }}>
+                Upload file Master Data 13 kolom resmi atau data tagihan Excel (.xlsx).
+              </p>
+            </div>
+            <a
+              href={templateApi.downloadMasterDataUrl()}
+              className="btn btn-secondary"
+              download="Template_Master_Data_Mahasiswa.xlsx"
+            >
+              <Download size={15} />
+              <span>Unduh Template Master Data (.xlsx)</span>
+            </a>
+          </div>
+
+          <div style={{ textAlign: 'center', padding: '36px 20px', border: '2px dashed var(--line-strong)', borderRadius: 'var(--radius-lg)', background: '#f8fafc' }}>
             <UploadCloud size={48} color="var(--brand)" style={{ margin: '0 auto 16px' }} />
-            <h3 style={{ fontSize: 18, fontWeight: 800, color: 'var(--brand-strong)' }}>
-              Unggah File Tagihan (.xlsx)
-            </h3>
-            <p style={{ fontSize: 13, color: 'var(--muted)', maxWidth: 460, margin: '6px auto 20px' }}>
-              Mendukung template format legacy (sheet Data Sinkron) maupun format terbaru (kolom NIM, Nama, No Rek, Jumlah).
+            <h4 style={{ fontSize: 16, fontWeight: 800, color: 'var(--brand-strong)' }}>
+              Tarik atau Pilih File Excel (.xlsx)
+            </h4>
+            <p style={{ fontSize: 13, color: 'var(--muted)', maxWidth: 520, margin: '6px auto 20px' }}>
+              Mendukung Master Data 13 kolom (<code>NIM</code>, <code>Nama</code>, <code>NO KTP</code>, <code>Tempat/Tgl Lahir</code>, <code>Nama Ibu Kandung</code>, <code>e-Mail</code>, <code>No Kontak</code>, <code>Registrasi Awal</code>, <code>Program Studi</code>, <code>No Rek</code>, <code>Jumlah</code>, <code>Batas Pembayaran</code>).
             </p>
 
             <input
@@ -191,33 +215,35 @@ export default function UploadPage({ setActiveView }) {
             <div className="stat-card">
               <span className="stat-card-title">Baris Valid</span>
               <div className="stat-card-value" style={{ color: 'var(--success)' }}>
-                {s?.valid_rows || 0}
+                {s.valid_rows || 0}
               </div>
-              <span className="stat-card-subtext">Dari {s?.total_rows || 0} total baris</span>
+              <span className="stat-card-subtext">Dari file {s.file_name}</span>
             </div>
 
             <div className="stat-card">
               <span className="stat-card-title">Tagihan Baru</span>
               <div className="stat-card-value" style={{ color: 'var(--brand)' }}>
-                {s?.new_bills || 0}
+                {s.new_rows ?? 0}
               </div>
               <span className="stat-card-subtext">Akan ditambahkan ke sistem</span>
             </div>
 
             <div className="stat-card">
-              <span className="stat-card-title">Perubahan Tagihan</span>
+              <span className="stat-card-title">Tagihan Diperbarui</span>
               <div className="stat-card-value" style={{ color: 'var(--accent)' }}>
-                {s?.updated_bills || 0}
+                {s.update_rows ?? 0}
               </div>
-              <span className="stat-card-subtext">{s?.sensitive_changes || 0} nominal/BRIVA berubah</span>
+              <span className="stat-card-subtext">
+                {s.amount_change_rows || 0} nominal / {s.briva_change_rows || 0} BRIVA berubah
+              </span>
             </div>
 
             <div className="stat-card">
               <span className="stat-card-title">Baris Kritis</span>
               <div className="stat-card-value" style={{ color: critical ? 'var(--danger)' : 'var(--muted)' }}>
-                {s?.critical_rows || 0}
+                {s.critical_rows || 0}
               </div>
-              <span className="stat-card-subtext">{critical ? 'Commit ditolak' : 'Tidak ada anomali'}</span>
+              <span className="stat-card-subtext">{critical ? 'Commit ditolak' : 'Tidak ada konflik kritis'}</span>
             </div>
           </div>
 
@@ -237,7 +263,7 @@ export default function UploadPage({ setActiveView }) {
                 <strong>Persetujuan Perubahan Data Sensitif Diperlukan</strong>
               </div>
               <p style={{ fontSize: 13, color: '#78350f', marginBottom: 12 }}>
-                Ditemukan {s?.sensitive_changes} tagihan yang mengalami perubahan nominal atau nomor BRIVA dari data sebelumnya.
+                Ditemukan {s.amount_change_rows || 0} perubahan nominal dan {s.briva_change_rows || 0} perubahan nomor BRIVA dari data sebelumnya.
               </p>
               <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
                 <input
@@ -247,6 +273,71 @@ export default function UploadPage({ setActiveView }) {
                 />
                 <span>Saya menyetujui pembaruan nominal / nomor BRIVA tagihan di atas.</span>
               </label>
+            </div>
+          )}
+
+          {/* Sample Data Table */}
+          {s.sample && s.sample.length > 0 && (
+            <div className="panel-card" style={{ marginBottom: 20 }}>
+              <h4 style={{ fontSize: 14, fontWeight: 800, color: 'var(--brand-strong)', marginBottom: 12 }}>
+                Sampel Data Terbaca (5 Baris Pertama)
+              </h4>
+              <div className="table-responsive">
+                <table className="data-table">
+                  <thead>
+                    <tr>
+                      <th>NIM</th>
+                      <th>Nama Mahasiswa</th>
+                      <th>Program Studi</th>
+                      <th>Nominal Tagihan</th>
+                      <th>No Rek / BRIVA</th>
+                      <th>Batas Pembayaran</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {s.sample.map((row, i) => (
+                      <tr key={i}>
+                        <td><strong>{row.nim}</strong></td>
+                        <td>{row.full_name}</td>
+                        <td>{row.program_study || '-'}</td>
+                        <td><strong>Rp {Number(row.amount || 0).toLocaleString('id-ID')}</strong></td>
+                        <td><code style={{ fontFamily: 'var(--font-mono)' }}>{row.briva}</code></td>
+                        <td>{row.due_date || '-'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* Warnings and Issues List */}
+          {s.errors && s.errors.length > 0 && (
+            <div className="panel-card" style={{ marginBottom: 20 }}>
+              <h4 style={{ fontSize: 14, fontWeight: 800, color: 'var(--ink)', marginBottom: 12 }}>
+                Pemberitahuan & Catatan Validasi ({s.errors.length})
+              </h4>
+              <div style={{ maxHeight: 220, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {s.errors.map((err, i) => (
+                  <div
+                    key={i}
+                    style={{
+                      padding: '8px 12px',
+                      background: err.severity === 'critical' ? 'var(--danger-bg)' : '#fef9c3',
+                      borderLeft: `4px solid ${err.severity === 'critical' ? 'var(--danger)' : '#eab308'}`,
+                      borderRadius: 4,
+                      fontSize: 12,
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                    }}
+                  >
+                    <span><strong>Baris {err.row_number}:</strong> {err.message}</span>
+                    <span style={{ fontWeight: 700, textTransform: 'uppercase', fontSize: 10, color: err.severity === 'critical' ? 'var(--danger)' : '#854d0e' }}>
+                      {err.severity}
+                    </span>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
 
@@ -275,16 +366,43 @@ export default function UploadPage({ setActiveView }) {
           <h3 style={{ fontSize: 20, fontWeight: 800, color: 'var(--brand-strong)' }}>
             Import Data Berhasil!
           </h3>
-          <p style={{ fontSize: 13, color: 'var(--muted)', maxWidth: 480, margin: '8px auto 24px' }}>
-            Data tagihan dari file Excel telah berhasil diverifikasi dan disimpan secara permanen ke dalam database.
+          <p style={{ fontSize: 13, color: 'var(--muted)', maxWidth: 480, margin: '8px auto 20px' }}>
+            Data mahasiswa dan tagihan dari file Excel telah berhasil diverifikasi dan disimpan secara permanen ke dalam database.
           </p>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12, maxWidth: 600, margin: '0 auto 28px' }}>
+            <div style={{ padding: 12, background: '#f8fafc', border: '1px solid var(--line)', borderRadius: 'var(--radius-md)' }}>
+              <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase' }}>Data Baru</span>
+              <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--brand)', marginTop: 4 }}>
+                {commitResult?.created || 0}
+              </div>
+            </div>
+            <div style={{ padding: 12, background: '#f8fafc', border: '1px solid var(--line)', borderRadius: 'var(--radius-md)' }}>
+              <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase' }}>Data Diperbarui</span>
+              <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--accent)', marginTop: 4 }}>
+                {commitResult?.updated || 0}
+              </div>
+            </div>
+            <div style={{ padding: 12, background: '#f8fafc', border: '1px solid var(--line)', borderRadius: 'var(--radius-md)' }}>
+              <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase' }}>Tidak Berubah</span>
+              <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--muted)', marginTop: 4 }}>
+                {commitResult?.unchanged || 0}
+              </div>
+            </div>
+            <div style={{ padding: 12, background: '#f8fafc', border: '1px solid var(--line)', borderRadius: 'var(--radius-md)' }}>
+              <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase' }}>Catatan / Warning</span>
+              <div style={{ fontSize: 18, fontWeight: 800, color: '#ca8a04', marginTop: 4 }}>
+                {commitResult?.issues || 0}
+              </div>
+            </div>
+          </div>
 
           <div style={{ display: 'flex', justifyContent: 'center', gap: 12 }}>
             <button type="button" className="btn btn-secondary" onClick={handleReset}>
               Import File Lain
             </button>
-            <button type="button" className="btn btn-primary" onClick={() => setActiveView('bills')}>
-              <span>Lihat Daftar Tagihan</span>
+            <button type="button" className="btn btn-primary" onClick={() => setActiveView('students')}>
+              <span>Lihat Data Mahasiswa</span>
               <ArrowRight size={16} />
             </button>
           </div>

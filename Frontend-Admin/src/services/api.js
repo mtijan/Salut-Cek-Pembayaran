@@ -58,6 +58,9 @@ export const studentsApi = {
     if (params.query) query.set('query', params.query);
     if (params.study_program_id) query.set('study_program_id', params.study_program_id);
     if (params.academic_status) query.set('academic_status', params.academic_status);
+    if (params.entry_period) query.set('entry_period', params.entry_period);
+    if (params.entry_year) query.set('entry_year', String(params.entry_year));
+    if (params.sort_by) query.set('sort_by', params.sort_by);
     return apiFetch(`/admin/students?${query.toString()}`);
   },
   getDetail: (id) => apiFetch(`/admin/students/${id}/detail`),
@@ -76,6 +79,11 @@ export const studentsApi = {
       method: 'DELETE',
       body: JSON.stringify({ reason }),
     }),
+};
+
+// Template API
+export const templateApi = {
+  downloadMasterDataUrl: () => `${BASE_URL}/admin/template/master-data`,
 };
 
 // Bills API
@@ -163,9 +171,12 @@ export const importApi = {
       body: formData,
     });
   },
-  commit: (token) =>
+  commit: (token, confirm_updates = false) =>
     apiFetch('/admin/import/commit', {
       method: 'POST',
-      body: JSON.stringify({ token }),
+      body: JSON.stringify({
+        import_token: token,
+        confirm_updates: Boolean(confirm_updates),
+      }),
     }),
 };

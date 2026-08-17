@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Search, Plus, Edit2, Trash2, ChevronLeft, ChevronRight, CheckCircle2 } from 'lucide-react';
+import { Search, Plus, Edit2, Trash2, ChevronLeft, ChevronRight, CheckCircle2, RefreshCw } from 'lucide-react';
 import { billsApi, studentsApi, masterApi } from '../services/api';
 import { useToast } from '../components/common/Toast';
 import { useAuth } from '../context/AuthContext';
@@ -218,15 +218,18 @@ export default function BillsPage() {
 
             <button
               type="button"
-              className="btn btn-secondary btn-sm"
+              className="btn btn-secondary"
+              style={{ height: 38, padding: '0 12px' }}
               onClick={() => {
                 setQuery('');
                 setSelectedStatus('');
                 setSelectedSource('');
                 setPage(1);
               }}
+              title="Reset Filter"
             >
-              Reset
+              <RefreshCw size={14} />
+              <span>Reset</span>
             </button>
           </div>
 
