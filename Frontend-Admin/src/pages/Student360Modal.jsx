@@ -303,10 +303,17 @@ export default function Student360Modal({ studentId, isOpen, onClose }) {
                             <tr key={b.id}>
                               <td><strong>{b.period}</strong></td>
                               <td>{b.bill_type}</td>
-                              <td><strong style={{ color: 'var(--brand-strong)' }}>{b.amount_formatted}</strong></td>
+                              <td>
+                                <div><strong style={{ color: 'var(--brand-strong)' }}>{b.amount_formatted}</strong></div>
+                                {b.status === 'partial' && (
+                                  <div style={{ fontSize: 11, marginTop: 2 }}>
+                                    <span style={{ color: 'var(--success)' }}>Dibayar: {b.paid_amount_formatted}</span> • <span style={{ color: 'var(--danger)' }}>Sisa: {b.remaining_amount_formatted}</span>
+                                  </div>
+                                )}
+                              </td>
                               <td>
                                 <span className={`badge ${b.status === 'paid' ? 'badge-success' : b.status === 'partial' ? 'badge-warning' : 'badge-danger'}`}>
-                                  {b.status === 'paid' ? 'Lunas' : b.status === 'partial' ? 'Cicilan' : 'Belum Lunas'}
+                                  {b.status === 'paid' ? 'Lunas' : b.status === 'partial' ? 'Bayar Sebagian' : 'Belum Lunas'}
                                 </span>
                               </td>
                               <td>{b.due_date_formatted || '-'}</td>
