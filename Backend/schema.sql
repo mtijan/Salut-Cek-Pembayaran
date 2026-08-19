@@ -62,6 +62,7 @@ create table if not exists bills (
   student_id text not null references students(id) on delete cascade,
   briva text not null,
   amount integer not null,
+  paid_amount integer not null default 0,
   period text not null,
   bill_type text not null,
   status text not null default 'unpaid',

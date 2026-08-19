@@ -130,22 +130,52 @@ def ensure_database() -> None:
 
 
 def bill_row_to_dict(row: sqlite3.Row) -> dict[str, object]:
-    due_date = row["due_date"] if "due_date" in row.keys() and row["due_date"] else ""
+    keys = row.keys()
+    due_date = row["due_date"] if "due_date" in keys and row["due_date"] else ""
+    amount = int(row["amount"]) if "amount" in keys and row["amount"] is not None else 0
+    status = str(row["status"]) if "status" in keys and row["status"] else "unpaid"
+
+    raw_paid = row["paid_amount"] if "paid_amount" in keys and row["paid_amount"] is not None else 0
+    if status == "paid":
+        paid_amount = amount
+    elif status == "unpaid":
+        paid_amount = 0
+    else:
+        paid_amount = int(raw_paid or 0)
+
+    remaining_amount = max(0, amount - paid_amount)
+
+    student_id = row["student_id"] if "student_id" in keys and row["student_id"] else ""
+    student_nim = str(row["nim"]) if "nim" in keys and row["nim"] else ""
+    student_name = str(row["full_name"]) if "full_name" in keys and row["full_name"] else ""
+    study_program_name = str(row["study_program_name"]) if "study_program_name" in keys and row["study_program_name"] else (
+        str(row["program_study"]) if "program_study" in keys and row["program_study"] else ""
+    )
+
     return {
         "id": row["id"],
-        "nim": row["nim"],
-        "full_name": row["full_name"],
-        "period": row["period"],
-        "bill_type": row["bill_type"],
-        "status": row["status"],
-        "amount": row["amount"],
-        "amount_formatted": rupiah(int(row["amount"])),
-        "payment_method": row["payment_method"],
-        "briva": row["briva"],
+        "student_id": student_id,
+        "nim": student_nim,
+        "full_name": student_name,
+        "student_nim": student_nim,
+        "student_name": student_name,
+        "study_program_name": study_program_name,
+        "period": row["period"] if "period" in keys else "",
+        "bill_type": row["bill_type"] if "bill_type" in keys else "",
+        "status": status,
+        "amount": amount,
+        "amount_formatted": rupiah(amount),
+        "paid_amount": paid_amount,
+        "paid_amount_formatted": rupiah(paid_amount),
+        "remaining_amount": remaining_amount,
+        "remaining_amount_formatted": rupiah(remaining_amount),
+        "payment_method": row["payment_method"] if "payment_method" in keys else "BRIVA",
+        "briva": row["briva"] if "briva" in keys else "",
+        "instructions": row["instructions"] if "instructions" in keys and row["instructions"] else "",
         "due_date": due_date,
         "due_date_formatted": format_due_date(due_date),
-        "source_file": row["source_file"],
-        "source_row_number": row["source_row_number"],
+        "source_file": row["source_file"] if "source_file" in keys else "",
+        "source_row_number": row["source_row_number"] if "source_row_number" in keys else None,
     }
 
 
@@ -182,10 +212,13 @@ def student_row_to_dict(row: sqlite3.Row) -> dict[str, object]:
 
 def joined_bill_select() -> str:
     return """
-        select b.id, b.briva, b.amount, b.period, b.bill_type, b.status, b.payment_method, b.due_date, b.created_at,
-               b.source_file, b.source_row_number, s.nim, s.full_name
+        select b.id, b.student_id, b.briva, b.amount, coalesce(b.paid_amount, 0) as paid_amount,
+               b.period, b.bill_type, b.status, b.payment_method, b.instructions, b.due_date, b.created_at,
+               b.source_file, b.source_row_number, s.nim, s.full_name, s.program_study,
+               sp.name as study_program_name
         from bills b
         join students s on s.id = b.student_id
+        left join study_programs sp on sp.id = s.study_program_id
     """
 
 
@@ -207,6 +240,25 @@ def validate_amount(value: object) -> int:
     if amount <= 0:
         raise ValueError("Nominal tagihan harus lebih dari 0.")
     return amount
+
+
+def validate_paid_amount(value: object, total_amount: int, status: str) -> int:
+    if status == "paid":
+        return total_amount
+    if status == "unpaid":
+        return 0
+    # For partial status
+    if value is None or value == "":
+        raise ValueError("Nominal yang dibayarkan wajib diisi untuk status Bayar Sebagian.")
+    text = str(value).replace(".", "").replace(",", "").strip()
+    if not text.isdigit():
+        raise ValueError("Nominal yang dibayarkan wajib berupa angka.")
+    paid = int(text)
+    if paid <= 0:
+        raise ValueError("Nominal bayar sebagian harus lebih dari 0.")
+    if paid >= total_amount:
+        raise ValueError("Nominal bayar sebagian harus lebih kecil dari total tagihan. Jika sudah lunas, silakan pilih status Lunas.")
+    return paid
 
 
 def normalize_status_value(status: object) -> str:
@@ -456,11 +508,8 @@ def get_student_detail(db_path: str | Path, student_id: str) -> dict[str, object
         return None
 
     bills = conn.execute(
-        """
-        select b.id, b.briva, b.amount, b.period, b.bill_type, b.status, b.payment_method, b.due_date,
-               b.source_file, b.source_row_number, b.created_at, s.nim, s.full_name
-        from bills b
-        join students s on s.id = b.student_id
+        f"""
+        {joined_bill_select()}
         where b.student_id = ? and b.deleted_at is null
         order by b.created_at desc, b.period desc
         """,
@@ -470,8 +519,8 @@ def get_student_detail(db_path: str | Path, student_id: str) -> dict[str, object
 
     bill_list = [bill_row_to_dict(b) for b in bills]
     total_amount = sum(int(b["amount"]) for b in bill_list)
-    total_paid = sum(int(b["amount"]) for b in bill_list if b["status"] == "paid")
-    total_outstanding = total_amount - total_paid
+    total_paid = sum(int(b["amount"]) if b["status"] == "paid" else (int(b.get("paid_amount", 0)) if b["status"] == "partial" else 0) for b in bill_list)
+    total_outstanding = max(0, total_amount - total_paid)
     overall_status = summarize_payment_status([b["status"] for b in bill_list])
 
     return {
@@ -707,15 +756,16 @@ def list_import_issues(db_path: str | Path = config.DB_PATH, limit: int = 500) -
 
 def create_bill(db_path: str | Path, payload: dict[str, object]) -> sqlite3.Row:
     briva = normalize_text(payload.get("briva"))
-    period = normalize_text(payload.get("period"))
-    bill_type = normalize_text(payload.get("bill_type")) or "UKT BRIVA"
+    raw_period = normalize_text(payload.get("period"))
+    bill_type = normalize_text(payload.get("bill_type")) or "UKT"
     payment_method = normalize_text(payload.get("payment_method")) or "BRIVA"
     if not briva:
         raise ValueError("Nomor BRIVA wajib diisi.")
-    if not period:
+    if not raw_period:
         raise ValueError("Periode pembayaran wajib diisi.")
     amount = validate_amount(payload.get("amount"))
     status = normalize_status_value(payload.get("status"))
+    paid_amount = validate_paid_amount(payload.get("paid_amount"), amount, status)
     due_date = validate_due_date_value(payload.get("due_date"))
     instructions = normalize_text(payload.get("instructions")) or "Bayar melalui BRIVA BRI dengan nomor BRIVA yang tampil."
 
@@ -723,15 +773,25 @@ def create_bill(db_path: str | Path, payload: dict[str, object]) -> sqlite3.Row:
     init_db(conn)
     try:
         with conn:
-            student = ensure_student(conn, payload.get("nim"), payload.get("full_name"))
+            from Backend.db import ensure_academic_period
+            period = ensure_academic_period(conn, raw_period) or raw_period
+
+            student_id = normalize_text(payload.get("student_id"))
+            if student_id:
+                student = conn.execute("select id, nim, full_name from students where id = ? and deleted_at is null", (student_id,)).fetchone()
+                if not student:
+                    raise ValueError("Mahasiswa yang dipilih tidak ditemukan.")
+            else:
+                student = ensure_student(conn, payload.get("nim"), payload.get("full_name"))
+
             bill_id = str(uuid.uuid4())
             conn.execute(
                 """
                 insert into bills
-                  (id, student_id, briva, amount, period, bill_type, status, payment_method, instructions, due_date, source_file)
-                values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                  (id, student_id, briva, amount, paid_amount, period, bill_type, status, payment_method, instructions, due_date, source_file)
+                values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
-                (bill_id, student["id"], briva, amount, period, bill_type, status, payment_method, instructions, due_date, "Manual Admin"),
+                (bill_id, student["id"], briva, amount, paid_amount, period, bill_type, status, payment_method, instructions, due_date, "Manual Admin"),
             )
             return conn.execute(f"{joined_bill_select()} where b.id = ?", (bill_id,)).fetchone()
     finally:
@@ -740,15 +800,16 @@ def create_bill(db_path: str | Path, payload: dict[str, object]) -> sqlite3.Row:
 
 def update_bill(db_path: str | Path, bill_id: str, payload: dict[str, object]) -> sqlite3.Row | None:
     briva = normalize_text(payload.get("briva"))
-    period = normalize_text(payload.get("period"))
-    bill_type = normalize_text(payload.get("bill_type")) or "UKT BRIVA"
+    raw_period = normalize_text(payload.get("period"))
+    bill_type = normalize_text(payload.get("bill_type")) or "UKT"
     payment_method = normalize_text(payload.get("payment_method")) or "BRIVA"
     if not briva:
         raise ValueError("Nomor BRIVA wajib diisi.")
-    if not period:
+    if not raw_period:
         raise ValueError("Periode pembayaran wajib diisi.")
     amount = validate_amount(payload.get("amount"))
     status = normalize_status_value(payload.get("status"))
+    paid_amount = validate_paid_amount(payload.get("paid_amount"), amount, status)
     due_date = validate_due_date_value(payload.get("due_date"))
     instructions = normalize_text(payload.get("instructions")) or "Bayar melalui BRIVA BRI dengan nomor BRIVA yang tampil."
 
@@ -756,18 +817,21 @@ def update_bill(db_path: str | Path, bill_id: str, payload: dict[str, object]) -
     init_db(conn)
     try:
         with conn:
-            current = conn.execute("select id from bills where id = ? and deleted_at is null", (bill_id,)).fetchone()
+            current = conn.execute("select id, student_id from bills where id = ? and deleted_at is null", (bill_id,)).fetchone()
             if not current:
                 return None
-            student = ensure_student(conn, payload.get("nim"), payload.get("full_name"))
+
+            from Backend.db import ensure_academic_period
+            period = ensure_academic_period(conn, raw_period) or raw_period
+
             conn.execute(
                 """
                 update bills
-                set student_id = ?, briva = ?, amount = ?, period = ?, bill_type = ?, status = ?,
+                set briva = ?, amount = ?, paid_amount = ?, period = ?, bill_type = ?, status = ?,
                     payment_method = ?, instructions = ?, due_date = ?, updated_at = datetime('now')
                 where id = ?
                 """,
-                (student["id"], briva, amount, period, bill_type, status, payment_method, instructions, due_date, bill_id),
+                (briva, amount, paid_amount, period, bill_type, status, payment_method, instructions, due_date, bill_id),
             )
             return conn.execute(f"{joined_bill_select()} where b.id = ?", (bill_id,)).fetchone()
     finally:
@@ -898,7 +962,7 @@ def delete_imported_bill_group(
         conn.close()
 
 
-def update_bill_status(db_path: str | Path, bill_id: str, status: str) -> sqlite3.Row | None:
+def update_bill_status(db_path: str | Path, bill_id: str, status: str, paid_amount: object = None) -> sqlite3.Row | None:
     if status not in {"paid", "partial", "unpaid"}:
         raise ValueError("Status hanya boleh paid, partial, atau unpaid.")
 
@@ -906,31 +970,35 @@ def update_bill_status(db_path: str | Path, bill_id: str, status: str) -> sqlite
     init_db(conn)
     with conn:
         row = conn.execute(
-            """
-            select b.id, b.briva, b.amount, b.period, b.bill_type, b.status, b.payment_method, b.due_date,
-                   b.source_file, b.source_row_number, s.nim, s.full_name
-            from bills b
-            join students s on s.id = b.student_id
-            where b.id = ? and b.deleted_at is null and s.deleted_at is null
-            """,
+            f"{joined_bill_select()} where b.id = ? and b.deleted_at is null and s.deleted_at is null",
             (bill_id,),
         ).fetchone()
         if not row:
             updated = None
-        elif row["status"] != status:
-            conn.execute("update bills set status = ?, updated_at = datetime('now') where id = ?", (status, bill_id))
+        else:
+            amount = int(row["amount"])
+            if status == "paid":
+                new_paid = amount
+            elif status == "unpaid":
+                new_paid = 0
+            else:
+                if paid_amount is not None and str(paid_amount).strip():
+                    new_paid = validate_paid_amount(paid_amount, amount, "partial")
+                else:
+                    curr_paid = int(row["paid_amount"] or 0)
+                    if curr_paid <= 0 or curr_paid >= amount:
+                        new_paid = amount // 2
+                    else:
+                        new_paid = curr_paid
+
+            conn.execute(
+                "update bills set status = ?, paid_amount = ?, updated_at = datetime('now') where id = ?",
+                (status, new_paid, bill_id),
+            )
             updated = conn.execute(
-                """
-                select b.id, b.briva, b.amount, b.period, b.bill_type, b.status, b.payment_method, b.due_date,
-                       b.source_file, b.source_row_number, s.nim, s.full_name
-                from bills b
-                join students s on s.id = b.student_id
-                where b.id = ? and b.deleted_at is null and s.deleted_at is null
-                """,
+                f"{joined_bill_select()} where b.id = ? and b.deleted_at is null and s.deleted_at is null",
                 (bill_id,),
             ).fetchone()
-        else:
-            updated = row
     conn.close()
     return updated
 
@@ -1378,7 +1446,7 @@ def get_dashboard_stats(db_path: str | Path = config.DB_PATH) -> dict[str, objec
           sum(case when b.status = 'partial' then 1 else 0 end) as partial_bills,
           sum(case when b.status = 'unpaid' then 1 else 0 end) as unpaid_bills,
           coalesce(sum(b.amount), 0) as total_billed_amount,
-          coalesce(sum(case when b.status = 'paid' then b.amount else 0 end), 0) as total_paid_amount
+          coalesce(sum(case when b.status = 'paid' then b.amount when b.status = 'partial' then coalesce(b.paid_amount, 0) else 0 end), 0) as total_paid_amount
         from bills b
         join students s on s.id = b.student_id
         where b.deleted_at is null and s.deleted_at is null
@@ -1429,7 +1497,7 @@ def get_financial_summary(db_path: str | Path = config.DB_PATH) -> dict[str, obj
           count(distinct s.id) as total_students,
           count(b.id) as total_bills,
           coalesce(sum(b.amount), 0) as billed_amount,
-          coalesce(sum(case when b.status = 'paid' then b.amount else 0 end), 0) as paid_amount
+          coalesce(sum(case when b.status = 'paid' then b.amount when b.status = 'partial' then coalesce(b.paid_amount, 0) else 0 end), 0) as paid_amount
         from students s
         left join study_programs sp on sp.id = s.study_program_id
         left join bills b on b.student_id = s.id and b.deleted_at is null

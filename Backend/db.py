@@ -29,6 +29,7 @@ def init_db(conn: sqlite3.Connection) -> None:
     conn.executescript(SCHEMA_PATH.read_text(encoding="utf-8"))
     migrate_bills_for_duplicate_briva(conn)
     migrate_bills_for_due_date(conn)
+    migrate_bills_for_paid_amount(conn)
     migrate_students_for_profile(conn)
     migrate_soft_delete(conn)
     migrate_master_data_and_student_siakad(conn)
@@ -76,6 +77,14 @@ def parse_entry_registration(initial_registration: object) -> tuple[int | None, 
         return year, None, str(year)
 
     return None, None, None
+
+
+def migrate_bills_for_paid_amount(conn: sqlite3.Connection) -> None:
+    columns = _table_columns(conn, "bills")
+    if "paid_amount" not in columns:
+        conn.execute("alter table bills add column paid_amount integer not null default 0")
+    # For existing paid bills where paid_amount is 0 or null, set paid_amount = amount
+    conn.execute("update bills set paid_amount = amount where status = 'paid' and (paid_amount is null or paid_amount = 0)")
 
 
 def migrate_bills_for_due_date(conn: sqlite3.Connection) -> None:
@@ -330,3 +339,47 @@ def migrate_soft_delete(conn: sqlite3.Connection) -> None:
             conn.execute(f"alter table bills add column {col} text")
     conn.execute("create index if not exists idx_students_deleted_at on students(deleted_at)")
     conn.execute("create index if not exists idx_bills_deleted_at on bills(deleted_at)")
+
+
+def ensure_academic_period(conn: sqlite3.Connection, period_code: str, default_name: str | None = None) -> str:
+    code_clean = str(period_code or "").strip()
+    if not code_clean:
+        return ""
+
+    row = conn.execute(
+        "select code from academic_periods where lower(code) = lower(?) or lower(name) = lower(?) limit 1",
+        (code_clean, code_clean),
+    ).fetchone()
+    if row:
+        return str(row["code"])
+
+    period_id = f"prd_{re.sub(r'[^a-zA-Z0-9]', '', code_clean).lower()}"
+    sem_type = "ganjil"
+    name = default_name
+
+    m = re.search(r"(20\d{2})\s*[\.]?\s*([12])", code_clean)
+    if m:
+        year = int(m.group(1))
+        sem_code = m.group(2)
+        sem_type = "ganjil" if sem_code == "1" else "genap"
+        sem_label = "Ganjil" if sem_code == "1" else "Genap"
+        next_year = year + 1 if sem_code == "1" else year
+        prev_year = year if sem_code == "1" else year - 1
+        name = name or f"{prev_year}/{next_year} {sem_label}"
+    else:
+        name = name or f"Periode {code_clean}"
+
+    try:
+        conn.execute(
+            """
+            insert into academic_periods (id, code, name, semester_type, is_active)
+            values (?, ?, ?, ?, 0)
+            on conflict(code) do nothing
+            """,
+            (period_id, code_clean, name, sem_type),
+        )
+    except Exception:
+        pass
+
+    return code_clean
+

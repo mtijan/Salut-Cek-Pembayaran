@@ -193,7 +193,7 @@ async def lookup(request: Request) -> JSONResponse:
 
     bills = conn.execute(
         """
-        select briva, amount, period, bill_type, status, payment_method, instructions, due_date
+        select briva, amount, coalesce(paid_amount, 0) as paid_amount, period, bill_type, status, payment_method, instructions, due_date
         from bills
         where student_id = ? and deleted_at is null
         order by period desc, created_at asc, briva asc
@@ -228,6 +228,10 @@ async def lookup(request: Request) -> JSONResponse:
                         "status": bill["status"],
                         "amount": bill["amount"],
                         "amount_formatted": rupiah(int(bill["amount"])),
+                        "paid_amount": int(bill["paid_amount"] or 0) if bill["status"] == "partial" else (int(bill["amount"]) if bill["status"] == "paid" else 0),
+                        "paid_amount_formatted": rupiah(int(bill["paid_amount"] or 0)) if bill["status"] == "partial" else (rupiah(int(bill["amount"])) if bill["status"] == "paid" else rupiah(0)),
+                        "remaining_amount": max(0, int(bill["amount"]) - (int(bill["paid_amount"] or 0) if bill["status"] == "partial" else (int(bill["amount"]) if bill["status"] == "paid" else 0))),
+                        "remaining_amount_formatted": rupiah(max(0, int(bill["amount"]) - (int(bill["paid_amount"] or 0) if bill["status"] == "partial" else (int(bill["amount"]) if bill["status"] == "paid" else 0)))),
                         "payment_method": bill["payment_method"],
                         "briva": bill["briva"],
                         "instructions": bill["instructions"],
@@ -318,10 +322,11 @@ async def admin_bill_status(request: Request, admin=Depends(require_admin("impor
     payload = await read_json(request)
     bill_id = str(payload.get("bill_id") or "").strip()
     status = str(payload.get("status") or "").strip().lower()
+    paid_amount = payload.get("paid_amount")
     if not bill_id:
         return error_response(400, "VALIDATION_ERROR", "ID tagihan wajib diisi.")
     try:
-        updated = update_bill_status(config.DB_PATH, bill_id, status)
+        updated = update_bill_status(config.DB_PATH, bill_id, status, paid_amount=paid_amount)
     except ValueError as exc:
         return error_response(400, "VALIDATION_ERROR", str(exc))
     if not updated:
@@ -335,7 +340,7 @@ async def admin_bill_status(request: Request, admin=Depends(require_admin("impor
             "bill.status_update",
             "bill",
             bill_id,
-            {"status": status, "briva": updated["briva"], "nim": updated["nim"]},
+            {"status": status, "paid_amount": updated["paid_amount"], "briva": updated["briva"], "nim": updated["nim"]},
         )
     conn.close()
     return success_response({"bill": bill_row_to_dict(updated)})

@@ -15,7 +15,21 @@ import server
 from Backend.app import config as app_config
 from Backend.app.config import ROLE_PERMISSIONS
 from Backend.app.rate_limit import RateLimiter
-from Backend.app.services import delete_imported_bill_group, list_imported_bill_groups, summarize_payment_status, update_bill_status
+from Backend.app.services import (
+    create_bill,
+    create_student,
+    delete_imported_bill_group,
+    get_dashboard_stats,
+    get_financial_summary,
+    get_student_detail,
+    list_bills,
+    list_imported_bill_groups,
+    list_students,
+    summarize_payment_status,
+    update_bill,
+    update_bill_status,
+    bill_row_to_dict,
+)
 from import_excel import import_workbook, preview_workbook
 from db import connect, init_db
 from fastapi.testclient import TestClient
@@ -1313,6 +1327,152 @@ class CoreBehaviorTests(unittest.TestCase):
             name_search = list_students(database, query="Sistem Informasi")
             self.assertEqual(len(name_search), 1)
             self.assertEqual(name_search[0]["nim"], "1002")
+
+    def test_bill_edit_retains_student_and_supports_partial_payment(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            database = Path(temporary_directory) / "salut.sqlite"
+            conn = connect(database)
+            init_db(conn)
+            conn.close()
+
+            # 1. Create a student and bill
+            st = create_student(database, {"nim": "050117077", "full_name": "Syahla Taqiyyah"})
+            bill = create_bill(database, {
+                "student_id": st["id"],
+                "briva": "178100023200040",
+                "amount": 2000000,
+                "period": "20251",
+                "bill_type": "UKT",
+                "status": "unpaid",
+            })
+            self.assertIsNotNone(bill)
+            self.assertEqual(bill["nim"], "050117077")
+            self.assertEqual(bill["status"], "unpaid")
+            self.assertEqual(bill["paid_amount"], 0)
+
+            # 2. Update bill without sending nim/full_name, setting status to partial
+            updated = update_bill(database, bill["id"], {
+                "briva": "178100023200040",
+                "amount": 2000000,
+                "paid_amount": 1200000,
+                "period": "20251",
+                "bill_type": "UKT",
+                "status": "partial",
+            })
+            self.assertIsNotNone(updated)
+            self.assertEqual(updated["nim"], "050117077")
+            self.assertEqual(updated["status"], "partial")
+            self.assertEqual(updated["paid_amount"], 1200000)
+
+            # Verify dictionary formatting
+            b_dict = bill_row_to_dict(updated)
+            self.assertEqual(b_dict["paid_amount"], 1200000)
+            self.assertEqual(b_dict["paid_amount_formatted"], "Rp 1.200.000")
+            self.assertEqual(b_dict["remaining_amount"], 800000)
+            self.assertEqual(b_dict["remaining_amount_formatted"], "Rp 800.000")
+
+            # 3. Test validation errors on partial payment
+            with self.assertRaises(ValueError):
+                # paid_amount >= amount
+                update_bill(database, bill["id"], {
+                    "briva": "178100023200040",
+                    "amount": 2000000,
+                    "paid_amount": 2000000,
+                    "period": "20251",
+                    "status": "partial",
+                })
+
+            with self.assertRaises(ValueError):
+                # paid_amount <= 0
+                update_bill(database, bill["id"], {
+                    "briva": "178100023200040",
+                    "amount": 2000000,
+                    "paid_amount": 0,
+                    "period": "20251",
+                    "status": "partial",
+                })
+
+            # 4. Update bill status to paid automatically sets paid_amount = amount
+            paid_row = update_bill_status(database, bill["id"], "paid")
+            self.assertIsNotNone(paid_row)
+            self.assertEqual(paid_row["status"], "paid")
+            self.assertEqual(paid_row["paid_amount"], 2000000)
+            paid_dict = bill_row_to_dict(paid_row)
+            self.assertEqual(paid_dict["remaining_amount"], 0)
+
+            # 5. Check custom period auto-registration
+            custom_bill = create_bill(database, {
+                "student_id": st["id"],
+                "briva": "178100023200041",
+                "amount": 500000,
+                "period": "20261",
+                "bill_type": "WISUDA",
+                "status": "unpaid",
+            })
+            self.assertIsNotNone(custom_bill)
+            self.assertEqual(custom_bill["period"], "20261")
+
+            conn = connect(database)
+            period_row = conn.execute("select * from academic_periods where code = '20261'").fetchone()
+            conn.close()
+            self.assertIsNotNone(period_row)
+            self.assertEqual(period_row["code"], "20261")
+
+    def test_dashboard_and_financial_summary_with_partial_bills(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            database = Path(temporary_directory) / "salut.sqlite"
+            conn = connect(database)
+            init_db(conn)
+            conn.close()
+
+            st1 = create_student(database, {"nim": "050117001", "full_name": "Mhs Satu", "study_program_id": "sp_hkum"})
+            st2 = create_student(database, {"nim": "050117002", "full_name": "Mhs Dua", "study_program_id": "sp_sifo"})
+
+            # Bill 1: 2.000.000, paid 1.500.000 (partial)
+            create_bill(database, {
+                "student_id": st1["id"],
+                "briva": "178100023200001",
+                "amount": 2000000,
+                "paid_amount": 1500000,
+                "period": "20251",
+                "status": "partial",
+            })
+
+            # Bill 2: 1.000.000, paid (full)
+            create_bill(database, {
+                "student_id": st2["id"],
+                "briva": "178100023200002",
+                "amount": 1000000,
+                "paid_amount": 1000000,
+                "period": "20251",
+                "status": "paid",
+            })
+
+            # Bill 3: 500.000, unpaid
+            create_bill(database, {
+                "student_id": st2["id"],
+                "briva": "178100023200003",
+                "amount": 500000,
+                "paid_amount": 0,
+                "period": "20251",
+                "status": "unpaid",
+            })
+
+            stats = get_dashboard_stats(database)
+            # Total billed = 2.000.000 + 1.000.000 + 500.000 = 3.500.000
+            # Total paid = 1.500.000 (from partial) + 1.000.000 (from paid) = 2.500.000
+            # Outstanding = 3.500.000 - 2.500.000 = 1.000.000
+            self.assertEqual(stats["total_billed_amount"], 3500000)
+            self.assertEqual(stats["total_paid_amount"], 2500000)
+            self.assertEqual(stats["total_outstanding_amount"], 1000000)
+            self.assertEqual(stats["partial_bills"], 1)
+            self.assertEqual(stats["paid_bills"], 1)
+            self.assertEqual(stats["unpaid_bills"], 1)
+
+            fin = get_financial_summary(database)
+            self.assertEqual(fin["totals"]["billed_amount"], 3500000)
+            self.assertEqual(fin["totals"]["paid_amount"], 2500000)
+            self.assertEqual(fin["totals"]["outstanding_amount"], 1000000)
 
 
 if __name__ == "__main__":
