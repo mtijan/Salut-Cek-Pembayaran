@@ -1,87 +1,136 @@
-# Salut Cek Pembayaran
+# Salut Cek Pembayaran & Sistem Informasi Akademik (SIAKAD)
 
-Aplikasi web untuk membantu mahasiswa Universitas Terbuka yang berafiliasi dengan SALUT Awwabin mengecek tagihan dan melihat instruksi pembayaran secara mandiri.
+Aplikasi web terpadu untuk mahasiswa Universitas Terbuka di SALUT Awwabin dalam mengecek status tagihan dan instruksi pembayaran BRIVA secara mandiri, dilengkapi dengan portal admin modern berbasis React 19 + Vite SPA untuk manajemen akademik, tagihan, rekapitulasi keuangan, dan import data master Excel.
 
-## Status
+## Status Sistem
 
-Baseline production berjalan di VPS dengan FastAPI/Uvicorn, frontend publik, login admin, import workbook Excel, kontrol rate limit dasar, dan SQLite. Perubahan `Unreleased` tetap harus divalidasi, dicommit, dipush, dan dideploy sebelum dianggap aktif di VPS.
+- Backend: FastAPI dan Uvicorn berjalan di VPS dengan database SQLite, session-based RBAC auth, migrasi otomatis, dan scheduled backup.
+- Frontend Admin: Modern Single Page Application (SPA) berbasis React 19 + Vite yang terintegrasi langsung di bundle `Frontend/admin-dist/`.
+- Frontend Publik: Antarmuka web statis mandiri untuk pencarian tagihan mahasiswa berbasis NIM dengan rate limit dan proteksi privasi.
+- Quality Assurance: 44 unit tests di `Backend.test_core` lulus 100%.
 
-## Target MVP
+## Fitur Utama
 
-- Mahasiswa dapat mencari tagihan menggunakan NIM.
-- Sistem menampilkan tagihan, status pembayaran, nomor BRIVA, dan cara pembayaran; bila satu NIM punya beberapa tagihan, nominal tampil sebagai `Tagihan 1`, `Tagihan 2`, dan seterusnya lalu dijumlahkan menjadi `Total Tagihan`.
-- Admin SALUT dapat login, mengimpor workbook tagihan dengan nama file apa pun selama struktur header sesuai template resmi, melihat data per nama file import, mengatur status `Belum lunas`, `Bayar sebagian`, atau `Lunas`, serta mengubah batas aktif pembayaran.
-- Sistem mencatat audit penting seperti import data, login admin, dan pencarian tagihan.
-- Deployment awal menggunakan VPS dan SQLite.
+### 1. Portal Publik Mahasiswa
+- Pencarian tagihan cepat berbasis NIM tanpa login.
+- Penanganan multi-bill dengan penomoran otomatis (`Tagihan 1`, `Tagihan 2`, dst.) dan kalkulasi `Total Tagihan`.
+- Transparansi status pembayaran: `Lunas`, `Bayar sebagian` (dengan rincian nominal cicilan & sisa tagihan), dan `Belum lunas`.
+- Informasi lengkap nomor Virtual Account (BRIVA), nama rekening, batas aktif pembayaran, serta panduan cara pembayaran resmi.
 
-## Dokumentasi
+### 2. Portal Admin SIAKAD (React 19 SPA)
+- **Dashboard Analytics**: Metrik real-time total mahasiswa, total tagihan, total penerimaan, sisa piutang/tunggakan, dan persentase pelunasan.
+- **Data Mahasiswa**: Live search, filter program studi & status akademik, manajemen CRUD, dan modal **Student Profile 360** (biodata lengkap, NIK/KTP, TTL, nama ibu kandung, kontak, registrasi awal/angkatan, dan riwayat seluruh tagihan).
+- **Tagihan Mahasiswa**: Paginasi 100 baris, filter status dan sumber data (`import`/`manual`), inline status switcher, pencatatan nominal cicilan (`paid_amount`), dan kalkulasi otomatis sisa piutang (`remaining_amount`).
+- **Rekapitulasi Keuangan**: Analisis keuangan per Program Studi (penerimaan vs tunggakan) dengan fitur ekspor data ke file CSV.
+- **Riwayat File Import**: Kartu batch file import, ringkasan status pembayaran per batch, dan fitur soft delete tagihan per file dengan alasan audit.
+- **Wizard Upload Excel 3-Langkah**:
+  - Mendukung format Master Data 13 kolom (`MASTER_DATA_2023_1_2026_1.xlsx`) dan format legacy.
+  - Normalisasi otomatis nama mahasiswa (Title Case / Capital Each Word).
+  - Ekstraksi semester registrasi awal (contoh: `2023.1`, `2023.2`) untuk sorting kronologis angkatan.
+  - Deteksi anomali data, preview diff sebelum commit, dan tombol unduh template Excel resmi.
+- **Master Data**: Manajemen CRUD Program Studi dan Periode/Semester Akademik (termasuk penetapan semester aktif).
+- **Manajemen Pengguna & Otorisasi RBAC**: Kontrol akses berjenjang (`super_admin`, `admin`, `viewer`).
+- **Audit Logging**: Pencatatan audit trail untuk seluruh aktivitas penting (login, lookup, import, perubahan status, dan penghapusan data).
 
-Dokumentasi awal disusun agar selaras dengan praktik ISO/IEC/IEEE dan pengembangan software modern:
+## Rekomendasi Teknologi
 
-- [Portal Dokumentasi HTML](docs/index.html)
-- [Standar dan Metodologi](docs/00-standards-and-methodology.md)
-- [Product Requirements](docs/01-product-requirements.md)
-- [System Design](docs/02-system-design.md)
-- [Diagram Sistem](docs/03-diagrams.md)
-- [Database Design](docs/04-database-design.md)
-- [API Contract](docs/05-api-contract.md)
-- [Security dan Privacy Design](docs/06-security-privacy-design.md)
-- [Admin dan Operasional](docs/07-admin-operations.md)
-- [Test dan Quality Plan](docs/08-test-quality-plan.md)
-- [Deployment Plan](docs/09-deployment-plan.md)
-- [Project Management Plan](docs/10-project-management.md)
-- [Risk Register](docs/11-risk-register.md)
-- [Requirements Traceability Matrix](docs/12-traceability-matrix.md)
-- [Change dan Release Plan](docs/13-change-release-plan.md)
-- [Changelog](docs/CHANGELOG.md)
-- [Security Policy](docs/SECURITY.md)
-- [Runbook](docs/RUNBOOK.md)
+- **Backend**: FastAPI, Uvicorn, Python 3.10+
+- **Database**: SQLite (dengan migrasi otomatis dan indeks pencarian)
+- **Frontend Publik**: HTML5, CSS3 Modern, Vanilla JavaScript
+- **Frontend Admin**: React 19, Vite, Lucide Icons, Modern CSS SPA
+- **Keamanan**: Server-side RBAC, Session Cookie HttpOnly/Secure, X-Real-IP Rate Limiter, Hash Logging untuk pencarian publik.
 
-Untuk membaca dokumentasi dalam tampilan yang lebih nyaman, buka file `docs/index.html` langsung dari browser.
+## Struktur Direktori
 
-## Rekomendasi Stack
-
-- Backend: FastAPI dan Uvicorn di VPS.
-- Frontend Publik: HTML, CSS, dan JavaScript statis.
-- Frontend Admin: Modern Single Page Application (SPA) berbasis React 19 + Vite dan Vanilla Admin Dashboard.
-- Database: SQLite.
-- Auth admin: session/password internal berbasis database dengan kontrol peran RBAC.
-- File import: upload langsung melalui API route dan penyimpanan file mentah di Filesystem VPS bila diperlukan.
-- Security: pemeriksaan role server-side, prepared statement SQLite, rate limit, cookie aman di production, audit log, dan backup SQLite terjadwal.
-
-## Struktur Project
-
-| Folder | Isi |
+| Direktori | Deskripsi |
 |---|---|
-| `Backend/` | API lookup, schema SQLite, services master data & analytics, importer Excel. |
-| `Frontend/` | Halaman cek pembayaran mahasiswa dan dashboard admin classic (`admin-dist/` untuk build SPA). |
-| `Frontend-Admin/` | Source code Single Page Application (React + Vite) untuk portal admin modern. |
-| `docs/` | Dokumentasi requirement, desain, deployment, dan runbook. |
+| `Backend/` | Aplikasi FastAPI (`Backend/app/`), modul database & migrasi (`Backend/db.py`), dan unit tests (`Backend/test_core.py`). |
+| `Frontend/` | Antarmuka publik mahasiswa, file statis, dan direktori bundle produksi admin (`Frontend/admin-dist/`). |
+| `Frontend-Admin/` | Source code Single Page Application (React 19 + Vite) untuk Portal Admin. |
+| `docs/` | Dokumentasi teknis terstandarisasi ISO/IEC/IEEE, desain arsitektur, API contract, runbook, dan security policy. |
 
-## Menjalankan Lokal
+## Panduan Menjalankan Lokal
+
+### Prasyarat
+- Python 3.10 atau versi lebih baru
+- Node.js 18 atau versi lebih baru
+
+### 1. Menjalankan Backend & Public Frontend
 
 ```powershell
-# 1. Menjalankan Backend & Public Frontend
+# Jalankan unit test
 python -m unittest Backend.test_core
-python -m uvicorn Backend.app.main:app --host 127.0.0.1 --port 8000
 
-# 2. Menjalankan Frontend Admin React (Development)
+# Jalankan server backend (FastAPI + Public Frontend)
+python -m uvicorn Backend.app.main:app --host 127.0.0.1 --port 8000 --reload
+```
+
+Akses portal publik di `http://127.0.0.1:8000`. Coba pencarian dengan contoh NIM: `050117077`.
+
+### 2. Menjalankan Frontend Admin React (Development Mode)
+
+```powershell
 cd Frontend-Admin
 npm install
 npm run dev
+```
 
-# 3. Melakukan Build Frontend Admin untuk Produksi
+Akses dev server admin di `http://localhost:5173`. Request API akan otomatis di-proxy ke backend `http://127.0.0.1:8000`.
+
+### 3. Melakukan Build Frontend Admin untuk Produksi
+
+```powershell
+cd Frontend-Admin
 npm run build
 ```
 
-Buka `http://127.0.0.1:8000`, lalu coba data contoh:
+Hasil build akan otomatis disimpan ke direktori `Frontend/admin-dist/` dan langsung disajikan oleh server FastAPI melalui rute `/admin`.
 
-| NIM |
-|---|
-| `050117077` |
+## Konfigurasi Environment
 
-Sebelum bootstrap admin pertama, set `ADMIN_BOOTSTRAP_EMAIL` dan `ADMIN_BOOTSTRAP_PASSWORD`. Untuk VPS juga wajib set `APP_ENV=production` dan `LOOKUP_HASH_SECRET`; lihat [template environment](Backend/.env.example) dan [panduan deployment](docs/09-deployment-plan.md).
+Salin file `Backend/.env.example` ke `Backend/.env` dan sesuaikan nilainya:
 
-## Catatan Keamanan
+```ini
+APP_ENV=development
+PORT=8000
+DATABASE_URL=salut.sqlite
+LOOKUP_HASH_SECRET=ganti-dengan-string-acak-panjang
+ADMIN_BOOTSTRAP_EMAIL=admin@salut-awwabin.ac.id
+ADMIN_BOOTSTRAP_PASSWORD=password-super-admin-aman
+TRUST_PROXY_HEADERS=false
+DEFAULT_PROGRAM_STUDY=S1 Ilmu Hukum
+DEFAULT_PAYMENT_PERIOD_LABEL=Semester Ganjil 2026
+```
 
-NIM bukan rahasia kuat. Lookup publik tetap hanya meminta NIM, lalu menampilkan nama mahasiswa, program studi default, periode pembayaran, dan detail BRIVA agar mahasiswa dapat memverifikasi tagihan. Risiko enumeration dikurangi dengan response error generik, lookup log ter-hash, rate limit 10 request per IP per 10 menit, dan monitoring lookup gagal.
+Catatan: Di server produksi (VPS), pastikan `APP_ENV=production` dan `TRUST_PROXY_HEADERS=true` diaktifkan agar rate limiting membaca header proxy `X-Real-IP` secara akurat.
+
+## Indeks Dokumentasi
+
+Dokumentasi proyek disusun mengikuti prinsip ISO/IEC/IEEE dan best practices pengembangan software:
+
+- [Portal Dokumentasi HTML](docs/index.html)
+- [00 - Standar dan Metodologi](docs/00-standards-and-methodology.md)
+- [01 - Product Requirements Document](docs/01-product-requirements.md)
+- [02 - System Design](docs/02-system-design.md)
+- [03 - Diagram Sistem](docs/03-diagrams.md)
+- [04 - Database Design](docs/04-database-design.md)
+- [05 - API Contract](docs/05-api-contract.md)
+- [06 - Security dan Privacy Design](docs/06-security-privacy-design.md)
+- [07 - Admin dan Operasional](docs/07-admin-operations.md)
+- [08 - Test dan Quality Plan](docs/08-test-quality-plan.md)
+- [09 - Deployment Plan](docs/09-deployment-plan.md)
+- [10 - Project Management Plan](docs/10-project-management.md)
+- [11 - Risk Register](docs/11-risk-register.md)
+- [12 - Requirements Traceability Matrix](docs/12-traceability-matrix.md)
+- [13 - Change dan Release Plan](docs/13-change-release-plan.md)
+- [14 - Codebase Audit & Mitigation Plan](docs/14-codebase-audit-mitigation-plan.md)
+- [Changelog](docs/CHANGELOG.md)
+- [Handoff Document](docs/HANDOFF.md)
+- [Security Policy](docs/SECURITY.md)
+- [Runbook](docs/RUNBOOK.md)
+
+## Keamanan dan Privasi
+
+1. **Proteksi Lookup NIM**: Lookup publik hanya meminta NIM dan menampilkan informasi tagihan yang relevan untuk verifikasi pembayaran. Risiko enumeration dicegah melalui pesan error generik, lookup log ter-hash menggunakan secret key, rate limit per IP, serta pemantauan lonjakan traffic.
+2. **Otorisasi dan Sesi**: Akses dashboard admin diproteksi dengan sesi terenkripsi, cookie HttpOnly dan SameSite, serta kontrol RBAC di level backend.
+3. **Integritas Data Import**: File Excel yang diunggah divalidasi struktur kolomnya, dibatasi ukurannya, dan memerlukan konfirmasi preview sebelum data di-commit ke database.
