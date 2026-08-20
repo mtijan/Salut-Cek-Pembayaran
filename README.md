@@ -86,20 +86,7 @@ npm run build
 
 Hasil build akan otomatis disimpan ke direktori `Frontend/admin-dist/` dan langsung disajikan oleh server FastAPI melalui rute `/admin`.
 
-## Konfigurasi Environment
 
-Salin file `Backend/.env.example` ke `Backend/.env` dan sesuaikan nilainya:
-
-```ini
-APP_ENV=development
-PORT=8000
-DATABASE_URL=salut.sqlite
-LOOKUP_HASH_SECRET=ganti-dengan-string-acak-panjang
-ADMIN_BOOTSTRAP_EMAIL=admin@salut-awwabin.ac.id
-ADMIN_BOOTSTRAP_PASSWORD=password-super-admin-aman
-TRUST_PROXY_HEADERS=false
-DEFAULT_PROGRAM_STUDY=S1 Ilmu Hukum
-DEFAULT_PAYMENT_PERIOD_LABEL=Semester Ganjil 2026
 ```
 
 Catatan: Di server produksi (VPS), pastikan `APP_ENV=production` dan `TRUST_PROXY_HEADERS=true` diaktifkan agar rate limiting membaca header proxy `X-Real-IP` secara akurat.
