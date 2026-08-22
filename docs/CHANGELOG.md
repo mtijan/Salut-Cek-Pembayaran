@@ -6,6 +6,11 @@ Format mengikuti prinsip Keep a Changelog dan Semantic Versioning.
 
 ## [Unreleased]
 
+### Deployed
+- Revision `ec6d65f` dideploy tanpa Docker ke VPS production pada 2026-08-22. Health/release ID, OpenAPI, Nginx, systemd, tiga timer, SQLite schema v2/WAL/integrity, backup/restore, rate limit, permission file, dan disk telah diverifikasi.
+- Smoke production lulus untuk HTTPS/API/admin session dan pagination 596 tagihan/6 halaman. Chrome E2E dengan bundle release dan data sintetis membuktikan pagination 100/5 row serta 0 CSP violation tanpa menyalin data production.
+- Hotfix systemd memakai module entrypoint (`python -m Backend...`); regression suite meningkat menjadi 58 test dan lulus lokal/VPS.
+
 ### Added
 - **Payment Transaction History (FR-035, FR-036)**: Tabel `payment_transactions` untuk mencatat setiap perubahan status pembayaran secara kronologis dan append-only. Setiap perubahan `status` atau `paid_amount` pada tagihan otomatis menghasilkan entry transaksi yang mencatat nominal perubahan, status sebelum/sesudah, tanggal pembayaran, metode, referensi, dan admin pencatat.
 - **API Riwayat Transaksi**: Endpoint `GET /api/admin/bills/{bill_id}/transactions` dan `GET /api/admin/students/{student_id}/transactions` untuk mengambil riwayat transaksi pembayaran per tagihan atau per mahasiswa.
@@ -26,9 +31,8 @@ Format mengikuti prinsip Keep a Changelog dan Semantic Versioning.
 - `docs/` tidak lagi di-ignore agar dokumentasi yang dirujuk README dapat direview dan di-commit.
 
 ### Known Issues
-- Viewer read-only lintas modul, CRUD jenis tagihan, user management, audit-log viewer, laporan per periode, dan backdate/reference pembayaran belum selesai.
-- Data `partial` historis yang mungkin pernah dibuat oleh fallback 50% memerlukan review admin sebelum release.
-- Working tree Unreleased belum diverifikasi atau dideploy ke production.
+- CRUD jenis tagihan, user management, audit-log viewer, penghapusan `unsafe-inline`, self-host font, alert disk eksternal, dan debt maintainability/P3 masih terbuka.
+- Backfill transaksi historis tidak dilakukan otomatis karena tidak ada bukti tanggal/referensi yang dapat diverifikasi.
 
 ## [2.3.0] - 2026-08-18
 

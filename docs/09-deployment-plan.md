@@ -107,7 +107,9 @@ Atur alert disk pada monitoring VPS/provider saat penggunaan mencapai 80% dan es
 
 ## Production Deployment
 
-Production terakhir didokumentasikan aktif pada `https://salutcektagihan.web.id` sejak 2026-08-02 dengan Nginx, HTTPS Let's Encrypt, service systemd, SQLite di storage VPS, dan timer backup harian. Audit lokal 2026-08-21 tidak mengakses VPS, sehingga revision, health, timer, backup, dan frontend production harus diverifikasi ulang sebelum membuat klaim current.
+Production diverifikasi langsung pada 2026-08-22 di `https://salutcektagihan.web.id` tanpa Docker. Revision aktif `ec6d65f`; health/Git HEAD cocok, OpenAPI 200, Nginx valid, Uvicorn aktif di loopback, tiga timer aktif, backup/restore lulus, SQLite schema v2 memakai WAL dan integrity `ok`, serta disk terpakai 12%.
+
+Smoke API production lulus untuk halaman publik, lookup, admin session, dashboard/laporan, pagination/filter/history, dan bundle SPA. Production memiliki 596 tagihan/6 halaman. Browser pagination memakai bundle release yang sama dan 105 data sintetis agar data production tidak keluar VPS: halaman pertama 100 row, halaman kedua 5 row, navigasi kembali berhasil, 0 console severe error, dan 0 CSP violation. Lima role serta 40 concurrent writes diuji pada salinan sementara database production yang dihapus setelah test.
 
 ## Database Migration Flow
 
@@ -161,13 +163,13 @@ Production terakhir didokumentasikan aktif pada `https://salutcektagihan.web.id`
 
 | Gate | Status Awal |
 |---|---|
-| Semua Must requirement rilis ini selesai. | Blocked: lihat temuan High di dokumen audit. |
-| Role check server-side untuk import aktif dan diuji. | Capability read/write tersedia; smoke test tiap role tetap wajib. |
-| Secret tersimpan di environment VPS dan tidak berada di webroot. | Terakhir didokumentasikan 2026-08-02; verifikasi ulang wajib. |
-| Backup SQLite otomatis dan restore uji. | Wajib diverifikasi pada setiap release backend |
-| Backup plan disetujui. | Retensi dan rotasi terkonfigurasi lokal; aktivasi serta verifikasi VPS wajib. |
-| Test utama lulus. | 57 test lokal, build, npm audit, pip check, dan pip-audit terisolasi lulus; smoke VPS current dan UAT pending. |
-| UAT admin selesai. | Pending |
-| Rollback plan tersedia. | Prosedur tersedia; backup/restore current wajib diverifikasi. |
+| Semua Must requirement rilis ini selesai. | Lulus untuk gate teknis P0-P2; lihat audit untuk debt P3. |
+| Role check server-side untuk import aktif dan diuji. | Lulus positif/negatif untuk lima role pada salinan production. |
+| Secret tersimpan di environment VPS dan tidak berada di webroot. | Lulus; env `600 root:root`, database `600 salut:salut`. |
+| Backup SQLite otomatis dan restore uji. | Lulus; backup dibuat sebelum migration dan restore sementara terverifikasi. |
+| Backup plan disetujui. | Timer retensi, backup, dan verifikasi aktif. |
+| Test utama lulus. | 58 test lokal/VPS, build/audit dependency, smoke HTTPS/API, browser sintetis, RBAC, concurrency, dan restore lulus. |
+| UAT admin selesai. | Smoke read-only selesai; UAT mutasi data bisnis tetap tanggung jawab admin. |
+| Rollback plan tersedia. | Prosedur dan backup current terverifikasi. |
 
 `docker-compose.yml` meminta secret dari `.env`, hanya bind port aplikasi ke `127.0.0.1`, dan default `TRUST_PROXY_HEADERS=false`. Salin `.env.docker.example` menjadi `.env`, isi secret unik minimal 32 karakter, lalu gunakan `TRUST_PROXY_HEADERS=true` hanya jika akses dipaksa melalui reverse proxy tepercaya. Compose bukan pengganti hardening VPS/Nginx atau verifikasi deployment.

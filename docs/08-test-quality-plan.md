@@ -137,15 +137,15 @@ Jangan gunakan `python -m pip check` dari instalasi Python global sebagai bukti 
 
 Skrip menggunakan `.venv-audit`, memasang `requirements-audit.txt`, menjalankan `pip check`, kemudian mengaudit dependency runtime dari `requirements.txt`. Exit code non-zero pada instalasi, integrity check, atau CVE audit harus menggagalkan release. Hasil 0 vulnerability adalah snapshot dan wajib diperbarui ketika dependency/advisory berubah.
 
-## Coverage Nyata Audit 2026-08-21
+## Coverage Nyata Audit dan Deploy 2026-08-22
 
-50 test backend mencakup import, lookup, CRUD, soft delete, rate limit, master data, partial payment, dashboard/report, history payment, RBAC route, dan validasi konfigurasi produksi. Coverage tersebut belum membuktikan:
+58 test backend lulus lokal/VPS dan mencakup import, lookup, CRUD, soft delete, rate limit, master data, partial payment, dashboard/report, history payment, RBAC, validasi produksi, serta regression unit systemd. Bukti deploy tambahan mencakup:
 
-- endpoint payment history beserta matrix role (bug 403 belum memiliki regression test);
-- interaksi browser nyata tombol pagination React ketika total lebih dari 100; kontrak source terhadap `data.pagination.total` sudah dijaga regression test;
-- browser E2E/visual, CSP, responsive layout, dan frontend legacy fallback;
-- validasi NIM/status/tanggal invalid, recreate NIM soft-deleted, serta CSV injection;
-- concurrency/migration lock, retention/pruning, restore backup, dan Docker proxy trust;
-- performance P95 maupun production smoke test terbaru.
+- API production 596 tagihan/6 halaman serta filter status/sumber;
+- Chrome E2E dengan bundle release dan 105 data sintetis: 100 row halaman pertama, 5 row halaman kedua, navigasi kembali, serta 0 console/CSP error;
+- matrix positif/negatif lima role dan 40 concurrent writes pada salinan database production;
+- SQLite schema v2, WAL, integrity `ok`, ledger append-only, maintenance, rate limit, backup/restore, Nginx, timer, permission, dan disk.
+
+Coverage masih belum membuktikan performance P95, layout visual lintas seluruh ukuran perangkat, alert disk eksternal, atau UAT mutasi data bisnis oleh admin.
 
 Tidak ada konfigurasi lint/type-check/frontend test/CI pada repository saat audit. Build yang lulus tidak boleh disamakan dengan UAT atau E2E.

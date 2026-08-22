@@ -6,9 +6,7 @@ Runbook ini menjadi panduan cepat untuk menjalankan, memeriksa, dan menangani ma
 
 ## Status Saat Ini
 
-Aplikasi production aktif di `https://salutcektagihan.web.id` dengan backend FastAPI/Uvicorn, frontend statis, importer XLSX, SQLite, rate limit in-memory, Nginx HTTPS, systemd, dan backup harian.
-
-Pernyataan tersebut adalah baseline historis. Audit lokal 2026-08-21 tidak memverifikasi VPS current dan working tree Unreleased masih memiliki release blocker. Cocokkan Git revision dengan `/api/health.release_id`, cek `/openapi.json`, lalu smoke test SPA sebelum menyatakan production terbaru.
+Aplikasi production aktif di `https://salutcektagihan.web.id` dengan FastAPI/Uvicorn, frontend statis, importer XLSX, SQLite, rate limit aplikasi+Nginx, HTTPS, systemd, retensi, backup harian, dan verifikasi backup bulanan. Deployment non-Docker terakhir diverifikasi 2026-08-22 pada revision `ec6d65f`; health release ID cocok, OpenAPI 200, dan timer maintenance/backup/verify aktif.
 
 ## Local Development
 

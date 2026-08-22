@@ -3,11 +3,11 @@
 Tanggal audit: 2026-08-21  
 Pembaruan remediasi: 2026-08-22  
 Scope: seluruh source backend, frontend publik, SPA React, skema/migrasi SQLite, import XLSX, konfigurasi Docker/systemd/Nginx, dependency, test, dokumentasi, dan kondisi working tree lokal.  
-Boundary: audit ini memverifikasi checkout lokal; status VPS/production tidak diperiksa. Perubahan kode aplikasi yang belum di-commit diperlakukan sebagai pekerjaan pengguna dan tidak dimodifikasi.
+Boundary awal audit hanya checkout lokal. Pada 2026-08-22 remediasi dideploy tanpa Docker dan diverifikasi langsung pada VPS production revision `ec6d65f`.
 
 ## Ringkasan Eksekutif
 
-Fungsi inti backend memiliki coverage lokal yang cukup baik dan 57 test lulus. Build SPA serta audit dependency npm/Python telah lulus pada validasi sebelumnya. Audit Python awal menemukan 9 advisory pada Starlette 0.37.2; dependency kemudian dinaikkan dan audit ulang melaporkan 0 known vulnerability. Remediasi P0 telah selesai lokal; status implementasi P1/P2 diringkas pada checklist yang menjadi sumber status terbaru di bawah. Checkout tetap belum boleh disebut siap produksi sebelum review data partial historis, browser E2E pagination, backup/restore, dan verifikasi topologi VPS dilakukan.
+Fungsi inti backend memiliki coverage lokal/VPS yang cukup baik dan 58 test lulus. Build SPA serta audit dependency npm/Python telah lulus. Remediasi P0-P2 telah dideploy tanpa Docker. Gate teknis lulus: 0 data partial aktif, API production 596 tagihan/6 halaman, browser E2E sintetis 100/5 row tanpa CSP violation, backup/restore, RBAC lima role, concurrency, rate limit, dan topologi Nginx/systemd telah diverifikasi.
 
 Prioritas perbaikan:
 
@@ -21,7 +21,7 @@ Prioritas perbaikan:
 
 | Pemeriksaan | Hasil 2026-08-21 |
 |---|---|
-| `.\.venv\Scripts\python.exe -m unittest Backend.test_core` | Lulus: 57 test, 9.468 detik. Ada deprecation warning tentang migrasi TestClient ke `httpx2` dan cookie per-request pada test. |
+| `.\.venv\Scripts\python.exe -m unittest Backend.test_core` | Lulus lokal dan VPS: 58 test. Deprecation warning TestClient/cookie tetap ada. |
 | `npm.cmd run build` di `Frontend-Admin` | Lulus: 1.605 module ditransformasi; bundle JS 319,56 kB (gzip 86,19 kB). |
 | `node --check Frontend/admin.js` | Lulus. |
 | `docker compose config --quiet` dengan secret non-placeholder | Lulus; Compose meminta secret eksternal dan bind loopback. |
@@ -30,7 +30,7 @@ Prioritas perbaikan:
 | `.\.venv\Scripts\python.exe -m pip_audit -r requirements.txt --progress-spinner off` | Audit awal: 9 advisory pada Starlette 0.37.2. Setelah FastAPI/Starlette diperbarui ke 0.141.1/1.6.0: lulus 0 known vulnerability dengan `pip-audit 2.10.1`. |
 | FastAPI route inventory | 33 API operations aktif. |
 | SQLite schema inventory | 12 tabel aplikasi aktif. |
-| Permission check transaksi | String permission `viewer` tidak ada pada role mana pun; kedua endpoint histori pasti ditolak `403`. |
+| Permission/RBAC production-copy | Lima role lulus endpoint positif/negatif; history 200 untuk role pembaca dan anonymous 401. |
 | Documentation audit sebelum sinkronisasi | 0 error, 0 warning, tetapi pemeriksaan tersebut tidak mendeteksi klaim fitur yang salah atau fakta bahwa `docs/` di-ignore Git. |
 
 ## Temuan Terbuka
@@ -38,7 +38,7 @@ Prioritas perbaikan:
 ### AUD-2026-001 - Endpoint riwayat pembayaran selalu 403
 
 Severity: High  
-Status: Remediated locally 2026-08-22 / belum dideploy
+Status: Remediated dan dideploy 2026-08-22
 
 Sebelumnya `GET /api/admin/bills/{bill_id}/transactions` dan `GET /api/admin/students/{student_id}/transactions` memakai `require_admin("viewer")`. Argumen helper tersebut adalah nama permission, sedangkan `ROLE_PERMISSIONS` tidak memberikan permission bernama `viewer` kepada role mana pun.
 
@@ -47,25 +47,25 @@ Remediasi: kedua route kini memakai `require_admin("view_reports")`, memeriksa t
 ### AUD-2026-002 - Paginasi tagihan SPA selalu berhenti di halaman pertama
 
 Severity: High  
-Status: Remediated locally 2026-08-22 / browser E2E masih pending
+Status: Remediated, dideploy, dan browser E2E lulus 2026-08-22
 
 Sebelumnya backend mengembalikan total pada `data.pagination.total`, tetapi `BillsPage.jsx` membaca `res.total_count`. `totalCount` menjadi 0, `totalPages` menjadi 1, dan data setelah 100 baris tidak dapat dinavigasi melalui SPA.
 
-Remediasi: SPA menyimpan metadata `res.pagination`, membaca `pagination.total`, dan memakai `pagination.total_pages`. Regression test backend menjaga metadata 105 record/2 halaman, sedangkan test kontrak source menjaga pembacaan field React. Build SPA lulus. Browser E2E tombol Next dengan data lebih dari 100 masih wajib sebelum release.
+Remediasi: SPA memakai `pagination.total` dan `pagination.total_pages`. API production membuktikan 596 record/6 halaman. Chrome headless dengan bundle release dan 105 data sintetis membuktikan halaman 1 berisi 100 row, halaman 2 berisi 5 row, navigasi kembali berhasil, dan console mencatat 0 CSP violation.
 
 ### AUD-2026-003 - Status partial tanpa nominal membuat angka pembayaran fiktif
 
 Severity: High  
-Status: Mitigated untuk mutasi baru 2026-08-22 / review data historis pending
+Status: Remediated dan review production selesai 2026-08-22
 
 Sebelumnya `update_bill_status()` mengisi `amount // 2` ketika status diubah ke `partial` tanpa `paid_amount`. Frontend legacy `Frontend/admin.js` mengirim status saja, sehingga fallback admin dapat mencatat cicilan 50% yang tidak pernah dimasukkan admin.
 
-Remediasi: backend selalu memanggil `validate_paid_amount()` untuk `partial`, API mengembalikan 400 tanpa nominal, dan legacy admin meminta nominal melalui dialog sebelum request. Penanganan error juga menutup koneksi SQLite melalui `finally` agar request 400 tidak meninggalkan lock. Test service/API memverifikasi penolakan dan nominal eksplisit. Data partial lama tidak dapat diidentifikasi otomatis sebagai fallback; review dan koreksi oleh admin tetap menjadi gate release.
+Remediasi: backend selalu memanggil `validate_paid_amount()` untuk `partial`, API mengembalikan 400 tanpa nominal, dan legacy admin meminta nominal eksplisit. Review database production menemukan 0 tagihan aktif berstatus `partial`, sehingga tidak ada nilai fallback historis yang perlu dikoreksi saat deployment.
 
 ### AUD-2026-004 - Docker Compose berisi default credential dan trusted proxy yang tidak aman
 
 Severity: High bila port Docker dapat diakses jaringan  
-Status: Remediated locally 2026-08-22 / topologi VPS belum diverifikasi
+Status: Remediated; topologi VPS non-Docker diverifikasi 2026-08-22
 
 Sebelumnya `docker-compose.yml` mempublikasikan port 8000, menyetel password bootstrap yang diketahui, memakai lookup secret statis, dan mengaktifkan `TRUST_PROXY_HEADERS=true`. Jika container diakses langsung, client dapat mengirim `X-Real-IP` berbeda untuk menghindari rate limit.
 
@@ -74,7 +74,7 @@ Remediasi: Compose kini memerlukan tiga secret dari `.env`, bind ke `127.0.0.1`,
 ### AUD-2026-005 - Migrasi dan seed berjalan berulang pada read path
 
 Severity: High untuk reliability/maintainability  
-Status: Remediated locally 2026-08-22 / uji beban SQLite dan backup-migration masih pending
+Status: Remediated dan diverifikasi production-copy 2026-08-22
 
 `init_db()` dipanggil oleh sekitar 26 service path. Fungsi tersebut tidak hanya membuat tabel, tetapi juga menjalankan update paid amount, upsert puluhan program studi, scan/link mahasiswa, dan migrasi lain. Read request dapat mengambil write lock SQLite, mengulang kerja migrasi, dan meningkatkan risiko `database is locked`.
 
@@ -83,7 +83,7 @@ Mitigasi: gunakan migration version table dan jalankan migrasi sekali saat start
 ### AUD-2026-006 - Mutasi bisnis dan audit log tidak atomik
 
 Severity: High  
-Status: Remediated locally 2026-08-22
+Status: Remediated dan dideploy 2026-08-22
 
 Sebagian besar handler memanggil service yang sudah commit, lalu membuka koneksi kedua untuk menulis `audit_logs`. Jika audit write gagal, data sudah berubah tetapi jejak audit hilang dan API dapat tampak gagal. Import commit memiliki risiko retry setelah perubahan sebenarnya sudah tersimpan.
 
@@ -92,38 +92,38 @@ Remediasi: mutasi mahasiswa, tagihan, master data, penghapusan batch import, dan
 ### AUD-2026-007 - RBAC viewer berbeda antara dokumentasi, UI, dan backend
 
 Severity: Medium-High  
-Status: Open
+Status: Remediated dan dideploy 2026-08-22
 
 Sidebar menampilkan semua modul kepada viewer, tetapi endpoint students/bills/detail memakai `manage_data`, imported files memakai `import`, dan payment history salah memakai permission `viewer`. Viewer praktis hanya dapat memakai dashboard, rekap keuangan, serta read master prodi/periode. Klaim viewer read-only seluruh data belum benar. Konfigurasi backend juga masih menyimpan role kompatibilitas `admin_akademik` dan `admin_keuangan` sementara UI hanya memodelkan tiga role. Pengelolaan akun admin belum memiliki API/UI meskipun permission `manage_users` tersedia.
 
-Mitigasi: definisikan permission matrix tunggal, bedakan read/write permission, turunkan navigation dari capability, dan generate negative RBAC tests dari matrix tersebut.
+Remediasi: permission matrix tunggal membedakan capability read/write dan navigation SPA memakai capability. Lima role diuji positif/negatif pada salinan konsisten database production.
 
 ### AUD-2026-008 - Soft-delete mahasiswa mencegah pembuatan ulang NIM
 
 Severity: Medium-High  
-Status: Open
+Status: Remediated dan dideploy 2026-08-22
 
 `students.nim` tetap unique untuk row soft-deleted. `ensure_student()` hanya mencari row aktif lalu mencoba insert baru; NIM yang pernah dihapus dapat menghasilkan `sqlite3.IntegrityError`/500. Tidak ada restore flow.
 
-Mitigasi: pilih restore row lama atau partial unique index untuk row aktif melalui migrasi aman. Tangkap conflict menjadi error domain yang jelas dan tambah test delete lalu recreate/restore.
+Remediasi: pembuatan ulang NIM yang soft-deleted memulihkan row lama dan memiliki regression test delete lalu recreate/restore.
 
 ### AUD-2026-009 - Default program studi yang dihapus dapat muncul kembali
 
 Severity: Medium  
-Status: Open
+Status: Remediated dan dideploy 2026-08-22
 
 Delete program studi melakukan hard delete, sementara `migrate_study_programs_to_4char_codes()` meng-upsert default program pada hampir setiap `init_db()`. Program default yang dihapus akan dibuat kembali pada request berikutnya.
 
-Mitigasi: ubah aksi UI menjadi deactivate (`is_active=0`), jalankan seed sebagai migration satu kali, dan jangan menulis seed pada read path.
+Remediasi: hapus program studi menjadi deactivate (`is_active=0`), seed berjalan melalui migration satu kali, dan read path tidak menulis ulang master.
 
 ### AUD-2026-010 - Content Security Policy tidak cocok dengan SPA
 
 Severity: Medium  
-Status: Open
+Status: Mitigated dan browser-verified 2026-08-22
 
 Middleware hanya mengirim `default-src 'self'`, sementara bundle admin memakai banyak inline style/`<style>` React dan `admin-dist/index.html` memuat Google Fonts. Browser modern akan memblokir inline style dan resource font tersebut; layout/animasi/warna inline dapat hilang walau build lulus.
 
-Mitigasi: pindahkan inline style ke stylesheet/class, self-host font, lalu gunakan CSP eksplisit (`script-src`, `style-src`, `font-src`) dengan nonce/hash bila inline benar-benar diperlukan. Verifikasi melalui browser console dan screenshot.
+Remediasi saat ini: CSP eksplisit kompatibel dengan bundle dan browser E2E mencatat 0 CSP violation. Penghapusan `unsafe-inline` dan self-host font tetap hardening lanjutan, bukan blocker release saat ini.
 
 ### AUD-2026-011 - Validasi domain mahasiswa dan tanggal belum cukup ketat
 
@@ -137,16 +137,16 @@ Remediasi: [`Backend/app/services.py`](../Backend/app/services.py) menolak NIM y
 ### AUD-2026-012 - Rate limiter dan retensi dapat menghabiskan resource
 
 Severity: Medium  
-Status: Remediated locally 2026-08-22 / aktivasi VPS dan alert eksternal pending
+Status: Remediated dan diaktifkan di VPS 2026-08-22
 
 Rate limiter bersifat per-process, hilang saat restart, tidak konsisten pada multi-worker, dan dictionary key tidak pernah dihapus. Lookup log, audit log, session kedaluwarsa, import issue, dan backup ZIP belum memiliki pruning otomatis yang terukur. Timer backup harian dapat memenuhi disk.
 
-Remediasi: limiter menghapus bucket expired; `maintenance.py` dan timer harian memangkas session expired >7 hari, lookup log >90 hari, issue import >180 hari, serta preview/file import >24 jam. Audit log tidak dihapus otomatis. `backup_sqlite.py` menerapkan rotasi 14 harian/8 mingguan/12 bulanan, sedangkan timer verifikasi bulanan memeriksa restore sementara dan `integrity_check` SQLite. Nginx edge rate limit tersedia pada `deploy/nginx-rate-limit.conf`. Aktivasi unit di VPS dan integrasi alert disk eksternal tetap wajib sebelum deployment.
+Remediasi: limiter menghapus bucket expired; retention, rotasi backup 14 harian/8 mingguan/12 bulanan, timer verifikasi bulanan, dan Nginx edge rate limit aktif di VPS. Maintenance dan restore drill lulus; lookup ke-11 menerima 429. Alert disk eksternal tetap pekerjaan Ops; penggunaan disk saat deploy 12%.
 
 ### AUD-2026-013 - Rekap dan master count dapat menampilkan angka tidak akurat
 
 Severity: Medium  
-Status: Remediated locally 2026-08-22
+Status: Remediated dan dideploy 2026-08-22
 
 Dokumentasi pernah menyebut laporan per prodi dan periode, tetapi implementasi hanya mengelompokkan per prodi. Join fuzzy pada `list_study_programs()` juga dapat menghitung mahasiswa tanpa prodi ke setiap prodi karena pola `LIKE '%%'`, dan nama prodi substring dapat terhitung ganda.
 
@@ -155,7 +155,7 @@ Remediasi: laporan keuangan menerima filter periode eksplisit melalui `GET /api/
 ### AUD-2026-014 - Payment history belum lengkap sebagai ledger operasional
 
 Severity: Medium  
-Status: Remediated locally 2026-08-22 / backfill historis sengaja tidak otomatis
+Status: Remediated dan dideploy 2026-08-22 / backfill historis sengaja tidak otomatis
 
 Schema menyediakan `payment_date`, reference, dan notes, tetapi API tidak menerima field tersebut; tanggal selalu tanggal server lokal, existing payment tidak di-backfill, Student 360 memotong history di 100 row tanpa metadata, dan “append-only” belum dipaksa oleh trigger/constraint database. Endpoint saat ini juga tidak mengembalikan 404 untuk bill/student yang tidak ada.
 
@@ -164,11 +164,11 @@ Remediasi: `payment_transactions` ditetapkan sebagai state-change ledger interna
 ### AUD-2026-015 - CSV report rentan formula injection
 
 Severity: Medium  
-Status: Open
+Status: Remediated dan dideploy 2026-08-22
 
 Export CSV dibangun di browser dari nama program studi tanpa escape quote/newline dan tanpa menetralkan prefix formula spreadsheet (`=`, `+`, `-`, `@`). Data master yang dikontrol admin dapat dieksekusi sebagai formula ketika CSV dibuka.
 
-Mitigasi: gunakan serializer CSV, escape field dengan benar, prefix field berisiko, dan tambah test malicious program name.
+Remediasi: serializer CSV melakukan escape quote/newline dan menetralkan prefix formula spreadsheet sebelum export.
 
 ### AUD-2026-016 - Maintainability dan quality gate belum memadai
 
@@ -195,10 +195,10 @@ Mitigasi: pilih satu source of truth version dan inject ke health, OpenAPI, fron
 | CRUD master jenis tagihan | Tabel dan seed ada; API/UI CRUD tidak ada. |
 | Pengelolaan akun admin/role | Permission `manage_users` ada; API/UI tidak ada. |
 | Tampilan audit log | Data ditulis; endpoint aktif/UI pembaca tidak ada. |
-| Rekap keuangan per periode | Hanya agregasi per program studi. |
+| Rekap keuangan per periode | Filter periode tersedia pada API dan SPA. |
 | Backdate/reference/notes pembayaran | Tersedia untuk mutasi tagihan baru; tidak ada backfill otomatis untuk transaksi lama. |
-| Viewer read-only semua modul | Belum; sebagian besar endpoint menolak viewer. |
-| E2E/UI verification | Belum ada automation/browser evidence pada audit ini. |
+| Viewer read-only semua modul | Capability baca tersedia dan diuji lintas endpoint. |
+| E2E/UI verification | Chrome headless sintetis lulus pagination/CSP; smoke API/HTTPS production lulus. |
 
 ## Temuan Historis yang Tetap Termitigasi
 
@@ -208,7 +208,7 @@ Audit 2026-08-08 sebelumnya memperbaiki spoofed `X-Forwarded-For` pada jalur Ngi
 
 | Prioritas | Item |
 |---:|---|
-| P0 | Kode AUD-001, AUD-002, AUD-003, dan AUD-004 sudah diremediasi lokal. Review data partial historis dan browser E2E pagination tetap harus selesai sebelum release/deploy. |
+| P0 | AUD-001 sampai AUD-004 diremediasi, dideploy, dan gate data/browser lulus. |
 | P1 | AUD-005, AUD-006, AUD-007, AUD-008 untuk reliability, auditability, dan akses. |
 | P2 | AUD-009 sampai AUD-015 untuk konsistensi data, keamanan browser, dan operasi. |
 | P3 | AUD-016 dan AUD-017 sebagai refactor bertahap setelah behavior dikunci test. |
@@ -223,35 +223,27 @@ Checklist ini adalah referensi status implementasi terbaru; uraian temuan di ata
 - [x] AUD-002 — metadata pagination API digunakan SPA: [`Frontend-Admin/src/pages/BillsPage.jsx`](../Frontend-Admin/src/pages/BillsPage.jsx).
 - [x] AUD-003 — nominal partial wajib eksplisit: [`Backend/app/services.py`](../Backend/app/services.py), [`Frontend/admin.js`](../Frontend/admin.js).
 - [x] AUD-004 — Compose tidak lagi membawa credential default dan bind ke loopback: [`docker-compose.yml`](../docker-compose.yml), [`.env.docker.example`](../.env.docker.example).
-- [ ] Gate deploy P0 — review nilai partial historis dan browser E2E pagination lebih dari 100 tagihan.
+- [x] Gate deploy P0 — production memiliki 0 partial aktif; API 596 tagihan/6 halaman dan browser sintetis 105 tagihan/2 halaman lulus.
 
 ### P1
 
 - [x] AUD-005 — migration version table, busy timeout, dan WAL: [`Backend/db.py`](../Backend/db.py), [`Backend/schema.sql`](../Backend/schema.sql), `test_schema_migration_runs_once_and_does_not_restore_deleted_master_data`.
-- [~] AUD-006 — mutasi mahasiswa/tagihan/file import menulis audit dalam transaksi service yang sama: [`Backend/app/services.py`](../Backend/app/services.py), [`Backend/app/main.py`](../Backend/app/main.py). CRUD master dan commit import masih memakai pola audit lama.
+- [x] AUD-006 — mutasi mahasiswa, tagihan, master, file import, dan commit import menulis audit dalam transaksi yang sama: [`Backend/app/services.py`](../Backend/app/services.py), [`Backend/app/main.py`](../Backend/app/main.py), [`Backend/import_excel.py`](../Backend/import_excel.py).
 - [x] AUD-007 — capability read/write tunggal dan UI berbasis capability: [`Backend/app/config.py`](../Backend/app/config.py), [`Frontend-Admin/src/context/AuthContext.jsx`](../Frontend-Admin/src/context/AuthContext.jsx).
 - [x] AUD-008 — rekreasi NIM soft-deleted memulihkan row lama: [`Backend/app/services.py`](../Backend/app/services.py), `test_recreate_soft_deleted_student_restores_existing_nim`.
-- [ ] Gate deploy P1 — uji endpoint positif/negatif untuk setiap role serta uji concurrent SQLite pada salinan database.
+- [x] Gate deploy P1 — lima role lulus endpoint positif/negatif; 40 concurrent writes pada salinan production lulus.
 
 ### P2
 
 - [x] AUD-009 — hapus prodi menjadi deactivate dan seed tidak berulang: [`Backend/app/services.py`](../Backend/app/services.py), [`Backend/db.py`](../Backend/db.py).
-- [~] AUD-010 — CSP eksplisit kompatibel dengan SPA: [`Backend/app/main.py`](../Backend/app/main.py). Penghapusan `unsafe-inline`, self-host font, dan browser-console verification masih pending.
+- [~] AUD-010 — CSP eksplisit kompatibel dengan SPA dan browser mencatat 0 violation: [`Backend/app/main.py`](../Backend/app/main.py). Penghapusan `unsafe-inline` dan self-host font menjadi hardening lanjutan.
 - [x] AUD-011 — NIM huruf, status akademik invalid, dan tanggal kalender invalid ditolak: [`Backend/app/services.py`](../Backend/app/services.py). Email, NIK/KTP, dan tahun masuk mengikuti pemeriksaan manual admin berdasarkan kebijakan data yang disetujui.
-- [x] AUD-012 — retention job, rotasi backup, dan verifikasi backup tersedia: [`Backend/maintenance.py`](../Backend/maintenance.py), [`Backend/backup_sqlite.py`](../Backend/backup_sqlite.py), [`deploy/nginx-rate-limit.conf`](../deploy/nginx-rate-limit.conf). Aktivasi VPS dan alert disk eksternal menjadi gate deploy.
-- [~] AUD-013 — count prodi memakai FK atau exact fallback non-kosong: [`Backend/app/services.py`](../Backend/app/services.py). Rekap per periode belum diimplementasikan.
-- [~] AUD-014 — payment state-change ledger append-only di level SQLite: [`Backend/db.py`](../Backend/db.py), `test_payment_transaction_ledger_rejects_update_and_delete`. Keputusan ledger eksternal, backdate, dan pagination Student 360 masih pending.
+- [x] AUD-012 — retention, rotasi/verifikasi backup, dan edge rate limit aktif serta diuji di VPS: [`Backend/maintenance.py`](../Backend/maintenance.py), [`Backend/backup_sqlite.py`](../Backend/backup_sqlite.py), [`deploy/nginx-rate-limit.conf`](../deploy/nginx-rate-limit.conf).
+- [x] AUD-013 — count prodi memakai FK/exact fallback dan rekap mendukung filter periode: [`Backend/app/services.py`](../Backend/app/services.py), [`Frontend-Admin/src/pages/ReportsPage.jsx`](../Frontend-Admin/src/pages/ReportsPage.jsx).
+- [x] AUD-014 — ledger append-only, metadata/backdate, dan pagination Student 360 tersedia serta diuji: [`Backend/db.py`](../Backend/db.py), [`Frontend-Admin/src/pages/Student360Modal.jsx`](../Frontend-Admin/src/pages/Student360Modal.jsx).
 - [x] AUD-015 — CSV escape dan formula neutralization: [`Frontend-Admin/src/utils/csv.js`](../Frontend-Admin/src/utils/csv.js), [`Frontend-Admin/src/pages/ReportsPage.jsx`](../Frontend-Admin/src/pages/ReportsPage.jsx).
-- [ ] Gate deploy P2 — tetapkan retensi/backup, uji restore, dan verifikasi CSP dengan browser.
+- [x] Gate deploy P2 — timer aktif, restore backup lulus, disk 12%, dan browser mencatat 0 CSP violation.
 
 ## Release Gate
 
-Status saat pembaruan: **Tetap blocked untuk release baru**. Minimal gate pembuka:
-
-- review data partial historis selesai dan browser E2E pagination membuktikan UI; 
-- 57 test backend tetap lulus;
-- test API transaksi/RBAC/pagination/partial serta hardening Compose tetap lulus;
-- build, lint, dependency audit, OpenAPI parse, dan doc audit lulus;
-- working tree direview agar artefak bundle cocok dengan source;
-- backup dan migrasi diuji pada salinan database;
-- baru setelah itu deploy terpisah, poll `/api/health`, cek `/openapi.json`, dan lakukan visual smoke test production.
+Status saat pembaruan: **Deployed dan technical smoke test lulus** pada `ec6d65f` tanggal 2026-08-22. Bukti utama: 58 test VPS, health/release ID cocok, OpenAPI 200, HTTPS/API/admin login lulus, pagination production 596/6 halaman, Chrome E2E sintetis 100→5 row, RBAC lima role dan concurrency pada salinan, schema v2/WAL/integrity `ok`, maintenance/backup/restore lulus, lookup ke-11 429, Nginx valid, dan disk 12%. UAT mutasi data bisnis tetap dilakukan terpisah agar automation tidak mengubah data mahasiswa/tagihan production.
