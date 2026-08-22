@@ -18,16 +18,19 @@ from Backend.app.rate_limit import RateLimiter
 from Backend.app.services import (
     create_bill,
     create_student,
+    delete_student,
     delete_imported_bill_group,
     get_dashboard_stats,
     get_financial_summary,
     get_student_detail,
     list_bills,
     list_imported_bill_groups,
+    list_payment_transactions,
     list_students,
     summarize_payment_status,
     update_bill,
     update_bill_status,
+    validate_runtime_configuration,
     bill_row_to_dict,
 )
 from import_excel import import_workbook, preview_workbook
@@ -333,7 +336,7 @@ class CoreBehaviorTests(unittest.TestCase):
             self.assertEqual(groups[0]["unpaid"], 1)
             bill_id = groups[0]["bills"][0]["id"]
 
-            updated = update_bill_status(database, bill_id, "partial")
+            updated = update_bill_status(database, bill_id, "partial", paid_amount=62500)
             self.assertIsNotNone(updated)
             self.assertEqual(updated["status"], "partial")
             groups = list_imported_bill_groups(database)
@@ -344,6 +347,46 @@ class CoreBehaviorTests(unittest.TestCase):
             self.assertEqual(updated["status"], "paid")
             groups = list_imported_bill_groups(database)
             self.assertEqual(groups[0]["paid"], 1)
+
+    def test_partial_status_requires_explicit_paid_amount(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            database = Path(temporary_directory) / "salut.sqlite"
+            conn = connect(database)
+            init_db(conn)
+            conn.close()
+            student = create_student(database, {"nim": "090000001", "full_name": "Nominal Wajib"})
+            bill = create_bill(database, {
+                "student_id": student["id"],
+                "briva": "90000001",
+                "amount": 100000,
+                "period": "2026.1",
+                "status": "unpaid",
+            })
+
+            with self.assertRaisesRegex(ValueError, "wajib diisi"):
+                update_bill_status(database, bill["id"], "partial")
+
+            unchanged = list_bills(database)[0]
+            self.assertEqual(unchanged["status"], "unpaid")
+            self.assertEqual(unchanged["paid_amount"], 0)
+
+    def test_production_runtime_configuration_rejects_placeholder_values(self) -> None:
+        with (
+            mock.patch.object(app_config, "APP_ENV", "production"),
+            mock.patch.object(app_config, "LOOKUP_HASH_SECRET", "change-this-to-a-secure-random-secret"),
+            mock.patch.object(app_config, "ADMIN_BOOTSTRAP_EMAIL", "admin@example.com"),
+            mock.patch.object(app_config, "ADMIN_BOOTSTRAP_PASSWORD", "AdminSecurePassword123!"),
+        ):
+            with self.assertRaisesRegex(RuntimeError, "placeholder atau lemah"):
+                validate_runtime_configuration()
+
+        with (
+            mock.patch.object(app_config, "APP_ENV", "production"),
+            mock.patch.object(app_config, "LOOKUP_HASH_SECRET", "0123456789abcdef0123456789abcdef"),
+            mock.patch.object(app_config, "ADMIN_BOOTSTRAP_EMAIL", "operator@salut.id"),
+            mock.patch.object(app_config, "ADMIN_BOOTSTRAP_PASSWORD", "SangatKuat-2026!"),
+        ):
+            validate_runtime_configuration()
 
     def test_imported_groups_exclude_manual_data_and_can_be_deleted(self) -> None:
         from Backend.app.services import create_bill, list_bills
@@ -659,6 +702,110 @@ class CoreBehaviorTests(unittest.TestCase):
             finally:
                 app_config.DB_PATH = original_db_path
 
+    def test_bills_page_uses_api_pagination_total(self) -> None:
+        source = (Path(__file__).resolve().parents[1] / "Frontend-Admin" / "src" / "pages" / "BillsPage.jsx").read_text(encoding="utf-8")
+        self.assertIn("const pageData = res.pagination || {};", source)
+        self.assertIn("setTotalCount(Number(pageData.total) || 0);", source)
+        self.assertNotIn("setTotalCount(res.total_count || 0);", source)
+
+    def test_payment_history_routes_apply_reporting_rbac_and_validation(self) -> None:
+        from Backend.app.security import hash_password
+
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            database = Path(temporary_directory) / "salut.sqlite"
+            conn = connect(database)
+            init_db(conn)
+            with conn:
+                for role in ("viewer", "admin", "super_admin"):
+                    conn.execute(
+                        "insert into admin_users (id, email, password_hash, full_name, role) values (?, ?, ?, ?, ?)",
+                        (f"history-{role}", f"{role}@history.test", hash_password("Password123!"), role.title(), role),
+                    )
+            conn.close()
+
+            student = create_student(database, {"nim": "090000002", "full_name": "Akses Riwayat"})
+            bill = create_bill(database, {
+                "student_id": student["id"],
+                "briva": "90000002",
+                "amount": 100000,
+                "period": "2026.1",
+                "status": "unpaid",
+            })
+            update_bill_status(database, bill["id"], "partial", paid_amount=40000)
+
+            original_db_path = app_config.DB_PATH
+            app_config.DB_PATH = database
+            try:
+                anonymous = TestClient(server.app)
+                self.assertEqual(anonymous.get(f"/api/admin/bills/{bill['id']}/transactions").status_code, 401)
+
+                for role in ("viewer", "admin", "super_admin"):
+                    client = TestClient(server.app)
+                    login = client.post(
+                        "/api/admin/login",
+                        json={"email": f"{role}@history.test", "password": "Password123!"},
+                    )
+                    self.assertEqual(login.status_code, 200)
+
+                    bill_history = client.get(f"/api/admin/bills/{bill['id']}/transactions")
+                    student_history = client.get(f"/api/admin/students/{student['id']}/transactions")
+                    self.assertEqual(bill_history.status_code, 200)
+                    self.assertEqual(student_history.status_code, 200)
+                    self.assertEqual(bill_history.json()["data"]["pagination"]["total"], 1)
+
+                client = TestClient(server.app)
+                client.post(
+                    "/api/admin/login",
+                    json={"email": "super_admin@history.test", "password": "Password123!"},
+                )
+                self.assertEqual(client.get("/api/admin/bills/not-found/transactions").status_code, 404)
+                self.assertEqual(client.get("/api/admin/students/not-found/transactions").status_code, 404)
+                self.assertEqual(client.get(f"/api/admin/bills/{bill['id']}/transactions?limit=invalid").status_code, 400)
+                self.assertEqual(client.get(f"/api/admin/students/{student['id']}/transactions?offset=invalid").status_code, 400)
+            finally:
+                app_config.DB_PATH = original_db_path
+
+    def test_bill_status_api_rejects_partial_without_paid_amount(self) -> None:
+        from Backend.app.security import hash_password
+
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            database = Path(temporary_directory) / "salut.sqlite"
+            conn = connect(database)
+            init_db(conn)
+            with conn:
+                conn.execute(
+                    "insert into admin_users (id, email, password_hash, role) values (?, ?, ?, ?)",
+                    ("partial-api", "partial@api.test", hash_password("Password123!"), "admin"),
+                )
+            conn.close()
+            student = create_student(database, {"nim": "090000003", "full_name": "API Partial"})
+            bill = create_bill(database, {
+                "student_id": student["id"],
+                "briva": "90000003",
+                "amount": 100000,
+                "period": "2026.1",
+                "status": "unpaid",
+            })
+
+            original_db_path = app_config.DB_PATH
+            app_config.DB_PATH = database
+            try:
+                client = TestClient(server.app)
+                login = client.post("/api/admin/login", json={"email": "partial@api.test", "password": "Password123!"})
+                self.assertEqual(login.status_code, 200)
+                rejected = client.post("/api/admin/bills/status", json={"bill_id": bill["id"], "status": "partial"})
+                self.assertEqual(rejected.status_code, 400)
+                self.assertEqual(rejected.json()["error"]["code"], "VALIDATION_ERROR")
+
+                accepted = client.post(
+                    "/api/admin/bills/status",
+                    json={"bill_id": bill["id"], "status": "partial", "paid_amount": 40000},
+                )
+                self.assertEqual(accepted.status_code, 200)
+                self.assertEqual(accepted.json()["data"]["bill"]["paid_amount"], 40000)
+            finally:
+                app_config.DB_PATH = original_db_path
+
     def test_public_health_does_not_leak_counts(self) -> None:
         client = TestClient(server.app)
         response = client.get("/api/health")
@@ -902,6 +1049,95 @@ class CoreBehaviorTests(unittest.TestCase):
             self.assertGreaterEqual(period_count, 2)
             self.assertGreaterEqual(bill_type_count, 3)
 
+    def test_schema_migration_runs_once_and_does_not_restore_deleted_master_data(self) -> None:
+        """A normal service initialization must not rerun seed data or migrations."""
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            database = Path(temporary_directory) / "salut.sqlite"
+            conn = connect(database)
+            init_db(conn)
+            version = conn.execute("select max(version) as version from schema_migrations").fetchone()["version"]
+            self.assertEqual(version, 2)
+            conn.execute("delete from study_programs where id = ?", ("sp_hkum",))
+            conn.commit()
+            conn.close()
+
+            # This mirrors a later service request opening the same database.
+            conn = connect(database)
+            init_db(conn)
+            deleted = conn.execute("select id from study_programs where id = ?", ("sp_hkum",)).fetchone()
+            conn.close()
+            self.assertIsNone(deleted)
+
+    def test_payment_transaction_ledger_rejects_update_and_delete(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            database = Path(temporary_directory) / "salut.sqlite"
+            student = create_student(database, {"nim": "20260002", "full_name": "Mahasiswa Ledger"})
+            bill = create_bill(database, {"student_id": student["id"], "briva": "BRIVA-LEDGER", "amount": 100000, "period": "2026.1"})
+            update_bill_status(database, bill["id"], "paid", recorded_by="operator-1")
+            conn = connect(database)
+            transaction = conn.execute("select id from payment_transactions where bill_id = ?", (bill["id"],)).fetchone()
+            with self.assertRaises(sqlite3.DatabaseError):
+                conn.execute("update payment_transactions set notes = 'ubah' where id = ?", (transaction["id"],))
+            with self.assertRaises(sqlite3.DatabaseError):
+                conn.execute("delete from payment_transactions where id = ?", (transaction["id"],))
+            conn.close()
+
+    def test_student_domain_validation_rejects_invalid_nim_status_and_calendar_date(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            database = Path(temporary_directory) / "salut.sqlite"
+            with self.assertRaisesRegex(ValueError, "NIM hanya boleh"):
+                create_student(database, {"nim": "NIM-2026", "full_name": "Invalid NIM"})
+            with self.assertRaisesRegex(ValueError, "Status akademik"):
+                create_student(database, {"nim": "20260003", "full_name": "Invalid Status", "academic_status": "sembarang"})
+            with self.assertRaisesRegex(ValueError, "Format tanggal"):
+                create_bill(database, {"nim": "20260004", "full_name": "Invalid Date", "briva": "BRIVA-DATE", "amount": 100000, "period": "2026.1", "due_date": "2026-99-99"})
+
+    def test_backup_rotation_keeps_daily_weekly_and_monthly_restore_points(self) -> None:
+        from datetime import UTC, datetime, timedelta
+        from Backend.backup_sqlite import prune_backups
+
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            directory = Path(temporary_directory)
+            now = datetime(2026, 8, 22, tzinfo=UTC)
+            for day in range(0, 500, 3):
+                timestamp = now - timedelta(days=day)
+                (directory / f"salut-{timestamp.strftime('%Y%m%dT%H%M%SZ')}.sqlite.zip").touch()
+            removed = prune_backups(directory, now)
+            retained = list(directory.glob("salut-*.sqlite.zip"))
+            self.assertGreater(len(removed), 0)
+            self.assertLessEqual(len(retained), 14 + 8 + 12)
+            self.assertTrue(any("20260822" in path.name for path in retained))
+
+    def test_sqlite_backup_can_be_verified_from_archive(self) -> None:
+        from Backend.backup_sqlite import backup_database
+        from Backend.verify_backup import verify_backup
+
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            directory = Path(temporary_directory)
+            database = directory / "source.sqlite"
+            conn = connect(database)
+            init_db(conn)
+            conn.close()
+            archive = backup_database(database, directory / "backups")
+            verify_backup(archive)
+
+    def test_recreate_soft_deleted_student_restores_existing_nim(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            database = Path(temporary_directory) / "salut.sqlite"
+            original = create_student(database, {"nim": "20260001", "full_name": "Mahasiswa Lama"})
+            deleted = delete_student(database, original["id"], reason="Data duplikat")
+            self.assertIsNotNone(deleted)
+
+            restored = create_student(database, {"nim": "20260001", "full_name": "Mahasiswa Dipulihkan"})
+            self.assertEqual(restored["id"], original["id"])
+            conn = connect(database)
+            row = conn.execute("select full_name, deleted_at, deleted_by, delete_reason from students where id = ?", (original["id"],)).fetchone()
+            conn.close()
+            self.assertEqual(row["full_name"], "Mahasiswa Dipulihkan")
+            self.assertIsNone(row["deleted_at"])
+            self.assertIsNone(row["deleted_by"])
+            self.assertIsNone(row["delete_reason"])
+
     def test_study_programs_crud(self) -> None:
         from Backend.app.services import create_study_program, delete_study_program, list_study_programs, update_study_program
 
@@ -932,6 +1168,11 @@ class CoreBehaviorTests(unittest.TestCase):
             self.assertTrue(deleted)
             prodis_after = list_study_programs(database)
             self.assertFalse(any(p["code"] == "TINF" for p in prodis_after))
+
+            conn = connect(database)
+            inactive = conn.execute("select is_active from study_programs where id = ?", (created["id"],)).fetchone()
+            conn.close()
+            self.assertEqual(inactive["is_active"], 0)
 
     def test_academic_periods_crud(self) -> None:
         from Backend.app.services import create_academic_period, list_academic_periods, update_academic_period
@@ -1045,7 +1286,12 @@ class CoreBehaviorTests(unittest.TestCase):
         self.assertNotIn("manage_master_data", ROLE_PERMISSIONS["admin_keuangan"])
 
         self.assertIn("view_reports", ROLE_PERMISSIONS["viewer"])
-        self.assertNotIn("manage_data", ROLE_PERMISSIONS["viewer"])
+        self.assertIn("view_students", ROLE_PERMISSIONS["viewer"])
+        self.assertIn("view_billing", ROLE_PERMISSIONS["viewer"])
+        self.assertIn("view_master_data", ROLE_PERMISSIONS["viewer"])
+        self.assertIn("view_imports", ROLE_PERMISSIONS["viewer"])
+        self.assertNotIn("manage_students", ROLE_PERMISSIONS["viewer"])
+        self.assertNotIn("manage_billing", ROLE_PERMISSIONS["viewer"])
 
         self.assertIn("manage_users", ROLE_PERMISSIONS["super_admin"])
 
@@ -1473,6 +1719,89 @@ class CoreBehaviorTests(unittest.TestCase):
             self.assertEqual(fin["totals"]["billed_amount"], 3500000)
             self.assertEqual(fin["totals"]["paid_amount"], 2500000)
             self.assertEqual(fin["totals"]["outstanding_amount"], 1000000)
+
+    def test_payment_transactions_history_recording_and_retrieval(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            database = Path(temporary_directory) / "test.sqlite"
+            conn = connect(database)
+            init_db(conn)
+            conn.execute(
+                "insert into admin_users (id, email, password_hash, full_name, role) values (?, ?, ?, ?, ?)",
+                ("admin-123", "admin@salut.id", "hash", "Admin SALUT", "admin"),
+            )
+            conn.commit()
+            conn.close()
+
+            student = create_student(database, {
+                "nim": "099887766",
+                "full_name": "Budi Santoso",
+                "program_study": "S1 Ilmu Hukum",
+            })
+
+            bill = create_bill(database, {
+                "student_id": student["id"],
+                "briva": "178100023299999",
+                "amount": 2000000,
+                "paid_amount": 0,
+                "period": "20251",
+                "status": "unpaid",
+            })
+
+            # 1. Update status to partial (Bayar 1.000.000)
+            updated = update_bill_status(
+                database, bill["id"], "partial", paid_amount=1000000, recorded_by="admin-123",
+                payment_date="2026-08-20", reference_number="BRI-REF-001", notes="Cicilan pertama",
+            )
+            self.assertIsNotNone(updated)
+            self.assertEqual(updated["status"], "partial")
+            self.assertEqual(updated["paid_amount"], 1000000)
+
+            # 2. Check transaction log recorded
+            txs = list_payment_transactions(database, bill_id=bill["id"])
+            self.assertEqual(txs["pagination"]["total"], 1)
+            t1 = txs["transactions"][0]
+            self.assertEqual(t1["transaction_type"], "payment")
+            self.assertEqual(t1["amount"], 1000000)
+            self.assertEqual(t1["running_paid_total"], 1000000)
+            self.assertEqual(t1["previous_status"], "unpaid")
+            self.assertEqual(t1["new_status"], "partial")
+            self.assertEqual(t1["recorded_by"], "admin-123")
+            self.assertEqual(t1["payment_date"], "2026-08-20")
+            self.assertEqual(t1["reference_number"], "BRI-REF-001")
+            self.assertEqual(t1["notes"], "Cicilan pertama")
+
+            # 3. Update status to paid (Pelunasan sisa)
+            updated2 = update_bill_status(database, bill["id"], "paid", recorded_by="admin-123")
+            self.assertEqual(updated2["status"], "paid")
+            self.assertEqual(updated2["paid_amount"], 2000000)
+
+            txs2 = list_payment_transactions(database, bill_id=bill["id"])
+            self.assertEqual(txs2["pagination"]["total"], 2)
+            t2 = txs2["transactions"][0]  # newest first
+            self.assertEqual(t2["transaction_type"], "payment")
+            self.assertEqual(t2["amount"], 1000000)  # delta was 2.000.000 - 1.000.000
+            self.assertEqual(t2["running_paid_total"], 2000000)
+            self.assertEqual(t2["previous_status"], "partial")
+            self.assertEqual(t2["new_status"], "paid")
+
+            # 4. Student 360 detail includes payment_history
+            detail = get_student_detail(database, student["id"])
+            self.assertIsNotNone(detail)
+            self.assertIn("payment_history", detail)
+            self.assertEqual(len(detail["payment_history"]), 2)
+            self.assertEqual(detail["payment_history_pagination"]["total"], 2)
+
+    def test_payment_metadata_rejects_invalid_date_and_oversized_text(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            database = Path(temporary_directory) / "test.sqlite"
+            student = create_student(database, {"nim": "088776655", "full_name": "Metadata Test"})
+            bill = create_bill(database, {"student_id": student["id"], "briva": "BRIVA-META", "amount": 100000, "period": "2026.1"})
+            with self.assertRaisesRegex(ValueError, "Format tanggal"):
+                update_bill_status(database, bill["id"], "paid", payment_date="2026-99-99")
+            with self.assertRaisesRegex(ValueError, "Nomor referensi maksimal"):
+                update_bill_status(database, bill["id"], "paid", reference_number="x" * 101)
+            with self.assertRaisesRegex(ValueError, "Catatan pembayaran maksimal"):
+                update_bill_status(database, bill["id"], "paid", notes="x" * 1001)
 
 
 if __name__ == "__main__":

@@ -16,6 +16,7 @@ from Backend.app.services import (
     authenticate_admin,
     bill_row_to_dict,
     cleanup_stale_imports,
+    cleanup_operational_data,
     count_bills,
     create_academic_period,
     create_admin_session,
@@ -39,9 +40,11 @@ from Backend.app.services import (
     list_bills,
     list_imported_bill_groups,
     list_import_issues,
+    list_payment_transactions,
     list_students,
     list_study_programs,
     rupiah,
+    payment_transaction_target_exists,
     sanitize_filename,
     store_import_preview,
     student_row_to_dict,
@@ -70,6 +73,7 @@ class AuthError(Exception):
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     ensure_database()
+    cleanup_operational_data()
     yield
 
 
@@ -82,7 +86,11 @@ async def security_headers(request: Request, call_next):
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["Referrer-Policy"] = "no-referrer"
     response.headers["X-Frame-Options"] = "DENY"
-    response.headers["Content-Security-Policy"] = "default-src 'self'; base-uri 'none'; frame-ancestors 'none'"
+    response.headers["Content-Security-Policy"] = (
+        "default-src 'self'; base-uri 'none'; frame-ancestors 'none'; "
+        "script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+        "font-src 'self' https://fonts.gstatic.com; img-src 'self' data:"
+    )
     return response
 
 
@@ -269,14 +277,14 @@ async def admin_login(request: Request) -> JSONResponse:
 
     token = create_admin_session(admin)
     return success_response(
-        {"email": admin["email"], "full_name": admin["full_name"], "role": admin["role"]},
+        {"email": admin["email"], "full_name": admin["full_name"], "role": admin["role"], "permissions": sorted(config.ROLE_PERMISSIONS.get(admin["role"], set()))},
         headers={"Set-Cookie": cookie_header(token, config.SESSION_TTL_HOURS * 60 * 60)},
     )
 
 
 @app.get("/api/admin/me")
 async def admin_me(admin=Depends(require_admin())) -> JSONResponse:
-    return success_response({"email": admin["email"], "full_name": admin["full_name"], "role": admin["role"]})
+    return success_response({"email": admin["email"], "full_name": admin["full_name"], "role": admin["role"], "permissions": sorted(config.ROLE_PERMISSIONS.get(admin["role"], set()))})
 
 
 @app.post("/api/admin/logout")
@@ -287,12 +295,12 @@ async def admin_logout(request: Request) -> JSONResponse:
 
 
 @app.get("/api/admin/imported-bills")
-async def admin_imported_bills(admin=Depends(require_admin("import"))) -> JSONResponse:
+async def admin_imported_bills(admin=Depends(require_admin("view_imports"))) -> JSONResponse:
     return success_response({"groups": list_imported_bill_groups(config.DB_PATH)})
 
 
 @app.delete("/api/admin/imported-files")
-async def admin_delete_imported_file(request: Request, admin=Depends(require_admin("manage_data"))) -> JSONResponse:
+async def admin_delete_imported_file(request: Request, admin=Depends(require_admin("import"))) -> JSONResponse:
     payload = await read_json(request)
     file_name = str(payload.get("file_name") or "").strip()
     reason = str(payload.get("reason") or "").strip()
@@ -303,51 +311,35 @@ async def admin_delete_imported_file(request: Request, admin=Depends(require_adm
     if not deleted:
         return error_response(404, "NOT_FOUND", "File import tidak ditemukan.")
 
-    conn = connect(config.DB_PATH)
-    with conn:
-        write_audit(
-            conn,
-            admin["id"],
-            "import_file.delete",
-            "import_file",
-            file_name,
-            {"reason": reason, "deleted_bills": deleted["deleted_bills"]},
-        )
-    conn.close()
     return success_response(deleted)
 
 
 @app.post("/api/admin/bills/status")
-async def admin_bill_status(request: Request, admin=Depends(require_admin("import"))) -> JSONResponse:
+async def admin_bill_status(request: Request, admin=Depends(require_admin("manage_billing"))) -> JSONResponse:
     payload = await read_json(request)
     bill_id = str(payload.get("bill_id") or "").strip()
     status = str(payload.get("status") or "").strip().lower()
     paid_amount = payload.get("paid_amount")
+    payment_date = payload.get("payment_date")
+    reference_number = payload.get("reference_number")
+    notes = payload.get("notes")
     if not bill_id:
         return error_response(400, "VALIDATION_ERROR", "ID tagihan wajib diisi.")
     try:
-        updated = update_bill_status(config.DB_PATH, bill_id, status, paid_amount=paid_amount)
+        updated = update_bill_status(
+            config.DB_PATH, bill_id, status, paid_amount=paid_amount, recorded_by=admin["id"],
+            payment_date=payment_date, reference_number=reference_number, notes=notes,
+        )
     except ValueError as exc:
         return error_response(400, "VALIDATION_ERROR", str(exc))
     if not updated:
         return error_response(404, "NOT_FOUND", "Tagihan tidak ditemukan.")
 
-    conn = connect(config.DB_PATH)
-    with conn:
-        write_audit(
-            conn,
-            admin["id"],
-            "bill.status_update",
-            "bill",
-            bill_id,
-            {"status": status, "paid_amount": updated["paid_amount"], "briva": updated["briva"], "nim": updated["nim"]},
-        )
-    conn.close()
     return success_response({"bill": bill_row_to_dict(updated)})
 
 
 @app.post("/api/admin/bills/due-date")
-async def admin_bill_due_date(request: Request, admin=Depends(require_admin("import"))) -> JSONResponse:
+async def admin_bill_due_date(request: Request, admin=Depends(require_admin("manage_billing"))) -> JSONResponse:
     payload = await read_json(request)
     bill_ids = payload.get("bill_ids")
     single_bill_id = str(payload.get("bill_id") or "").strip()
@@ -362,24 +354,12 @@ async def admin_bill_due_date(request: Request, admin=Depends(require_admin("imp
     if not target_ids:
         return error_response(400, "VALIDATION_ERROR", "ID tagihan wajib diisi.")
     try:
-        updated_rows = update_bill_due_date(config.DB_PATH, target_ids, str(due_date) if due_date else "")
+        updated_rows = update_bill_due_date(config.DB_PATH, target_ids, str(due_date) if due_date else "", actor_id=admin["id"])
     except ValueError as exc:
         return error_response(400, "VALIDATION_ERROR", str(exc))
     if not updated_rows:
         return error_response(404, "NOT_FOUND", "Tagihan tidak ditemukan.")
 
-    conn = connect(config.DB_PATH)
-    with conn:
-        for updated in updated_rows:
-            write_audit(
-                conn,
-                admin["id"],
-                "bill.due_date_update",
-                "bill",
-                updated["id"],
-                {"due_date": updated["due_date"], "briva": updated["briva"], "nim": updated["nim"]},
-            )
-    conn.close()
     return success_response(
         {
             "updated_count": len(updated_rows),
@@ -398,8 +378,8 @@ async def admin_dashboard_stats(admin=Depends(require_admin("view_reports"))) ->
 
 
 @app.get("/api/admin/reports/financial-summary")
-async def admin_financial_summary(admin=Depends(require_admin("view_reports"))) -> JSONResponse:
-    return success_response(get_financial_summary(config.DB_PATH))
+async def admin_financial_summary(request: Request, admin=Depends(require_admin("view_reports"))) -> JSONResponse:
+    return success_response(get_financial_summary(config.DB_PATH, period=str(request.query_params.get("period") or "")))
 
 
 # ==========================================
@@ -407,7 +387,7 @@ async def admin_financial_summary(admin=Depends(require_admin("view_reports"))) 
 # ==========================================
 
 @app.get("/api/admin/study-programs")
-async def admin_study_programs(admin=Depends(require_admin("view_reports"))) -> JSONResponse:
+async def admin_study_programs(admin=Depends(require_admin("view_master_data"))) -> JSONResponse:
     return success_response({"study_programs": list_study_programs(config.DB_PATH)})
 
 
@@ -415,14 +395,10 @@ async def admin_study_programs(admin=Depends(require_admin("view_reports"))) -> 
 async def admin_create_study_program(request: Request, admin=Depends(require_admin("manage_master_data"))) -> JSONResponse:
     payload = await read_json(request)
     try:
-        program = create_study_program(config.DB_PATH, payload)
+        program = create_study_program(config.DB_PATH, payload, actor_id=admin["id"])
     except ValueError as exc:
         return error_response(400, "VALIDATION_ERROR", str(exc))
 
-    conn = connect(config.DB_PATH)
-    with conn:
-        write_audit(conn, admin["id"], "study_program.create", "study_program", program["id"], {"code": program["code"], "name": program["name"]})
-    conn.close()
     return success_response({"study_program": program})
 
 
@@ -430,29 +406,21 @@ async def admin_create_study_program(request: Request, admin=Depends(require_adm
 async def admin_update_study_program(program_id: str, request: Request, admin=Depends(require_admin("manage_master_data"))) -> JSONResponse:
     payload = await read_json(request)
     try:
-        program = update_study_program(config.DB_PATH, program_id, payload)
+        program = update_study_program(config.DB_PATH, program_id, payload, actor_id=admin["id"])
     except ValueError as exc:
         return error_response(400, "VALIDATION_ERROR", str(exc))
     if not program:
         return error_response(404, "NOT_FOUND", "Program studi tidak ditemukan.")
 
-    conn = connect(config.DB_PATH)
-    with conn:
-        write_audit(conn, admin["id"], "study_program.update", "study_program", program_id, {"code": program["code"], "name": program["name"]})
-    conn.close()
     return success_response({"study_program": program})
 
 
 @app.delete("/api/admin/study-programs/{program_id}")
 async def admin_delete_study_program(program_id: str, admin=Depends(require_admin("manage_master_data"))) -> JSONResponse:
-    deleted = delete_study_program(config.DB_PATH, program_id)
+    deleted = delete_study_program(config.DB_PATH, program_id, actor_id=admin["id"])
     if not deleted:
         return error_response(404, "NOT_FOUND", "Program studi tidak ditemukan.")
 
-    conn = connect(config.DB_PATH)
-    with conn:
-        write_audit(conn, admin["id"], "study_program.delete", "study_program", program_id, {})
-    conn.close()
     return success_response({"deleted": True})
 
 
@@ -461,7 +429,7 @@ async def admin_delete_study_program(program_id: str, admin=Depends(require_admi
 # ==========================================
 
 @app.get("/api/admin/academic-periods")
-async def admin_academic_periods(admin=Depends(require_admin("view_reports"))) -> JSONResponse:
+async def admin_academic_periods(admin=Depends(require_admin("view_master_data"))) -> JSONResponse:
     return success_response({"academic_periods": list_academic_periods(config.DB_PATH)})
 
 
@@ -469,14 +437,10 @@ async def admin_academic_periods(admin=Depends(require_admin("view_reports"))) -
 async def admin_create_academic_period(request: Request, admin=Depends(require_admin("manage_master_data"))) -> JSONResponse:
     payload = await read_json(request)
     try:
-        period = create_academic_period(config.DB_PATH, payload)
+        period = create_academic_period(config.DB_PATH, payload, actor_id=admin["id"])
     except ValueError as exc:
         return error_response(400, "VALIDATION_ERROR", str(exc))
 
-    conn = connect(config.DB_PATH)
-    with conn:
-        write_audit(conn, admin["id"], "academic_period.create", "academic_period", period["id"], {"code": period["code"], "name": period["name"]})
-    conn.close()
     return success_response({"academic_period": period})
 
 
@@ -484,16 +448,12 @@ async def admin_create_academic_period(request: Request, admin=Depends(require_a
 async def admin_update_academic_period(period_id: str, request: Request, admin=Depends(require_admin("manage_master_data"))) -> JSONResponse:
     payload = await read_json(request)
     try:
-        period = update_academic_period(config.DB_PATH, period_id, payload)
+        period = update_academic_period(config.DB_PATH, period_id, payload, actor_id=admin["id"])
     except ValueError as exc:
         return error_response(400, "VALIDATION_ERROR", str(exc))
     if not period:
         return error_response(404, "NOT_FOUND", "Periode akademik tidak ditemukan.")
 
-    conn = connect(config.DB_PATH)
-    with conn:
-        write_audit(conn, admin["id"], "academic_period.update", "academic_period", period_id, {"code": period["code"], "name": period["name"]})
-    conn.close()
     return success_response({"academic_period": period})
 
 
@@ -502,7 +462,7 @@ async def admin_update_academic_period(period_id: str, request: Request, admin=D
 # ==========================================
 
 @app.get("/api/admin/template/master-data")
-async def admin_download_master_data_template(admin=Depends(require_admin("manage_data"))) -> Response:
+async def admin_download_master_data_template(admin=Depends(require_admin("view_master_data"))) -> Response:
     content = generate_master_data_template()
     return Response(
         content=content,
@@ -516,7 +476,7 @@ async def admin_download_master_data_template(admin=Depends(require_admin("manag
 # ==========================================
 
 @app.get("/api/admin/students")
-async def admin_students(request: Request, admin=Depends(require_admin("manage_data"))) -> JSONResponse:
+async def admin_students(request: Request, admin=Depends(require_admin("view_students"))) -> JSONResponse:
     query = str(request.query_params.get("query") or "")
     study_program_id = str(request.query_params.get("study_program_id") or request.query_params.get("prodi") or "")
     academic_status = str(request.query_params.get("academic_status") or "")
@@ -543,7 +503,7 @@ async def admin_students(request: Request, admin=Depends(require_admin("manage_d
 
 
 @app.get("/api/admin/students/{student_id}/detail")
-async def admin_student_detail(student_id: str, admin=Depends(require_admin("manage_data"))) -> JSONResponse:
+async def admin_student_detail(student_id: str, admin=Depends(require_admin("view_students"))) -> JSONResponse:
     detail = get_student_detail(config.DB_PATH, student_id)
     if not detail:
         return error_response(404, "NOT_FOUND", "Mahasiswa tidak ditemukan.")
@@ -551,7 +511,7 @@ async def admin_student_detail(student_id: str, admin=Depends(require_admin("man
 
 
 @app.get("/api/admin/import-issues")
-async def admin_import_issues(request: Request, admin=Depends(require_admin("manage_data"))) -> JSONResponse:
+async def admin_import_issues(request: Request, admin=Depends(require_admin("view_imports"))) -> JSONResponse:
     try:
         limit = parse_limit(request, default=500, max_limit=2000)
     except ValueError as exc:
@@ -560,39 +520,31 @@ async def admin_import_issues(request: Request, admin=Depends(require_admin("man
 
 
 @app.post("/api/admin/students")
-async def admin_create_student(request: Request, admin=Depends(require_admin("manage_data"))) -> JSONResponse:
+async def admin_create_student(request: Request, admin=Depends(require_admin("manage_students"))) -> JSONResponse:
     payload = await read_json(request)
     try:
-        student = create_student(config.DB_PATH, payload=payload)
+        student = create_student(config.DB_PATH, payload=payload, actor_id=admin["id"])
     except ValueError as exc:
         return error_response(400, "VALIDATION_ERROR", str(exc))
 
-    conn = connect(config.DB_PATH)
-    with conn:
-        write_audit(conn, admin["id"], "student.create", "student", student["id"], {"nim": student["nim"]})
-    conn.close()
     return success_response({"student": student_row_to_dict(student)})
 
 
 @app.patch("/api/admin/students/{student_id}")
-async def admin_update_student(student_id: str, request: Request, admin=Depends(require_admin("manage_data"))) -> JSONResponse:
+async def admin_update_student(student_id: str, request: Request, admin=Depends(require_admin("manage_students"))) -> JSONResponse:
     payload = await read_json(request)
     try:
-        student = update_student(config.DB_PATH, student_id, payload)
+        student = update_student(config.DB_PATH, student_id, payload, actor_id=admin["id"])
     except ValueError as exc:
         return error_response(400, "VALIDATION_ERROR", str(exc))
     if not student:
         return error_response(404, "NOT_FOUND", "Mahasiswa tidak ditemukan.")
 
-    conn = connect(config.DB_PATH)
-    with conn:
-        write_audit(conn, admin["id"], "student.update", "student", student_id, {"nim": student["nim"]})
-    conn.close()
     return success_response({"student": student_row_to_dict(student)})
 
 
 @app.delete("/api/admin/students/{student_id}")
-async def admin_delete_student(student_id: str, request: Request, admin=Depends(require_admin("manage_data"))) -> JSONResponse:
+async def admin_delete_student(student_id: str, request: Request, admin=Depends(require_admin("manage_students"))) -> JSONResponse:
     reason = str(request.query_params.get("reason") or "").strip()
     if not reason:
         payload = await read_json(request)
@@ -604,15 +556,11 @@ async def admin_delete_student(student_id: str, request: Request, admin=Depends(
     if not student:
         return error_response(404, "NOT_FOUND", "Mahasiswa tidak ditemukan.")
 
-    conn = connect(config.DB_PATH)
-    with conn:
-        write_audit(conn, admin["id"], "student.delete", "student", student_id, {"nim": student["nim"], "reason": reason})
-    conn.close()
     return success_response({"deleted": True, "student": student_row_to_dict(student)})
 
 
 @app.get("/api/admin/bills")
-async def admin_bills(request: Request, admin=Depends(require_admin("manage_data"))) -> JSONResponse:
+async def admin_bills(request: Request, admin=Depends(require_admin("view_billing"))) -> JSONResponse:
     query = str(request.query_params.get("query") or "")
     status = str(request.query_params.get("status") or "").strip().lower()
     source = str(request.query_params.get("source") or "").strip().lower()
@@ -643,39 +591,57 @@ async def admin_bills(request: Request, admin=Depends(require_admin("manage_data
 
 
 @app.post("/api/admin/bills")
-async def admin_create_bill(request: Request, admin=Depends(require_admin("manage_data"))) -> JSONResponse:
+async def admin_create_bill(request: Request, admin=Depends(require_admin("manage_billing"))) -> JSONResponse:
     payload = await read_json(request)
     try:
-        bill = create_bill(config.DB_PATH, payload)
+        bill = create_bill(config.DB_PATH, payload, actor_id=admin["id"])
     except ValueError as exc:
         return error_response(400, "VALIDATION_ERROR", str(exc))
 
-    conn = connect(config.DB_PATH)
-    with conn:
-        write_audit(conn, admin["id"], "bill.create", "bill", bill["id"], {"nim": bill["nim"], "briva": bill["briva"]})
-    conn.close()
     return success_response({"bill": bill_row_to_dict(bill)})
 
 
 @app.patch("/api/admin/bills/{bill_id}")
-async def admin_update_bill(bill_id: str, request: Request, admin=Depends(require_admin("manage_data"))) -> JSONResponse:
+async def admin_update_bill(bill_id: str, request: Request, admin=Depends(require_admin("manage_billing"))) -> JSONResponse:
     payload = await read_json(request)
     try:
-        bill = update_bill(config.DB_PATH, bill_id, payload)
+        bill = update_bill(config.DB_PATH, bill_id, payload, actor_id=admin["id"])
     except ValueError as exc:
         return error_response(400, "VALIDATION_ERROR", str(exc))
     if not bill:
         return error_response(404, "NOT_FOUND", "Tagihan tidak ditemukan.")
 
-    conn = connect(config.DB_PATH)
-    with conn:
-        write_audit(conn, admin["id"], "bill.update", "bill", bill_id, {"nim": bill["nim"], "briva": bill["briva"]})
-    conn.close()
     return success_response({"bill": bill_row_to_dict(bill)})
 
 
+@app.get("/api/admin/bills/{bill_id}/transactions")
+async def admin_bill_transactions(bill_id: str, request: Request, admin=Depends(require_admin("view_billing"))) -> JSONResponse:
+    try:
+        limit = parse_limit(request, default=50, max_limit=200)
+        offset = parse_offset(request)
+    except ValueError as exc:
+        return error_response(400, "VALIDATION_ERROR", str(exc))
+    if not payment_transaction_target_exists(config.DB_PATH, bill_id=bill_id):
+        return error_response(404, "NOT_FOUND", "Tagihan tidak ditemukan.")
+    data = list_payment_transactions(config.DB_PATH, bill_id=bill_id, limit=limit, offset=offset)
+    return success_response(data)
+
+
+@app.get("/api/admin/students/{student_id}/transactions")
+async def admin_student_transactions(student_id: str, request: Request, admin=Depends(require_admin("view_billing"))) -> JSONResponse:
+    try:
+        limit = parse_limit(request, default=50, max_limit=200)
+        offset = parse_offset(request)
+    except ValueError as exc:
+        return error_response(400, "VALIDATION_ERROR", str(exc))
+    if not payment_transaction_target_exists(config.DB_PATH, student_id=student_id):
+        return error_response(404, "NOT_FOUND", "Mahasiswa tidak ditemukan.")
+    data = list_payment_transactions(config.DB_PATH, student_id=student_id, limit=limit, offset=offset)
+    return success_response(data)
+
+
 @app.delete("/api/admin/bills/{bill_id}")
-async def admin_delete_bill(bill_id: str, request: Request, admin=Depends(require_admin("manage_data"))) -> JSONResponse:
+async def admin_delete_bill(bill_id: str, request: Request, admin=Depends(require_admin("manage_billing"))) -> JSONResponse:
     reason = str(request.query_params.get("reason") or "").strip()
     if not reason:
         payload = await read_json(request)
@@ -687,10 +653,6 @@ async def admin_delete_bill(bill_id: str, request: Request, admin=Depends(requir
     if not bill:
         return error_response(404, "NOT_FOUND", "Tagihan tidak ditemukan.")
 
-    conn = connect(config.DB_PATH)
-    with conn:
-        write_audit(conn, admin["id"], "bill.delete", "bill", bill_id, {"nim": bill["nim"], "briva": bill["briva"], "reason": reason})
-    conn.close()
     return success_response({"deleted": True, "bill": bill_row_to_dict(bill)})
 
 
@@ -796,11 +758,10 @@ async def admin_import_commit(request: Request, admin=Depends(require_admin("imp
                 "IMPORT_CONFIRMATION_REQUIRED",
                 "Perubahan nominal atau BRIVA harus dikonfirmasi admin sebelum import disimpan.",
             )
-        result = import_workbook(workbook, config.DB_PATH, source_file_name=source_file_name, confirm_updates=confirm_updates)
-        conn = connect(config.DB_PATH)
-        with conn:
-            write_audit(conn, admin["id"], "import.commit", "excel_import", import_token, {"file_name": workbook.name, **result})
-        conn.close()
+        result = import_workbook(
+            workbook, config.DB_PATH, source_file_name=source_file_name,
+            confirm_updates=confirm_updates, actor_id=admin["id"],
+        )
         workbook.unlink(missing_ok=True)
         delete_import_preview(import_token)
         return success_response(result)

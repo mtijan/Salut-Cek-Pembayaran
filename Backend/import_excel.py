@@ -731,6 +731,7 @@ def import_workbook(
     bill_type: str = DEFAULT_BILL_TYPE,
     source_file_name: str | None = None,
     confirm_updates: bool = False,
+    actor_id: str | None = None,
 ) -> dict[str, object]:
     workbook = Path(workbook_path)
     source_file = source_file_name or workbook.name
@@ -811,6 +812,13 @@ def import_workbook(
                 _store_import_issue(conn, issue, source_file)
                 if len(issue_details) < 5:
                     issue_details.append({"sheet": issue["sheet_name"], "row_number": issue["row_number"], "note": issue["note"]})
+
+        if actor_id:
+            from Backend.app.services import write_audit
+            write_audit(
+                conn, actor_id, "import.commit", "excel_import", source_file,
+                {"file_name": source_file, "created": created, "updated": updated, "issues": issues},
+            )
 
     conn.close()
     return {

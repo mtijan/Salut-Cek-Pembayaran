@@ -91,11 +91,14 @@ SESSION_TTL_HOURS = 8
 IMPORT_DIR = Path(os.environ.get("IMPORT_DIR", str(BASE_DIR / "data" / "imports"))).resolve()
 MAX_UPLOAD_BYTES = 5 * 1024 * 1024
 IMPORT_RETENTION_SECONDS = 24 * 60 * 60
+SESSION_RETENTION_DAYS = int(os.environ.get("SESSION_RETENTION_DAYS", "7"))
+LOOKUP_LOG_RETENTION_DAYS = int(os.environ.get("LOOKUP_LOG_RETENTION_DAYS", "90"))
+IMPORT_ISSUE_RETENTION_DAYS = int(os.environ.get("IMPORT_ISSUE_RETENTION_DAYS", "180"))
 
 ROLE_PERMISSIONS = {
-    "viewer": {"view_reports"},
-    "admin_akademik": {"manage_data", "manage_students", "manage_master_data", "view_reports"},
-    "admin_keuangan": {"manage_data", "manage_billing", "import", "view_reports"},
-    "admin": {"manage_data", "manage_students", "manage_billing", "manage_master_data", "import", "view_reports"},
-    "super_admin": {"manage_data", "manage_students", "manage_billing", "manage_master_data", "import", "view_reports", "manage_users"},
+    "viewer": {"view_reports", "view_students", "view_billing", "view_master_data", "view_imports"},
+    "admin_akademik": {"view_reports", "view_students", "view_billing", "view_master_data", "view_imports", "manage_students", "manage_master_data"},
+    "admin_keuangan": {"view_reports", "view_students", "view_billing", "view_master_data", "view_imports", "manage_billing", "import"},
+    "admin": {"view_reports", "view_students", "view_billing", "view_master_data", "view_imports", "manage_students", "manage_billing", "manage_master_data", "import"},
+    "super_admin": {"view_reports", "view_students", "view_billing", "view_master_data", "view_imports", "manage_students", "manage_billing", "manage_master_data", "import", "manage_users"},
 }

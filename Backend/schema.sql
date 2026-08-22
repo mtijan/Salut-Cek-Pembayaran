@@ -137,6 +137,29 @@ create table if not exists audit_logs (
   created_at text not null default (datetime('now'))
 );
 
+create table if not exists schema_migrations (
+  version integer primary key,
+  applied_at text not null default (datetime('now'))
+);
+
+create table if not exists payment_transactions (
+  id text primary key,
+  bill_id text not null references bills(id) on delete cascade,
+  student_id text not null references students(id) on delete cascade,
+  transaction_type text not null default 'payment',
+  amount integer not null,
+  running_paid_total integer not null,
+  previous_status text not null,
+  new_status text not null,
+  payment_date text not null,
+  payment_method text,
+  reference_number text,
+  notes text,
+  recorded_by text references admin_users(id) on delete set null,
+  source text not null default 'manual',
+  created_at text not null default (datetime('now'))
+);
+
 create index if not exists idx_students_nim on students(nim);
 create index if not exists idx_students_name_norm on students(name_norm);
 create index if not exists idx_bills_student_id on bills(student_id);
@@ -146,3 +169,7 @@ create index if not exists idx_import_previews_expires_at on import_previews(exp
 create index if not exists idx_admin_sessions_token_hash on admin_sessions(token_hash);
 create index if not exists idx_admin_sessions_expires_at on admin_sessions(expires_at);
 create index if not exists idx_audit_logs_created_at on audit_logs(created_at);
+create index if not exists idx_pt_bill_id on payment_transactions(bill_id);
+create index if not exists idx_pt_student_id on payment_transactions(student_id);
+create index if not exists idx_pt_payment_date on payment_transactions(payment_date);
+create index if not exists idx_pt_created_at on payment_transactions(created_at);

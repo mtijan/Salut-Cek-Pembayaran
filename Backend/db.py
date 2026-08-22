@@ -7,6 +7,7 @@ from pathlib import Path
 BASE_DIR = Path(__file__).resolve().parent
 DEFAULT_DB_PATH = BASE_DIR / "data" / "salut.sqlite"
 SCHEMA_PATH = BASE_DIR / "schema.sql"
+LATEST_SCHEMA_VERSION = 2
 
 
 def resolve_db_path(db_path: str | Path = DEFAULT_DB_PATH) -> Path:
@@ -19,29 +20,51 @@ def resolve_db_path(db_path: str | Path = DEFAULT_DB_PATH) -> Path:
 def connect(db_path: str | Path = DEFAULT_DB_PATH) -> sqlite3.Connection:
     path = resolve_db_path(db_path)
     path.parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(path)
+    conn = sqlite3.connect(path, timeout=5)
     conn.row_factory = sqlite3.Row
     conn.execute("pragma foreign_keys = on")
+    conn.execute("pragma busy_timeout = 5000")
     return conn
 
 
 def init_db(conn: sqlite3.Connection) -> None:
-    conn.executescript(SCHEMA_PATH.read_text(encoding="utf-8"))
-    migrate_bills_for_duplicate_briva(conn)
-    migrate_bills_for_due_date(conn)
-    migrate_bills_for_paid_amount(conn)
-    migrate_students_for_profile(conn)
-    migrate_soft_delete(conn)
-    migrate_master_data_and_student_siakad(conn)
-    migrate_students_for_master_data(conn)
-    conn.execute("create index if not exists idx_bills_source_file_row on bills(source_file, source_row_number)")
-    conn.execute("create index if not exists idx_students_academic_status on students(academic_status)")
-    conn.execute("create index if not exists idx_students_entry_year on students(entry_year)")
-    conn.execute("create index if not exists idx_students_study_program_id on students(study_program_id)")
-    conn.execute("create index if not exists idx_students_no_ktp on students(no_ktp)")
-    conn.execute("create index if not exists idx_students_email on students(email)")
-    conn.execute("create index if not exists idx_students_phone on students(phone_number)")
-    conn.execute("create index if not exists idx_students_entry_period on students(entry_period)")
+    """Apply schema/data migrations once per database, not per service request."""
+    try:
+        row = conn.execute("select version from schema_migrations order by version desc limit 1").fetchone()
+    except sqlite3.OperationalError:
+        with conn:
+            conn.execute(
+                "create table if not exists schema_migrations (version integer primary key, applied_at text not null default (datetime('now')))"
+            )
+        row = None
+
+    current_version = int(row["version"]) if row else 0
+    if current_version >= LATEST_SCHEMA_VERSION:
+        return
+
+    with conn:
+        if current_version < 1:
+            conn.executescript(SCHEMA_PATH.read_text(encoding="utf-8"))
+            migrate_bills_for_duplicate_briva(conn)
+            migrate_bills_for_due_date(conn)
+            migrate_bills_for_paid_amount(conn)
+            migrate_students_for_profile(conn)
+            migrate_soft_delete(conn)
+            migrate_master_data_and_student_siakad(conn)
+            migrate_students_for_master_data(conn)
+            migrate_payment_transactions(conn)
+            conn.execute("create index if not exists idx_bills_source_file_row on bills(source_file, source_row_number)")
+            conn.execute("create index if not exists idx_students_academic_status on students(academic_status)")
+            conn.execute("create index if not exists idx_students_entry_year on students(entry_year)")
+            conn.execute("create index if not exists idx_students_study_program_id on students(study_program_id)")
+            conn.execute("create index if not exists idx_students_no_ktp on students(no_ktp)")
+            conn.execute("create index if not exists idx_students_email on students(email)")
+            conn.execute("create index if not exists idx_students_phone on students(phone_number)")
+            conn.execute("create index if not exists idx_students_entry_period on students(entry_period)")
+        if current_version < 2:
+            migrate_payment_transaction_append_only(conn)
+        conn.execute("pragma journal_mode = WAL")
+        conn.execute("insert or replace into schema_migrations (version) values (?)", (LATEST_SCHEMA_VERSION,))
 
 
 def _table_sql(conn: sqlite3.Connection, table: str) -> str:
@@ -85,6 +108,24 @@ def migrate_bills_for_paid_amount(conn: sqlite3.Connection) -> None:
         conn.execute("alter table bills add column paid_amount integer not null default 0")
     # For existing paid bills where paid_amount is 0 or null, set paid_amount = amount
     conn.execute("update bills set paid_amount = amount where status = 'paid' and (paid_amount is null or paid_amount = 0)")
+
+
+def migrate_payment_transaction_append_only(conn: sqlite3.Connection) -> None:
+    """Prevent silent edits/deletes to the state-change ledger at DB level."""
+    conn.executescript(
+        """
+        create trigger if not exists payment_transactions_no_update
+        before update on payment_transactions
+        begin
+          select raise(abort, 'payment_transactions is append-only');
+        end;
+        create trigger if not exists payment_transactions_no_delete
+        before delete on payment_transactions
+        begin
+          select raise(abort, 'payment_transactions is append-only');
+        end;
+        """
+    )
 
 
 def migrate_bills_for_due_date(conn: sqlite3.Connection) -> None:
@@ -383,3 +424,31 @@ def ensure_academic_period(conn: sqlite3.Connection, period_code: str, default_n
 
     return code_clean
 
+
+def migrate_payment_transactions(conn: sqlite3.Connection) -> None:
+    """Ensure payment_transactions table and indexes exist for databases created before this migration."""
+    conn.execute(
+        """
+        create table if not exists payment_transactions (
+          id text primary key,
+          bill_id text not null references bills(id) on delete cascade,
+          student_id text not null references students(id) on delete cascade,
+          transaction_type text not null default 'payment',
+          amount integer not null,
+          running_paid_total integer not null,
+          previous_status text not null,
+          new_status text not null,
+          payment_date text not null,
+          payment_method text,
+          reference_number text,
+          notes text,
+          recorded_by text references admin_users(id) on delete set null,
+          source text not null default 'manual',
+          created_at text not null default (datetime('now'))
+        )
+        """
+    )
+    conn.execute("create index if not exists idx_pt_bill_id on payment_transactions(bill_id)")
+    conn.execute("create index if not exists idx_pt_student_id on payment_transactions(student_id)")
+    conn.execute("create index if not exists idx_pt_payment_date on payment_transactions(payment_date)")
+    conn.execute("create index if not exists idx_pt_created_at on payment_transactions(created_at)")
