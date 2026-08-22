@@ -1803,6 +1803,15 @@ class CoreBehaviorTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "Catatan pembayaran maksimal"):
                 update_bill_status(database, bill["id"], "paid", notes="x" * 1001)
 
+    def test_python_systemd_jobs_use_package_module_entrypoints(self) -> None:
+        project_root = Path(__file__).resolve().parents[1]
+        maintenance_unit = (project_root / "deploy" / "salut-cek-pembayaran-maintenance.service").read_text(encoding="utf-8")
+        verify_unit = (project_root / "deploy" / "salut-cek-pembayaran-backup-verify.service").read_text(encoding="utf-8")
+        self.assertIn("python -m Backend.maintenance", maintenance_unit)
+        self.assertIn("python -m Backend.verify_backup", verify_unit)
+        self.assertNotIn("python /opt/salut-cek-pembayaran/Backend/maintenance.py", maintenance_unit)
+        self.assertNotIn("python3 /opt/salut-cek-pembayaran/Backend/verify_backup.py", verify_unit)
+
 
 if __name__ == "__main__":
     unittest.main()

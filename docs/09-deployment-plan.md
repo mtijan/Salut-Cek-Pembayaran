@@ -99,7 +99,7 @@ sudo systemctl status salut-cek-pembayaran-backup.timer
 sudo systemctl status salut-cek-pembayaran-backup-verify.timer
 sudo journalctl -u salut-cek-pembayaran-maintenance.service -n 50 --no-pager
 sudo journalctl -u salut-cek-pembayaran-backup-verify.service -n 50 --no-pager
-sudo -u salut /opt/salut-cek-pembayaran/.venv/bin/python /opt/salut-cek-pembayaran/Backend/verify_backup.py --directory /var/backups/salut-cek-pembayaran
+sudo -u salut sh -c 'cd /opt/salut-cek-pembayaran && .venv/bin/python -m Backend.verify_backup --directory /var/backups/salut-cek-pembayaran'
 df -h /var/lib/salut-cek-pembayaran /var/backups/salut-cek-pembayaran
 ```
 
