@@ -7,7 +7,7 @@ Aplikasi web terpadu untuk mahasiswa Universitas Terbuka di SALUT Awwabin dalam 
 - Backend: FastAPI dan Uvicorn berjalan di VPS dengan database SQLite, session-based RBAC auth, migrasi otomatis, dan scheduled backup.
 - Frontend Admin: Modern Single Page Application (SPA) berbasis React 19 + Vite yang terintegrasi langsung di bundle `Frontend/admin-dist/`.
 - Frontend Publik: Antarmuka web statis mandiri untuk pencarian tagihan mahasiswa berbasis NIM dengan rate limit dan proteksi privasi.
-- Quality Assurance: 44 unit tests di `Backend.test_core` lulus 100%.
+- Quality Assurance lokal: 45 unit/integration tests di `Backend.test_core`, build Vite, `npm audit`, `pip check`, dan `pip-audit` lulus pada 2026-08-21. Hasil ini belum mencakup E2E browser atau verifikasi deployment produksi.
 
 ## Fitur Utama
 
@@ -20,7 +20,7 @@ Aplikasi web terpadu untuk mahasiswa Universitas Terbuka di SALUT Awwabin dalam 
 ### 2. Portal Admin SIAKAD (React 19 SPA)
 - **Dashboard Analytics**: Metrik real-time total mahasiswa, total tagihan, total penerimaan, sisa piutang/tunggakan, dan persentase pelunasan.
 - **Data Mahasiswa**: Live search, filter program studi & status akademik, manajemen CRUD, dan modal **Student Profile 360** (biodata lengkap, NIK/KTP, TTL, nama ibu kandung, kontak, registrasi awal/angkatan, dan riwayat seluruh tagihan).
-- **Tagihan Mahasiswa**: Paginasi 100 baris, filter status dan sumber data (`import`/`manual`), inline status switcher, pencatatan nominal cicilan (`paid_amount`), dan kalkulasi otomatis sisa piutang (`remaining_amount`).
+- **Tagihan Mahasiswa**: API paginasi 100 baris, filter status dan sumber data (`import`/`manual`), inline status switcher, pencatatan nominal cicilan (`paid_amount`), dan kalkulasi otomatis sisa piutang (`remaining_amount`). Lihat keterbatasan paginasi SPA pada bagian status audit.
 - **Rekapitulasi Keuangan**: Analisis keuangan per Program Studi (penerimaan vs tunggakan) dengan fitur ekspor data ke file CSV.
 - **Riwayat File Import**: Kartu batch file import, ringkasan status pembayaran per batch, dan fitur soft delete tagihan per file dengan alasan audit.
 - **Wizard Upload Excel 3-Langkah**:
@@ -29,8 +29,20 @@ Aplikasi web terpadu untuk mahasiswa Universitas Terbuka di SALUT Awwabin dalam 
   - Ekstraksi semester registrasi awal (contoh: `2023.1`, `2023.2`) untuk sorting kronologis angkatan.
   - Deteksi anomali data, preview diff sebelum commit, dan tombol unduh template Excel resmi.
 - **Master Data**: Manajemen CRUD Program Studi dan Periode/Semester Akademik (termasuk penetapan semester aktif).
-- **Manajemen Pengguna & Otorisasi RBAC**: Kontrol akses berjenjang (`super_admin`, `admin`, `viewer`).
-- **Audit Logging**: Pencatatan audit trail untuk seluruh aktivitas penting (login, lookup, import, perubahan status, dan penghapusan data).
+- **Otorisasi RBAC**: Kontrol akses server-side berbasis permission untuk `super_admin`, `admin`, dan `viewer`. API/UI pengelolaan akun admin belum tersedia.
+- **Audit & Lookup Logging**: `audit_logs` mencatat aksi admin penting; `lookup_logs` menyimpan hash pencarian publik dan hasilnya.
+
+## Status Audit Codebase 2026-08-21
+
+Audit menyeluruh terbaru ada di [Codebase Audit & Mitigation Plan](docs/14-codebase-audit-mitigation-plan.md). Remediasi P0 lokal pada 2026-08-22 telah memperbaiki permission history, metadata pagination React, penolakan cicilan tanpa nominal, serta konfigurasi Compose. Checkout tetap belum production-ready karena review data partial historis, konsistensi RBAC viewer, reliability SQLite, atomic audit log, dan hardening operasi masih terbuka.
+
+- route history kini memakai permission `view_reports` dan memverifikasi target bill/mahasiswa;
+- SPA React membaca `pagination.total` serta `pagination.total_pages` dari API;
+- endpoint dan fallback legacy meminta nominal eksplisit untuk status `partial`;
+- Compose hanya bind ke loopback, mewajibkan secret dari `.env`, dan mematikan trusted proxy secara default;
+- CRUD jenis tagihan, pengelolaan akun admin, pembacaan audit log, laporan per periode, serta input backdate/referensi pembayaran belum diimplementasikan.
+
+Jangan menyatakan checkout ini production-ready sebelum temuan High pada dokumen audit ditutup, test regresi ditambah, dan deployment diverifikasi terpisah.
 
 ## Rekomendasi Teknologi
 
@@ -58,11 +70,15 @@ Aplikasi web terpadu untuk mahasiswa Universitas Terbuka di SALUT Awwabin dalam 
 ### 1. Menjalankan Backend & Public Frontend
 
 ```powershell
+# Buat environment proyek agar paket global tidak ikut diperiksa/digunakan
+python -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+
 # Jalankan unit test
-python -m unittest Backend.test_core
+.\.venv\Scripts\python.exe -m unittest Backend.test_core
 
 # Jalankan server backend (FastAPI + Public Frontend)
-python -m uvicorn Backend.app.main:app --host 127.0.0.1 --port 8000 --reload
+.\.venv\Scripts\python.exe -m uvicorn Backend.app.main:app --host 127.0.0.1 --port 8000 --reload
 ```
 
 Akses portal publik di `http://127.0.0.1:8000`. Coba pencarian dengan contoh NIM: `050117077`.
@@ -86,10 +102,17 @@ npm run build
 
 Hasil build akan otomatis disimpan ke direktori `Frontend/admin-dist/` dan langsung disajikan oleh server FastAPI melalui rute `/admin`.
 
+### 4. Audit Dependency Python
 
+Jalankan audit melalui skrip berikut dari root repository. Skrip membuat `.venv-audit` khusus, memasang dependency dari `requirements-audit.txt`, lalu menjalankan `pip check` dan `pip-audit` tanpa mencampur paket Python global.
+
+```powershell
+.\scripts\audit_python_dependencies.ps1
 ```
 
-Catatan: Di server produksi (VPS), pastikan `APP_ENV=production` dan `TRUST_PROXY_HEADERS=true` diaktifkan agar rate limiting membaca header proxy `X-Real-IP` secara akurat.
+Snapshot terakhir pada 2026-08-21 menggunakan `pip-audit 2.10.1`: tidak ada broken requirements dan tidak ada known vulnerability pada dependency yang di-resolve dari `requirements.txt`. Audit harus dijalankan ulang pada setiap perubahan dependency dan sebelum release karena basis data advisory terus berubah.
+
+Catatan: Di server produksi (VPS), gunakan `APP_ENV=production`. Set `TRUST_PROXY_HEADERS=true` hanya bila aplikasi dapat diakses **eksklusif** melalui reverse proxy tepercaya; akses Docker langsung harus tetap `false`.
 
 ## Indeks Dokumentasi
 
