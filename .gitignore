@@ -4,6 +4,7 @@ node_modules/
 __pycache__/
 *.py[cod]
 .venv/
+.venv-audit/
 
 # Build output
 .next/
@@ -16,6 +17,7 @@ build/
 .env
 .env.*
 !.env.example
+!.env.docker.example
 vps.txt
 *.pem
 *.key
@@ -54,5 +56,4 @@ yarn-debug.log*
 Thumbs.db
 .vscode/
 .idea/
-# Documentation
-docs/
+.codex-gitconfig
