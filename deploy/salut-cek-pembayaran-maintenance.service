@@ -1,0 +1,15 @@
+[Unit]
+Description=Prune operational data Salut Cek Pembayaran
+
+[Service]
+Type=oneshot
+User=salut
+Group=salut
+UMask=0077
+WorkingDirectory=/opt/salut-cek-pembayaran
+EnvironmentFile=/etc/salut-cek-pembayaran.env
+ExecStart=/opt/salut-cek-pembayaran/.venv/bin/python /opt/salut-cek-pembayaran/Backend/maintenance.py
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ReadWritePaths=/var/lib/salut-cek-pembayaran

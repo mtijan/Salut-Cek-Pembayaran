@@ -6,16 +6,16 @@ services:
     container_name: salut-app
     restart: unless-stopped
     ports:
-      - "8000:8000"
+      - "127.0.0.1:${HOST_PORT:-8000}:8000"
     environment:
-      - APP_ENV=production
-      - PORT=8000
-      - DATABASE_URL=/app/Backend/data/salut.sqlite
-      - IMPORT_DIR=/app/Backend/data/imports
-      - LOOKUP_HASH_SECRET=change-this-to-a-secure-random-secret
-      - ADMIN_BOOTSTRAP_EMAIL=admin@example.com
-      - ADMIN_BOOTSTRAP_PASSWORD=AdminSecurePassword123!
-      - TRUST_PROXY_HEADERS=true
+      APP_ENV: ${APP_ENV:-production}
+      PORT: "8000"
+      DATABASE_URL: /app/Backend/data/salut.sqlite
+      IMPORT_DIR: /app/Backend/data/imports
+      LOOKUP_HASH_SECRET: ${LOOKUP_HASH_SECRET:?Set LOOKUP_HASH_SECRET in the root .env file}
+      ADMIN_BOOTSTRAP_EMAIL: ${ADMIN_BOOTSTRAP_EMAIL:?Set ADMIN_BOOTSTRAP_EMAIL in the root .env file}
+      ADMIN_BOOTSTRAP_PASSWORD: ${ADMIN_BOOTSTRAP_PASSWORD:?Set ADMIN_BOOTSTRAP_PASSWORD in the root .env file}
+      TRUST_PROXY_HEADERS: ${TRUST_PROXY_HEADERS:-false}
     volumes:
       - salut_data:/app/Backend/data
 
