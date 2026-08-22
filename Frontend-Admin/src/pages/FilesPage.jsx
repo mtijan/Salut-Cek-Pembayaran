@@ -7,7 +7,7 @@ import ConfirmModal from '../components/common/ConfirmModal';
 
 export default function FilesPage() {
   const { showToast } = useToast();
-  const { isViewer } = useAuth();
+  const { can } = useAuth();
 
   const [files, setFiles] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -125,7 +125,7 @@ export default function FilesPage() {
                   </div>
                 </div>
 
-                {!isViewer && (
+                {can('import') && (
                   <div style={{ borderTop: '1px solid var(--line)', paddingTop: 12, display: 'flex', justifyContent: 'flex-end' }}>
                     <button
                       type="button"

@@ -709,7 +709,7 @@ async function loadBills(page = 1) {
           <td>${escapeHtml(b.period)}</td>
           <td>${escapeHtml(b.bill_type)}</td>
           <td>
-            <select class="status-select status-${b.status}" onchange="changeBillStatus('${b.id}', this.value)">
+            <select class="status-select status-${b.status}" onchange="changeBillStatus('${b.id}', this.value, ${Number(b.paid_amount || 0)}, ${Number(b.amount || 0)})">
               <option value="unpaid" ${b.status === "unpaid" ? "selected" : ""}>Belum lunas</option>
               <option value="partial" ${b.status === "partial" ? "selected" : ""}>Bayar sebagian</option>
               <option value="paid" ${b.status === "paid" ? "selected" : ""}>Lunas</option>
@@ -773,18 +773,36 @@ if (billsResetFilterBtn) {
 if (billsPrevPage) billsPrevPage.addEventListener("click", () => loadBills(currentBillsPage - 1));
 if (billsNextPage) billsNextPage.addEventListener("click", () => loadBills(currentBillsPage + 1));
 
-window.changeBillStatus = async function (billId, status) {
+window.changeBillStatus = async function (billId, status, currentPaidAmount = 0, totalAmount = 0) {
   try {
+    let paidAmount = null;
+    if (status === "partial") {
+      const value = window.prompt(
+        `Masukkan nominal yang sudah dibayar (total tagihan ${new Intl.NumberFormat("id-ID").format(totalAmount)}):`,
+        currentPaidAmount > 0 ? String(currentPaidAmount) : "",
+      );
+      if (value === null) {
+        loadBills(currentBillsPage);
+        return;
+      }
+      paidAmount = value.trim();
+      if (!paidAmount) {
+        showToast("Nominal pembayaran wajib diisi untuk status Bayar Sebagian.", "error");
+        loadBills(currentBillsPage);
+        return;
+      }
+    }
     const res = await fetch("/api/admin/bills/status", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ bill_id: billId, status }),
+      body: JSON.stringify({ bill_id: billId, status, paid_amount: paidAmount }),
     });
     const json = await res.json();
     if (!res.ok || !json.success) throw new Error(json.error?.message || "Gagal mengubah status tagihan");
 
     showToast("Status pembayaran tagihan diperbarui.");
     loadDashboardStats();
+    loadBills(currentBillsPage);
   } catch (err) {
     showToast(`Gagal update status: ${err.message}`, "error");
     loadBills(currentBillsPage);

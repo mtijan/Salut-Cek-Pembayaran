@@ -9,10 +9,13 @@ export default function Student360Modal({ studentId, isOpen, onClose }) {
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('bio');
   const [copiedKey, setCopiedKey] = useState(null);
+  const [historyData, setHistoryData] = useState(null);
+  const [historyLoading, setHistoryLoading] = useState(false);
 
   useEffect(() => {
     if (isOpen && studentId) {
       setActiveTab('bio');
+      setHistoryData(null);
       fetchDetail();
     } else {
       setData(null);
@@ -32,6 +35,22 @@ export default function Student360Modal({ studentId, isOpen, onClose }) {
     }
   };
 
+  const fetchPaymentHistory = async (offset = 0) => {
+    setHistoryLoading(true);
+    try {
+      const result = await studentsApi.getTransactions(studentId, { limit: 50, offset });
+      setHistoryData(result);
+    } catch (err) {
+      showToast(err.message || 'Gagal memuat riwayat pembayaran.', 'error');
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (isOpen && studentId && activeTab === 'history') fetchPaymentHistory(0);
+  }, [activeTab, isOpen, studentId]);
+
   const handleCopy = (text, keyName) => {
     if (!text) return;
     navigator.clipboard.writeText(text);
@@ -45,6 +64,8 @@ export default function Student360Modal({ studentId, isOpen, onClose }) {
   const st = data?.student;
   const sm = data?.summary;
   const bills = data?.bills || [];
+  const paymentHistory = historyData?.transactions || data?.payment_history || [];
+  const historyPagination = historyData?.pagination || data?.payment_history_pagination || { total: paymentHistory.length, limit: 50, offset: 0 };
 
   const totalAmount = Number(sm?.total_amount || 0);
   const totalPaid = Number(sm?.total_paid || 0);
@@ -115,6 +136,14 @@ export default function Student360Modal({ studentId, isOpen, onClose }) {
           >
             <CreditCard size={16} />
             <span>Tagihan & BRIVA ({bills.length})</span>
+          </button>
+          <button
+            type="button"
+            className={`modal-tab-button ${activeTab === 'history' ? 'is-active' : ''}`}
+            onClick={() => setActiveTab('history')}
+          >
+            <Clock size={16} />
+            <span>Riwayat Pembayaran ({paymentHistory.length})</span>
           </button>
         </div>
 
@@ -336,6 +365,97 @@ export default function Student360Modal({ studentId, isOpen, onClose }) {
                           ))}
                         </tbody>
                       </table>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Tab 3: Riwayat Transaksi Pembayaran */}
+              {activeTab === 'history' && (
+                <div>
+                  <h4 style={{ fontSize: 14, fontWeight: 800, color: 'var(--ink)', marginBottom: 10 }}>
+                    Log Kronologis Pembayaran & Perubahan Status
+                  </h4>
+                  {!paymentHistory.length ? (
+                    <div className="empty-state-card" style={{ padding: 24, border: '1px solid var(--line)' }}>
+                      <Clock size={32} color="var(--muted-light)" style={{ marginBottom: 8 }} />
+                      <p style={{ color: 'var(--muted)', fontSize: 13 }}>Belum ada log histori pembayaran yang tercatat untuk mahasiswa ini.</p>
+                    </div>
+                  ) : (
+                    <div className="table-responsive">
+                      <table className="data-table">
+                        <thead>
+                          <tr>
+                            <th>Waktu & Tanggal</th>
+                            <th>Tipe</th>
+                            <th>Perubahan Status</th>
+                            <th>Nominal</th>
+                            <th>Total Terbayar</th>
+                            <th>Metode / BRIVA</th>
+                            <th>Referensi / Catatan</th>
+                            <th>Dicatat Oleh</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {paymentHistory.map((tx) => (
+                            <tr key={tx.id}>
+                              <td style={{ fontSize: 12 }}>
+                                <div><strong>{tx.payment_date}</strong></div>
+                                <span style={{ color: 'var(--muted)', fontSize: 11 }}>{tx.created_at}</span>
+                              </td>
+                              <td>
+                                <span className={`badge ${tx.transaction_type === 'payment' ? 'badge-success' : tx.transaction_type === 'reversal' ? 'badge-danger' : 'badge-warning'}`} style={{ fontSize: 11 }}>
+                                  {tx.transaction_type === 'payment' ? 'Pembayaran' : tx.transaction_type === 'reversal' ? 'Pembatalan' : 'Koreksi'}
+                                </span>
+                              </td>
+                              <td style={{ fontSize: 12 }}>
+                                <span style={{ textTransform: 'capitalize' }}>{tx.previous_status}</span>
+                                <span style={{ margin: '0 6px', color: 'var(--muted)' }}>&rarr;</span>
+                                <span style={{ textTransform: 'capitalize', fontWeight: 700 }}>{tx.new_status}</span>
+                              </td>
+                              <td>
+                                <strong style={{ color: tx.amount >= 0 ? 'var(--success)' : 'var(--danger)' }}>
+                                  {tx.amount >= 0 ? `+${tx.amount_formatted}` : `-${tx.amount_formatted}`}
+                                </strong>
+                              </td>
+                              <td>
+                                <strong style={{ color: 'var(--ink)' }}>{tx.running_paid_total_formatted}</strong>
+                              </td>
+                              <td style={{ fontSize: 12 }}>
+                                <div>{tx.payment_method || 'BRIVA'}</div>
+                                {tx.briva && <code style={{ fontSize: 11, color: 'var(--muted)' }}>{tx.briva}</code>}
+                              </td>
+                              <td style={{ fontSize: 12, maxWidth: 220 }}>
+                                {tx.reference_number && <div><code>{tx.reference_number}</code></div>}
+                                <span style={{ color: 'var(--muted)' }}>{tx.notes || '-'}</span>
+                              </td>
+                              <td style={{ fontSize: 12 }}>
+                                <div>{tx.recorded_by_name || 'Admin'}</div>
+                                <span style={{ color: 'var(--muted)', fontSize: 10, textTransform: 'uppercase' }}>{tx.source}</span>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                      <div className="pagination-controls" style={{ marginTop: 12 }}>
+                        <span style={{ color: 'var(--muted)', fontSize: 12 }}>
+                          Menampilkan {paymentHistory.length} dari {historyPagination.total} transaksi
+                        </span>
+                        <div style={{ display: 'flex', gap: 8 }}>
+                          <button
+                            type="button"
+                            className="btn btn-secondary btn-sm"
+                            disabled={historyLoading || historyPagination.offset <= 0}
+                            onClick={() => fetchPaymentHistory(Math.max(0, historyPagination.offset - historyPagination.limit))}
+                          >Sebelumnya</button>
+                          <button
+                            type="button"
+                            className="btn btn-secondary btn-sm"
+                            disabled={historyLoading || historyPagination.offset + historyPagination.limit >= historyPagination.total}
+                            onClick={() => fetchPaymentHistory(historyPagination.offset + historyPagination.limit)}
+                          >Berikutnya</button>
+                        </div>
+                      </div>
                     </div>
                   )}
                 </div>

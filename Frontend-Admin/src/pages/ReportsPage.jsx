@@ -2,16 +2,18 @@ import React, { useState, useEffect } from 'react';
 import { Download, RefreshCw, FileSpreadsheet, TrendingUp, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { reportsApi } from '../services/api';
 import { useToast } from '../components/common/Toast';
+import { toCsv } from '../utils/csv';
 
 export default function ReportsPage() {
   const { showToast } = useToast();
   const [report, setReport] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [period, setPeriod] = useState('');
 
   const fetchReport = async () => {
     setLoading(true);
     try {
-      const data = await reportsApi.getFinancialSummary();
+      const data = await reportsApi.getFinancialSummary(period);
       setReport(data);
     } catch (err) {
       showToast(err.message || 'Gagal memuat rekapitulasi keuangan.', 'error');
@@ -29,16 +31,16 @@ export default function ReportsPage() {
 
     const headers = ['Program Studi', 'Jml Mahasiswa', 'Jml Tagihan', 'Total Terbit (Rp)', 'Total Lunas (Rp)', 'Sisa Piutang (Rp)', 'Realisasi (%)'];
     const rows = report.by_study_program.map((p) => [
-      `"${p.program_study || '-'}"`,
+      p.program_study || '-',
       p.total_students,
       p.total_bills,
       p.billed_amount,
       p.paid_amount,
       p.outstanding_amount,
-      `"${p.percentage_paid}%"`,
+      `${p.percentage_paid}%`,
     ]);
 
-    const csvContent = [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
+    const csvContent = toCsv([headers, ...rows]);
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -113,6 +115,15 @@ export default function ReportsPage() {
           </div>
 
           <div style={{ display: 'flex', gap: 10 }}>
+            <input
+              type="text"
+              className="form-control"
+              style={{ width: 120 }}
+              placeholder="Periode 2026.1"
+              value={period}
+              onChange={(e) => setPeriod(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') fetchReport(); }}
+            />
             <button
               type="button"
               className="btn btn-secondary btn-sm"

@@ -12,7 +12,7 @@ import ConfirmModal from '../components/common/ConfirmModal';
 
 export default function StudentsPage() {
   const { showToast } = useToast();
-  const { isViewer } = useAuth();
+  const { can } = useAuth();
 
   const [students, setStudents] = useState([]);
   const [prodis, setProdis] = useState([]);
@@ -293,7 +293,7 @@ export default function StudentsPage() {
               )}
             </div>
 
-            {!isViewer && (
+            {can('manage_students') && (
               <button
                 type="button"
                 className="btn btn-primary"
@@ -515,7 +515,7 @@ export default function StudentsPage() {
                             <span>Profil 360</span>
                           </button>
 
-                          {!isViewer && (
+                          {can('manage_students') && (
                             <>
                               <button
                                 type="button"

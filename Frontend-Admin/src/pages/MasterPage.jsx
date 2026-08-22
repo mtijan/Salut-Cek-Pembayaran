@@ -6,7 +6,7 @@ import { useAuth } from '../context/AuthContext';
 
 export default function MasterPage() {
   const { showToast } = useToast();
-  const { isViewer } = useAuth();
+  const { can } = useAuth();
 
   const [activeTab, setActiveTab] = useState('prodi'); // 'prodi' | 'period'
 
@@ -206,7 +206,7 @@ export default function MasterPage() {
               </p>
             </div>
 
-            {!isViewer && (
+            {can('manage_master_data') && (
               <button type="button" className="btn btn-primary" onClick={handleOpenProdiCreate}>
                 <Plus size={16} />
                 <span>Tambah Program Studi</span>
@@ -246,7 +246,7 @@ export default function MasterPage() {
                         </span>
                       </td>
                       <td style={{ textAlign: 'right' }}>
-                        {!isViewer && (
+                        {can('manage_master_data') && (
                           <button
                             type="button"
                             className="btn btn-secondary btn-sm"
@@ -279,7 +279,7 @@ export default function MasterPage() {
               </p>
             </div>
 
-            {!isViewer && (
+            {can('manage_master_data') && (
               <button type="button" className="btn btn-primary" onClick={handleOpenPeriodCreate}>
                 <Plus size={16} />
                 <span>Tambah Periode Akademik</span>
@@ -328,7 +328,7 @@ export default function MasterPage() {
                           )}
                         </td>
                         <td style={{ textAlign: 'right' }}>
-                          {!isViewer && (
+                          {can('manage_master_data') && (
                             <button
                               type="button"
                               className="btn btn-secondary btn-sm"

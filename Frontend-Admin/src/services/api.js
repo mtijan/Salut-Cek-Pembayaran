@@ -79,6 +79,8 @@ export const studentsApi = {
       method: 'DELETE',
       body: JSON.stringify({ reason }),
     }),
+  getTransactions: (id, params = {}) =>
+    apiFetch(`/admin/students/${id}/transactions?limit=${params.limit || 50}&offset=${params.offset || 0}`),
 };
 
 // Template API
@@ -97,10 +99,10 @@ export const billsApi = {
     if (params.offset) query.set('offset', String(params.offset));
     return apiFetch(`/admin/bills?${query.toString()}`);
   },
-  updateStatus: (bill_id, status) =>
+  updateStatus: (bill_id, status, paid_amount = null, metadata = {}) =>
     apiFetch('/admin/bills/status', {
       method: 'POST',
-      body: JSON.stringify({ bill_id, status }),
+      body: JSON.stringify({ bill_id, status, paid_amount, ...metadata }),
     }),
   create: (data) =>
     apiFetch('/admin/bills', {
@@ -117,11 +119,13 @@ export const billsApi = {
       method: 'DELETE',
       body: JSON.stringify({ reason }),
     }),
+  getTransactions: (id, params = {}) =>
+    apiFetch(`/admin/bills/${id}/transactions?limit=${params.limit || 50}&offset=${params.offset || 0}`),
 };
 
 // Reports API
 export const reportsApi = {
-  getFinancialSummary: () => apiFetch('/admin/reports/financial-summary'),
+  getFinancialSummary: (period = '') => apiFetch(`/admin/reports/financial-summary${period ? `?period=${encodeURIComponent(period)}` : ''}`),
 };
 
 // Master Data API

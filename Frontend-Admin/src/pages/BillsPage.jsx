@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Search, Plus, Edit2, Trash2, ChevronLeft, ChevronRight, CheckCircle2, RefreshCw, AlertCircle, Info, DollarSign, UserCheck } from 'lucide-react';
+import { Search, Plus, Edit2, Trash2, ChevronLeft, ChevronRight, CheckCircle2, RefreshCw, AlertCircle, Info, DollarSign, UserCheck, Clock, X } from 'lucide-react';
 import { billsApi, studentsApi, masterApi } from '../services/api';
 import { useToast } from '../components/common/Toast';
 import { useAuth } from '../context/AuthContext';
@@ -17,10 +17,11 @@ const formatRupiah = (val) => {
 
 export default function BillsPage() {
   const { showToast } = useToast();
-  const { isViewer } = useAuth();
+  const { can } = useAuth();
 
   const [bills, setBills] = useState([]);
   const [totalCount, setTotalCount] = useState(0);
+  const [pagination, setPagination] = useState({ total: 0, limit: 100, offset: 0, page: 1, total_pages: 1 });
   const [loading, setLoading] = useState(true);
 
   // Filters & Pagination
@@ -38,6 +39,9 @@ export default function BillsPage() {
   const [editorModalOpen, setEditorModalOpen] = useState(false);
   const [editingBill, setEditingBill] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
+  const [historyTarget, setHistoryTarget] = useState(null);
+  const [historyList, setHistoryList] = useState([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -79,8 +83,10 @@ export default function BillsPage() {
         limit,
         offset,
       });
+      const pageData = res.pagination || {};
       setBills(res.bills || []);
-      setTotalCount(res.total_count || 0);
+      setPagination(pageData);
+      setTotalCount(Number(pageData.total) || 0);
     } catch (err) {
       showToast(err.message || 'Gagal memuat daftar tagihan.', 'error');
     } finally {
@@ -97,14 +103,24 @@ export default function BillsPage() {
   }, [fetchBills]);
 
   const handleStatusChange = async (bill, newStatus) => {
-    if (isViewer) return;
+    if (!can('manage_billing')) return;
     if (newStatus === 'partial') {
       // Open edit modal directly to allow entering partial paid_amount with full calculation UI
       handleOpenEdit(bill, 'partial');
       return;
     }
+    const paymentDate = window.prompt('Tanggal transaksi (YYYY-MM-DD):', new Date().toISOString().slice(0, 10));
+    if (paymentDate === null) return;
+    const referenceNumber = window.prompt('Nomor referensi pembayaran (opsional):', '');
+    if (referenceNumber === null) return;
+    const notes = window.prompt('Catatan pembayaran/koreksi (opsional):', '');
+    if (notes === null) return;
     try {
-      await billsApi.updateStatus(bill.id, newStatus);
+      await billsApi.updateStatus(bill.id, newStatus, null, {
+        payment_date: paymentDate,
+        reference_number: referenceNumber,
+        notes,
+      });
       showToast('Status tagihan berhasil diperbarui.');
       fetchBills();
     } catch (err) {
@@ -126,6 +142,9 @@ export default function BillsPage() {
       paid_amount: '',
       briva: '',
       status: 'unpaid',
+      payment_date: '',
+      reference_number: '',
+      notes: '',
       due_date: '',
       instructions: '',
     });
@@ -168,6 +187,9 @@ export default function BillsPage() {
       paid_amount: String(currentPaid || ''),
       briva: bill.briva || '',
       status: currentStatus,
+      payment_date: '',
+      reference_number: '',
+      notes: '',
       due_date: bill.due_date || '',
       instructions: bill.instructions || '',
     });
@@ -250,6 +272,9 @@ export default function BillsPage() {
       paid_amount: paidAmountNum,
       briva: formData.briva.trim(),
       status: formData.status,
+      payment_date: formData.payment_date || null,
+      reference_number: formData.reference_number || null,
+      notes: formData.notes || null,
       due_date: formData.due_date || null,
       instructions: formData.instructions || null,
     };
@@ -284,7 +309,21 @@ export default function BillsPage() {
     }
   };
 
-  const totalPages = Math.ceil(totalCount / limit) || 1;
+  const handleOpenHistory = async (bill) => {
+    setHistoryTarget(bill);
+    setHistoryLoading(true);
+    try {
+      const res = await billsApi.getTransactions(bill.id);
+      setHistoryList(res.transactions || []);
+    } catch (err) {
+      showToast(err.message || 'Gagal memuat riwayat pembayaran.', 'error');
+      setHistoryTarget(null);
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
+
+  const totalPages = Number(pagination.total_pages) || Math.ceil(totalCount / limit) || 1;
 
   // Real-time calculation helpers for modal
   const calcAmount = Number(formData.amount) || 0;
@@ -351,7 +390,7 @@ export default function BillsPage() {
           </div>
 
           <div className="toolbar-actions">
-            {!isViewer && (
+            {can('manage_billing') && (
               <button
                 type="button"
                 className="btn btn-primary"
@@ -428,7 +467,7 @@ export default function BillsPage() {
                       )}
                     </td>
                     <td>
-                      {isViewer ? (
+                      {!can('manage_billing') ? (
                         <span className={`badge ${b.status === 'paid' ? 'badge-success' : b.status === 'partial' ? 'badge-warning' : 'badge-danger'}`}>
                           {b.status === 'paid' ? 'Lunas' : b.status === 'partial' ? 'Bayar Sebagian' : 'Belum Lunas'}
                         </span>
@@ -456,7 +495,16 @@ export default function BillsPage() {
                     <td>{b.due_date_formatted || '-'}</td>
                     <td><code style={{ fontFamily: 'var(--font-mono)' }}>{b.briva}</code></td>
                     <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
-                      {!isViewer && (
+                      <button
+                        type="button"
+                        className="btn btn-secondary btn-sm"
+                        style={{ marginRight: 6 }}
+                        onClick={() => handleOpenHistory(b)}
+                        title="Riwayat Pembayaran"
+                      >
+                        <Clock size={14} />
+                      </button>
+                      {can('manage_billing') && (
                         <>
                           <button
                             type="button"
@@ -742,6 +790,41 @@ export default function BillsPage() {
                     </div>
                   )}
 
+                  {formData.status !== 'unpaid' && (
+                    <>
+                      <div className="form-group">
+                        <label>Tanggal Transaksi</label>
+                        <input
+                          type="date"
+                          className="form-control"
+                          value={formData.payment_date}
+                          onChange={(e) => setFormData({ ...formData, payment_date: e.target.value })}
+                        />
+                      </div>
+                      <div className="form-group">
+                        <label>Nomor Referensi (Opsional)</label>
+                        <input
+                          type="text"
+                          maxLength={100}
+                          className="form-control"
+                          placeholder="Contoh: BRI-20260822-001"
+                          value={formData.reference_number}
+                          onChange={(e) => setFormData({ ...formData, reference_number: e.target.value })}
+                        />
+                      </div>
+                      <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+                        <label>Catatan Transaksi (Opsional)</label>
+                        <textarea
+                          className="form-control"
+                          rows={2}
+                          maxLength={1000}
+                          value={formData.notes}
+                          onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                        />
+                      </div>
+                    </>
+                  )}
+
                   {/* Instruksi Pembayaran */}
                   <div className="form-group" style={{ gridColumn: '1 / -1' }}>
                     <label>Instruksi Pembayaran Khusus (Opsional)</label>
@@ -783,6 +866,109 @@ export default function BillsPage() {
         onConfirm={handleDeleteConfirm}
         onClose={() => setDeleteTarget(null)}
       />
+
+      {/* Payment History Modal */}
+      {historyTarget && (
+        <div className="modal-backdrop" onClick={() => setHistoryTarget(null)}>
+          <div
+            className="modal-dialog large"
+            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+          >
+            <div className="modal-header">
+              <div>
+                <h3 style={{ margin: 0, fontSize: 17, fontWeight: 800 }}>
+                  Riwayat Pembayaran Tagihan
+                </h3>
+                <p style={{ margin: '4px 0 0', fontSize: 13, color: 'var(--muted)' }}>
+                  {historyTarget.student_name || historyTarget.full_name} • {historyTarget.period} • BRIVA: <code>{historyTarget.briva}</code>
+                </p>
+              </div>
+              <button
+                type="button"
+                className="modal-close-btn"
+                onClick={() => setHistoryTarget(null)}
+                aria-label="Tutup"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="modal-body" style={{ maxHeight: '60vh', overflowY: 'auto' }}>
+              {historyLoading ? (
+                <div style={{ padding: 30, textAlign: 'center', color: 'var(--muted)' }}>
+                  Memuat riwayat transaksi...
+                </div>
+              ) : !historyList.length ? (
+                <div className="empty-state-card" style={{ padding: 24, border: '1px solid var(--line)' }}>
+                  <Clock size={32} color="var(--muted-light)" style={{ marginBottom: 8 }} />
+                  <p style={{ color: 'var(--muted)', fontSize: 13 }}>
+                    Belum ada log transaksi pembayaran untuk tagihan ini.
+                  </p>
+                </div>
+              ) : (
+                <div className="table-responsive">
+                  <table className="data-table">
+                    <thead>
+                      <tr>
+                        <th>Waktu & Tanggal</th>
+                        <th>Tipe</th>
+                        <th>Perubahan Status</th>
+                        <th>Nominal</th>
+                        <th>Total Terbayar</th>
+                        <th>Dicatat Oleh</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {historyList.map((tx) => (
+                        <tr key={tx.id}>
+                          <td style={{ fontSize: 12 }}>
+                            <div><strong>{tx.payment_date}</strong></div>
+                            <span style={{ color: 'var(--muted)', fontSize: 11 }}>{tx.created_at}</span>
+                          </td>
+                          <td>
+                            <span className={`badge ${tx.transaction_type === 'payment' ? 'badge-success' : tx.transaction_type === 'reversal' ? 'badge-danger' : 'badge-warning'}`} style={{ fontSize: 11 }}>
+                              {tx.transaction_type === 'payment' ? 'Pembayaran' : tx.transaction_type === 'reversal' ? 'Pembatalan' : 'Koreksi'}
+                            </span>
+                          </td>
+                          <td style={{ fontSize: 12 }}>
+                            <span style={{ textTransform: 'capitalize' }}>{tx.previous_status}</span>
+                            <span style={{ margin: '0 6px', color: 'var(--muted)' }}>&rarr;</span>
+                            <span style={{ textTransform: 'capitalize', fontWeight: 700 }}>{tx.new_status}</span>
+                          </td>
+                          <td>
+                            <strong style={{ color: tx.amount >= 0 ? 'var(--success)' : 'var(--danger)' }}>
+                              {tx.amount >= 0 ? `+${tx.amount_formatted}` : `-${tx.amount_formatted}`}
+                            </strong>
+                          </td>
+                          <td>
+                            <strong style={{ color: 'var(--ink)' }}>{tx.running_paid_total_formatted}</strong>
+                          </td>
+                          <td style={{ fontSize: 12 }}>
+                            <div>{tx.recorded_by_name || 'Admin'}</div>
+                            <span style={{ color: 'var(--muted)', fontSize: 10, textTransform: 'uppercase' }}>{tx.source}</span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
+            <div className="modal-footer">
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => setHistoryTarget(null)}
+              >
+                Tutup
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

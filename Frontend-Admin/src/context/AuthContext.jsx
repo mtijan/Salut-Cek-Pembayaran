@@ -38,6 +38,7 @@ export function AuthProvider({ children }) {
   const isSuperAdmin = admin?.role === 'super_admin';
   const isViewer = admin?.role === 'viewer';
   const isOperationalAdmin = admin?.role === 'admin' || isSuperAdmin;
+  const can = (permission) => Boolean(admin?.permissions?.includes(permission));
 
   return (
     <AuthContext.Provider
@@ -50,6 +51,7 @@ export function AuthProvider({ children }) {
         isSuperAdmin,
         isViewer,
         isOperationalAdmin,
+        can,
       }}
     >
       {children}

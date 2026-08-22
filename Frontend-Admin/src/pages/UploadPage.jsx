@@ -16,7 +16,7 @@ import { useAuth } from '../context/AuthContext';
 
 export default function UploadPage({ setActiveView }) {
   const { showToast } = useToast();
-  const { isViewer } = useAuth();
+  const { can } = useAuth();
 
   const [step, setStep] = useState(1); // 1: Choose, 2: Preview, 3: Success
   const [file, setFile] = useState(null);
@@ -84,7 +84,7 @@ export default function UploadPage({ setActiveView }) {
     setConfirmSensitive(false);
   };
 
-  if (isViewer) {
+  if (!can('import')) {
     return (
       <div className="panel-card" style={{ textAlign: 'center', padding: 40 }}>
         <AlertCircle size={32} color="var(--muted)" style={{ margin: '0 auto 12px' }} />
