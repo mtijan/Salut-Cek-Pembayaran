@@ -34,7 +34,7 @@ Aplikasi web terpadu untuk mahasiswa Universitas Terbuka di SALUT Awwabin dalam 
 
 ## Status Audit Codebase 2026-08-21
 
-Audit menyeluruh terbaru ada di [Codebase Audit & Mitigation Plan](docs/14-codebase-audit-mitigation-plan.md). Remediasi P0-P2 telah dideploy pada revision `ec6d65f` tanggal 2026-08-22 dan technical smoke test lulus. Deployment release berikutnya wajib mengikuti [Protokol Deployment Production](docs/15-production-deployment-protocol.md); UAT yang mengubah data bisnis tetap dilakukan admin pada data yang disetujui.
+Audit menyeluruh terbaru tersedia pada artefak lokal `docs/14-codebase-audit-mitigation-plan.md`. Remediasi P0-P2 telah dideploy pada revision `ec6d65f` tanggal 2026-08-22 dan technical smoke test lulus. Deployment release berikutnya wajib mengikuti protokol lokal `docs/15-production-deployment-protocol.md`; UAT yang mengubah data bisnis tetap dilakukan admin pada data yang disetujui.
 
 - route history kini memakai permission `view_reports` dan memverifikasi target bill/mahasiswa;
 - SPA React membaca `pagination.total` serta `pagination.total_pages` dari API;
@@ -59,7 +59,8 @@ Status sebuah release hanya boleh dinyatakan selesai setelah commit, backup, hea
 | `Backend/` | Aplikasi FastAPI (`Backend/app/`), modul database & migrasi (`Backend/db.py`), dan unit tests (`Backend/test_core.py`). |
 | `Frontend/` | Antarmuka publik mahasiswa, file statis, dan direktori bundle produksi admin (`Frontend/admin-dist/`). |
 | `Frontend-Admin/` | Source code Single Page Application (React 19 + Vite) untuk Portal Admin. |
-| `docs/` | Dokumentasi teknis terstandarisasi ISO/IEC/IEEE, desain arsitektur, API contract, runbook, dan security policy. |
+| `docs/` | Dokumentasi teknis lokal, audit, runbook, dan protokol deployment; di-ignore dari Git. |
+| `deploy/` | Unit systemd dan konfigurasi Nginx lokal; di-ignore dari Git. |
 
 ## Panduan Menjalankan Lokal
 
@@ -114,31 +115,37 @@ Snapshot terakhir pada 2026-08-21 menggunakan `pip-audit 2.10.1`: tidak ada brok
 
 Catatan: Di server produksi (VPS), gunakan `APP_ENV=production`. Set `TRUST_PROXY_HEADERS=true` hanya bila aplikasi dapat diakses **eksklusif** melalui reverse proxy tepercaya; akses Docker langsung harus tetap `false`.
 
-## Indeks Dokumentasi
+## Akses VPS Production
 
-Dokumentasi proyek disusun mengikuti prinsip ISO/IEC/IEEE dan best practices pengembangan software:
+Jalankan dari Windows PowerShell pada komputer operator yang memiliki private key:
 
-- [Portal Dokumentasi HTML](docs/index.html)
-- [00 - Standar dan Metodologi](docs/00-standards-and-methodology.md)
-- [01 - Product Requirements Document](docs/01-product-requirements.md)
-- [02 - System Design](docs/02-system-design.md)
-- [03 - Diagram Sistem](docs/03-diagrams.md)
-- [04 - Database Design](docs/04-database-design.md)
-- [05 - API Contract](docs/05-api-contract.md)
-- [06 - Security dan Privacy Design](docs/06-security-privacy-design.md)
-- [07 - Admin dan Operasional](docs/07-admin-operations.md)
-- [08 - Test dan Quality Plan](docs/08-test-quality-plan.md)
-- [09 - Deployment Plan](docs/09-deployment-plan.md)
-- [10 - Project Management Plan](docs/10-project-management.md)
-- [11 - Risk Register](docs/11-risk-register.md)
-- [12 - Requirements Traceability Matrix](docs/12-traceability-matrix.md)
-- [13 - Change dan Release Plan](docs/13-change-release-plan.md)
-- [14 - Codebase Audit & Mitigation Plan](docs/14-codebase-audit-mitigation-plan.md)
-- [15 - Protokol Deployment Production](docs/15-production-deployment-protocol.md)
-- [Changelog](docs/CHANGELOG.md)
-- [Handoff Document](docs/HANDOFF.md)
-- [Security Policy](docs/SECURITY.md)
-- [Runbook](docs/RUNBOOK.md)
+```powershell
+Test-Path -LiteralPath "$env:USERPROFILE\.ssh\salut_cek_pembayaran_ed25519"
+ssh -i "$env:USERPROFILE\.ssh\salut_cek_pembayaran_ed25519" ubuntu@43.157.224.57
+```
+
+Hasil `Test-Path` harus `True`. Pada koneksi pertama, cocokkan fingerprint SSH dengan inventaris VPS/provider sebelum menerima host. Jangan menyalin private key ke repository, VPS, dokumentasi, chat, atau release evidence.
+
+Setelah masuk:
+
+```bash
+whoami
+hostname
+sudo -v
+```
+
+`whoami` harus menghasilkan `ubuntu`. Prosedur preflight, backup, migrasi, smoke test, UAT, dan rollback selengkapnya tersedia lokal di `docs/15-production-deployment-protocol.md`.
+
+## Dokumentasi dan Artefak Deployment Lokal
+
+Folder `docs/` dan `deploy/` tercantum pada `.gitignore`. Keduanya dipertahankan hanya pada workspace/operator yang berwenang dan tidak dijamin tersedia dari clone Git baru.
+
+- `docs/15-production-deployment-protocol.md`: protokol deploy production lengkap.
+- `docs/14-codebase-audit-mitigation-plan.md`: temuan dan status mitigasi audit.
+- `docs/RUNBOOK.md`: panduan operasi dan incident.
+- `deploy/`: unit systemd, timer, serta konfigurasi Nginx.
+
+Karena folder tersebut di-ignore, perubahan di dalamnya tidak ikut commit/push normal. Release owner wajib memastikan dokumen dan artefak deployment didistribusikan melalui media internal yang disetujui sebelum deployment.
 
 ## Keamanan dan Privasi
 
