@@ -13,6 +13,10 @@ dist/
 build/
 .vercel/
 
+# Local documentation and deployment artifacts
+docs/
+deploy/
+
 # Local environment and secrets
 .env
 .env.*
