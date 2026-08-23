@@ -7,7 +7,7 @@ Aplikasi web terpadu untuk mahasiswa Universitas Terbuka di SALUT Awwabin dalam 
 - Backend: FastAPI dan Uvicorn berjalan di VPS dengan database SQLite, session-based RBAC auth, migrasi otomatis, dan scheduled backup.
 - Frontend Admin: Modern Single Page Application (SPA) berbasis React 19 + Vite yang terintegrasi langsung di bundle `Frontend/admin-dist/`.
 - Frontend Publik: Antarmuka web statis mandiri untuk pencarian tagihan mahasiswa berbasis NIM dengan rate limit dan proteksi privasi.
-- Quality Assurance lokal: 45 unit/integration tests di `Backend.test_core`, build Vite, `npm audit`, `pip check`, dan `pip-audit` lulus pada 2026-08-21. Hasil ini belum mencakup E2E browser atau verifikasi deployment produksi.
+- Quality Assurance: 58 unit/integration tests di `Backend.test_core`, build Vite, audit dependency npm/Python, serta verifikasi VPS lulus untuk release `ec6d65f` pada 2026-08-22. Browser E2E sintetis, RBAC, concurrency SQLite, backup/restore, Nginx, timer, health, dan OpenAPI juga telah diverifikasi; UAT mutasi data bisnis tetap menjadi gate admin terpisah.
 
 ## Fitur Utama
 
@@ -20,7 +20,7 @@ Aplikasi web terpadu untuk mahasiswa Universitas Terbuka di SALUT Awwabin dalam 
 ### 2. Portal Admin SIAKAD (React 19 SPA)
 - **Dashboard Analytics**: Metrik real-time total mahasiswa, total tagihan, total penerimaan, sisa piutang/tunggakan, dan persentase pelunasan.
 - **Data Mahasiswa**: Live search, filter program studi & status akademik, manajemen CRUD, dan modal **Student Profile 360** (biodata lengkap, NIK/KTP, TTL, nama ibu kandung, kontak, registrasi awal/angkatan, dan riwayat seluruh tagihan).
-- **Tagihan Mahasiswa**: API paginasi 100 baris, filter status dan sumber data (`import`/`manual`), inline status switcher, pencatatan nominal cicilan (`paid_amount`), dan kalkulasi otomatis sisa piutang (`remaining_amount`). Lihat keterbatasan paginasi SPA pada bagian status audit.
+- **Tagihan Mahasiswa**: API/SPA paginasi 100 baris, filter status dan sumber data (`import`/`manual`), inline status switcher, pencatatan nominal cicilan (`paid_amount`), dan kalkulasi otomatis sisa piutang (`remaining_amount`).
 - **Rekapitulasi Keuangan**: Analisis keuangan per Program Studi (penerimaan vs tunggakan) dengan fitur ekspor data ke file CSV.
 - **Riwayat File Import**: Kartu batch file import, ringkasan status pembayaran per batch, dan fitur soft delete tagihan per file dengan alasan audit.
 - **Wizard Upload Excel 3-Langkah**:
@@ -34,15 +34,15 @@ Aplikasi web terpadu untuk mahasiswa Universitas Terbuka di SALUT Awwabin dalam 
 
 ## Status Audit Codebase 2026-08-21
 
-Audit menyeluruh terbaru ada di [Codebase Audit & Mitigation Plan](docs/14-codebase-audit-mitigation-plan.md). Remediasi P0 lokal pada 2026-08-22 telah memperbaiki permission history, metadata pagination React, penolakan cicilan tanpa nominal, serta konfigurasi Compose. Checkout tetap belum production-ready karena review data partial historis, konsistensi RBAC viewer, reliability SQLite, atomic audit log, dan hardening operasi masih terbuka.
+Audit menyeluruh terbaru ada di [Codebase Audit & Mitigation Plan](docs/14-codebase-audit-mitigation-plan.md). Remediasi P0-P2 telah dideploy pada revision `ec6d65f` tanggal 2026-08-22 dan technical smoke test lulus. Deployment release berikutnya wajib mengikuti [Protokol Deployment Production](docs/15-production-deployment-protocol.md); UAT yang mengubah data bisnis tetap dilakukan admin pada data yang disetujui.
 
 - route history kini memakai permission `view_reports` dan memverifikasi target bill/mahasiswa;
 - SPA React membaca `pagination.total` serta `pagination.total_pages` dari API;
 - endpoint dan fallback legacy meminta nominal eksplisit untuk status `partial`;
 - Compose hanya bind ke loopback, mewajibkan secret dari `.env`, dan mematikan trusted proxy secara default;
-- CRUD jenis tagihan, pengelolaan akun admin, pembacaan audit log, laporan per periode, serta input backdate/referensi pembayaran belum diimplementasikan.
+- CRUD jenis tagihan, pengelolaan akun admin, pembacaan audit log, penghapusan CSP `unsafe-inline`, self-host font, alert disk eksternal, serta debt maintainability/P3 masih terbuka.
 
-Jangan menyatakan checkout ini production-ready sebelum temuan High pada dokumen audit ditutup, test regresi ditambah, dan deployment diverifikasi terpisah.
+Status sebuah release hanya boleh dinyatakan selesai setelah commit, backup, health/release ID, migration/schema, smoke test, dan bukti deployment untuk release tersebut diverifikasi; hasil release sebelumnya tidak menggantikan verifikasi release berikutnya.
 
 ## Rekomendasi Teknologi
 
@@ -134,6 +134,7 @@ Dokumentasi proyek disusun mengikuti prinsip ISO/IEC/IEEE dan best practices pen
 - [12 - Requirements Traceability Matrix](docs/12-traceability-matrix.md)
 - [13 - Change dan Release Plan](docs/13-change-release-plan.md)
 - [14 - Codebase Audit & Mitigation Plan](docs/14-codebase-audit-mitigation-plan.md)
+- [15 - Protokol Deployment Production](docs/15-production-deployment-protocol.md)
 - [Changelog](docs/CHANGELOG.md)
 - [Handoff Document](docs/HANDOFF.md)
 - [Security Policy](docs/SECURITY.md)
