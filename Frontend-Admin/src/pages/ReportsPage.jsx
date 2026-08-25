@@ -183,7 +183,7 @@ export default function ReportsPage({ navigateTo }) {
 
     const headers = [
       'NIM',
-      'Nama Mahasiswa',
+      'Nama',
       'Phone Number',
       'Program Studi',
       'Angkatan Masuk',
