@@ -33,6 +33,7 @@ from Backend.app.services import (
     find_admin_by_session,
     format_due_date,
     get_bill_detail,
+    get_bills_summary,
     get_dashboard_stats,
     get_financial_summary,
     get_import_preview_for_admin,
@@ -390,7 +391,17 @@ async def admin_dashboard_stats(admin=Depends(require_admin("view_reports"))) ->
 
 @app.get("/api/admin/reports/financial-summary")
 async def admin_financial_summary(request: Request, admin=Depends(require_admin("view_reports"))) -> JSONResponse:
-    return success_response(get_financial_summary(config.DB_PATH, period=str(request.query_params.get("period") or "")))
+    period = str(request.query_params.get("period") or "").strip()
+    study_program_id = str(request.query_params.get("study_program_id") or "").strip()
+    entry_period = str(request.query_params.get("entry_period") or "").strip()
+    return success_response(
+        get_financial_summary(
+            config.DB_PATH,
+            period=period,
+            study_program_id=study_program_id,
+            entry_period=entry_period,
+        )
+    )
 
 
 # ==========================================
@@ -591,7 +602,7 @@ async def admin_bills(request: Request, admin=Depends(require_admin("view_billin
     except ValueError as exc:
         return error_response(400, "VALIDATION_ERROR", str(exc))
 
-    total = count_bills(
+    summary = get_bills_summary(
         config.DB_PATH,
         query=query,
         status=status,
@@ -601,6 +612,7 @@ async def admin_bills(request: Request, admin=Depends(require_admin("view_billin
         bill_type=bill_type,
         entry_period=entry_period,
     )
+    total = summary["total_count"]
     page = (offset // limit) + 1 if limit > 0 else 1
     total_pages = max(1, (total + limit - 1) // limit) if limit > 0 else 1
     return success_response(
@@ -625,6 +637,7 @@ async def admin_bills(request: Request, admin=Depends(require_admin("view_billin
                 "page": page,
                 "total_pages": total_pages,
             },
+            "summary": summary,
         }
     )
 
