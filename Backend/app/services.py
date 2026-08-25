@@ -987,6 +987,144 @@ def update_bill(
         conn.close()
 
 
+def get_bill_detail(db_path: str | Path, bill_id: str) -> dict[str, object] | None:
+    conn = connect(db_path)
+    init_db(conn)
+    row = conn.execute(
+        f"{joined_bill_select()} where b.id = ? and b.deleted_at is null and s.deleted_at is null",
+        (bill_id,),
+    ).fetchone()
+    if not row:
+        conn.close()
+        return None
+
+    student_id = str(row["student_id"])
+    student = conn.execute(
+        """
+        select s.id, s.nim, s.full_name, s.no_ktp, s.tempat_lahir, s.tanggal_lahir, s.nama_ibu_kandung,
+               s.program_study, s.study_program_id, s.academic_status,
+               s.entry_year, s.entry_semester, s.entry_period,
+               s.email, s.address, s.phone_number, s.initial_registration, s.created_at,
+               sp.name as study_program_name, sp.code as study_program_code
+        from students s
+        left join study_programs sp on sp.id = s.study_program_id
+        where s.id = ? and s.deleted_at is null
+        """,
+        (student_id,),
+    ).fetchone()
+    conn.close()
+
+    bill_dict = bill_row_to_dict(row)
+    tx_res = list_payment_transactions(db_path, bill_id=bill_id, limit=50, offset=0)
+
+    return {
+        "bill": bill_dict,
+        "student": student_row_to_dict(student) if student else None,
+        "transactions": tx_res["transactions"],
+        "pagination": tx_res["pagination"],
+    }
+
+
+def record_bill_payment(
+    db_path: str | Path,
+    bill_id: str,
+    payload: dict[str, object],
+    actor_id: str | None = None,
+) -> dict[str, object]:
+    conn = connect(db_path)
+    init_db(conn)
+    try:
+        with conn:
+            row = conn.execute(
+                f"{joined_bill_select()} where b.id = ? and b.deleted_at is null and s.deleted_at is null",
+                (bill_id,),
+            ).fetchone()
+            if not row:
+                raise ValueError("Tagihan tidak ditemukan.")
+
+            amount = int(row["amount"])
+            old_paid = int(row["paid_amount"] or 0)
+            old_status = str(row["status"] or "unpaid")
+            student_id = str(row["student_id"])
+            remaining = max(0, amount - old_paid)
+
+            if remaining <= 0 or old_status == "paid":
+                raise ValueError("Tagihan ini sudah lunas.")
+
+            raw_payment_amount = payload.get("payment_amount")
+            if raw_payment_amount is None or str(raw_payment_amount).strip() == "":
+                raise ValueError("Nominal pembayaran transaksi wajib diisi.")
+
+            payment_amount = validate_amount(raw_payment_amount)
+            if payment_amount <= 0:
+                raise ValueError("Nominal pembayaran transaksi harus lebih dari 0.")
+            if payment_amount > remaining:
+                raise ValueError(
+                    f"Nominal pembayaran ({rupiah(payment_amount)}) melebihi sisa tagihan ({rupiah(remaining)})."
+                )
+
+            new_paid = old_paid + payment_amount
+            new_status = "paid" if new_paid >= amount else "partial"
+
+            payment_date, reference_number, notes = validate_payment_metadata(
+                payload.get("payment_date"), payload.get("reference_number"), payload.get("notes")
+            )
+            payment_method = normalize_text(payload.get("payment_method")) or str(row["payment_method"] or "BRIVA")
+
+            conn.execute(
+                "update bills set status = ?, paid_amount = ?, updated_at = datetime('now') where id = ?",
+                (new_status, new_paid, bill_id),
+            )
+
+            record_payment_transaction(
+                conn,
+                bill_id=bill_id,
+                student_id=student_id,
+                old_status=old_status,
+                new_status=new_status,
+                old_paid=old_paid,
+                new_paid=new_paid,
+                recorded_by=actor_id,
+                payment_method=payment_method,
+                payment_date=payment_date,
+                reference_number=reference_number,
+                notes=notes,
+                source="manual",
+            )
+
+            updated = conn.execute(
+                f"{joined_bill_select()} where b.id = ? and b.deleted_at is null and s.deleted_at is null",
+                (bill_id,),
+            ).fetchone()
+
+            if actor_id:
+                write_audit(
+                    conn,
+                    actor_id,
+                    "bill.payment",
+                    "bill",
+                    bill_id,
+                    {
+                        "payment_amount": payment_amount,
+                        "old_paid": old_paid,
+                        "new_paid": new_paid,
+                        "status": new_status,
+                        "briva": updated["briva"],
+                        "nim": updated["nim"],
+                        "payment_method": payment_method,
+                        "reference_number": reference_number,
+                    },
+                )
+    finally:
+        conn.close()
+
+    tx_res = list_payment_transactions(db_path, bill_id=bill_id, limit=50, offset=0)
+    return {
+        "bill": bill_row_to_dict(updated),
+        "transactions": tx_res["transactions"],
+    }
+
+
 def delete_bill(db_path: str | Path, bill_id: str, actor_id: str | None = None, reason: str = "") -> sqlite3.Row | None:
     reason = require_delete_reason(reason)
     conn = connect(db_path)
@@ -1318,17 +1456,21 @@ def list_payment_transactions(
         conditions.append("pt.bill_id = ?")
         params.append(bill_id)
     if student_id:
-        conditions.append("pt.student_id = ?")
-        params.append(student_id)
+        conditions.append("(pt.student_id = ? or b.student_id = ?)")
+        params.extend([student_id, student_id])
 
     where = f"where {' and '.join(conditions)}" if conditions else ""
 
-    count_row = conn.execute(f"select count(*) as cnt from payment_transactions pt {where}", params).fetchone()
+    count_row = conn.execute(
+        f"select count(*) as cnt from payment_transactions pt left join bills b on b.id = pt.bill_id {where}",
+        params,
+    ).fetchone()
     total = int(count_row["cnt"]) if count_row else 0
 
     rows = conn.execute(
         f"""
-        select pt.id, pt.bill_id, pt.student_id, pt.transaction_type, pt.amount,
+        select pt.id, pt.bill_id, coalesce(pt.student_id, b.student_id) as student_id,
+               pt.transaction_type, pt.amount,
                pt.running_paid_total, pt.previous_status, pt.new_status,
                pt.payment_date, pt.payment_method, pt.reference_number, pt.notes,
                pt.recorded_by, pt.source, pt.created_at,
@@ -1337,7 +1479,7 @@ def list_payment_transactions(
         from payment_transactions pt
         left join admin_users au on au.id = pt.recorded_by
         left join bills b on b.id = pt.bill_id
-        left join students s on s.id = pt.student_id
+        left join students s on s.id = coalesce(pt.student_id, b.student_id)
         {where}
         order by pt.created_at desc, pt.rowid desc
         limit ? offset ?

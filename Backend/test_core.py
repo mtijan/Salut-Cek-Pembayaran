@@ -20,6 +20,7 @@ from Backend.app.services import (
     create_student,
     delete_student,
     delete_imported_bill_group,
+    get_bill_detail,
     get_dashboard_stats,
     get_financial_summary,
     get_student_detail,
@@ -27,6 +28,7 @@ from Backend.app.services import (
     list_imported_bill_groups,
     list_payment_transactions,
     list_students,
+    record_bill_payment,
     summarize_payment_status,
     update_bill,
     update_bill_status,
@@ -1802,6 +1804,130 @@ class CoreBehaviorTests(unittest.TestCase):
                 update_bill_status(database, bill["id"], "paid", reference_number="x" * 101)
             with self.assertRaisesRegex(ValueError, "Catatan pembayaran maksimal"):
                 update_bill_status(database, bill["id"], "paid", notes="x" * 1001)
+
+    def test_bill_detail_and_incremental_payments(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            database = Path(temporary_directory) / "test.sqlite"
+            student = create_student(database, {"nim": "099112233", "full_name": "Bayar Bertahap Test"})
+            bill = create_bill(
+                database,
+                {"student_id": student["id"], "briva": "17810009999", "amount": 1500000, "period": "2026.1"},
+            )
+
+            # 1. Fetch detail for new bill
+            detail = get_bill_detail(database, bill["id"])
+            self.assertIsNotNone(detail)
+            self.assertEqual(detail["bill"]["amount"], 1500000)
+            self.assertEqual(detail["bill"]["paid_amount"], 0)
+            self.assertEqual(detail["bill"]["remaining_amount"], 1500000)
+            self.assertEqual(detail["bill"]["status"], "unpaid")
+            self.assertEqual(detail["student"]["nim"], "099112233")
+            self.assertEqual(len(detail["transactions"]), 0)
+
+            # 2. First partial payment: 500.000
+            res1 = record_bill_payment(
+                database,
+                bill["id"],
+                {
+                    "payment_amount": 500000,
+                    "payment_date": "2026-08-25",
+                    "payment_method": "BRIVA",
+                    "reference_number": "TRX-001",
+                    "notes": "Cicilan ke-1",
+                },
+                actor_id="admin-test",
+            )
+            self.assertEqual(res1["bill"]["paid_amount"], 500000)
+            self.assertEqual(res1["bill"]["remaining_amount"], 1000000)
+            self.assertEqual(res1["bill"]["status"], "partial")
+            self.assertEqual(len(res1["transactions"]), 1)
+            self.assertEqual(res1["transactions"][0]["amount"], 500000)
+            self.assertEqual(res1["transactions"][0]["running_paid_total"], 500000)
+            self.assertEqual(res1["transactions"][0]["new_status"], "partial")
+
+            # 3. Reject payment exceeding remaining balance
+            with self.assertRaisesRegex(ValueError, "melebihi sisa tagihan"):
+                record_bill_payment(
+                    database,
+                    bill["id"],
+                    {"payment_amount": 1000001},
+                    actor_id="admin-test",
+                )
+
+            # 4. Second partial payment: 1.000.000 (pays remaining balance)
+            res2 = record_bill_payment(
+                database,
+                bill["id"],
+                {
+                    "payment_amount": 1000000,
+                    "payment_date": "2026-08-25",
+                    "payment_method": "Transfer Bank",
+                    "reference_number": "TRX-002",
+                    "notes": "Pelunasan sisa tagihan",
+                },
+                actor_id="admin-test",
+            )
+            self.assertEqual(res2["bill"]["paid_amount"], 1500000)
+            self.assertEqual(res2["bill"]["remaining_amount"], 0)
+            self.assertEqual(res2["bill"]["status"], "paid")
+            self.assertEqual(len(res2["transactions"]), 2)
+            self.assertEqual(res2["transactions"][0]["amount"], 1000000)
+            self.assertEqual(res2["transactions"][0]["running_paid_total"], 1500000)
+            self.assertEqual(res2["transactions"][0]["new_status"], "paid")
+
+            # 5. Reject payment on fully paid bill
+            with self.assertRaisesRegex(ValueError, "sudah lunas"):
+                record_bill_payment(
+                    database,
+                    bill["id"],
+                    {"payment_amount": 100000},
+                    actor_id="admin-test",
+                )
+
+    def test_bill_payment_api_endpoints(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            database = Path(temporary_directory) / "test.sqlite"
+            with mock.patch("Backend.app.config.DB_PATH", database):
+                from Backend.app.main import app
+                conn = connect(database)
+                init_db(conn)
+                conn.close()
+
+                fake_admin = {"id": "admin-1", "email": "admin@salut.id", "role": "admin", "full_name": "Admin Test"}
+                with mock.patch("Backend.app.main.find_admin_by_session", return_value=fake_admin):
+                    client = TestClient(app)
+                    try:
+                        # Create student & bill
+                        student = create_student(database, {"nim": "077889900", "full_name": "API Pay Test"})
+                        bill = create_bill(
+                            database,
+                            {"student_id": student["id"], "briva": "17810007777", "amount": 800000, "period": "2026.1"},
+                        )
+
+                        # GET bill detail
+                        res_get = client.get(f"/api/admin/bills/{bill['id']}")
+                        self.assertEqual(res_get.status_code, 200)
+                        data_get = res_get.json()["data"]
+                        self.assertEqual(data_get["bill"]["amount"], 800000)
+                        self.assertEqual(data_get["student"]["nim"], "077889900")
+
+                        # POST record payment
+                        res_pay = client.post(
+                            f"/api/admin/bills/{bill['id']}/payments",
+                            json={
+                                "payment_amount": 400000,
+                                "payment_method": "BRIVA",
+                                "reference_number": "REF-API-1",
+                                "notes": "Bayar setengah via API",
+                            },
+                        )
+                        self.assertEqual(res_pay.status_code, 200)
+                        data_pay = res_pay.json()["data"]
+                        self.assertEqual(data_pay["bill"]["paid_amount"], 400000)
+                        self.assertEqual(data_pay["bill"]["status"], "partial")
+                        self.assertEqual(len(data_pay["transactions"]), 1)
+                    finally:
+                        client.close()
 
     def test_python_systemd_jobs_use_package_module_entrypoints(self) -> None:
         project_root = Path(__file__).resolve().parents[1]

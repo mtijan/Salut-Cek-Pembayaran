@@ -32,6 +32,7 @@ from Backend.app.services import (
     ensure_database,
     find_admin_by_session,
     format_due_date,
+    get_bill_detail,
     get_dashboard_stats,
     get_financial_summary,
     get_import_preview_for_admin,
@@ -45,6 +46,7 @@ from Backend.app.services import (
     list_study_programs,
     rupiah,
     payment_transaction_target_exists,
+    record_bill_payment,
     sanitize_filename,
     store_import_preview,
     student_row_to_dict,
@@ -599,6 +601,25 @@ async def admin_create_bill(request: Request, admin=Depends(require_admin("manag
         return error_response(400, "VALIDATION_ERROR", str(exc))
 
     return success_response({"bill": bill_row_to_dict(bill)})
+
+
+@app.get("/api/admin/bills/{bill_id}")
+async def admin_bill_detail(bill_id: str, admin=Depends(require_admin("view_billing"))) -> JSONResponse:
+    detail = get_bill_detail(config.DB_PATH, bill_id)
+    if not detail:
+        return error_response(404, "NOT_FOUND", "Tagihan tidak ditemukan.")
+    return success_response(detail)
+
+
+@app.post("/api/admin/bills/{bill_id}/payments")
+async def admin_record_bill_payment(bill_id: str, request: Request, admin=Depends(require_admin("manage_billing"))) -> JSONResponse:
+    payload = await read_json(request)
+    try:
+        result = record_bill_payment(config.DB_PATH, bill_id, payload, actor_id=admin["id"])
+    except ValueError as exc:
+        return error_response(400, "VALIDATION_ERROR", str(exc))
+
+    return success_response(result)
 
 
 @app.patch("/api/admin/bills/{bill_id}")
