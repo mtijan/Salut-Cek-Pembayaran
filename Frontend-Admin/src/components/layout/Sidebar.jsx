@@ -8,6 +8,10 @@ import {
   Layers,
   Database,
   LogOut,
+  ChevronLeft,
+  ChevronRight,
+  PanelLeftClose,
+  PanelLeftOpen,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
@@ -21,7 +25,14 @@ export const NAV_ITEMS = [
   { id: 'master', label: 'Master Data', kicker: 'Master Data Akademik', icon: Database },
 ];
 
-export default function Sidebar({ activeView, setActiveView, isOpen, onClose }) {
+export default function Sidebar({
+  activeView,
+  setActiveView,
+  isOpen,
+  onClose,
+  isCollapsed = false,
+  onToggleCollapse,
+}) {
   const { logout } = useAuth();
 
   const handleNavClick = (id) => {
@@ -36,19 +47,36 @@ export default function Sidebar({ activeView, setActiveView, isOpen, onClose }) 
           style={{
             position: 'fixed',
             inset: 0,
-            background: 'rgba(0,0,0,0.4)',
+            background: 'rgba(0,0,0,0.45)',
             zIndex: 35,
           }}
           onClick={onClose}
         />
       )}
 
-      <aside className={`app-sidebar ${isOpen ? 'is-open' : ''}`}>
+      <aside className={`app-sidebar ${isOpen ? 'is-open' : ''} ${isCollapsed ? 'is-collapsed' : ''}`}>
+        {/* Floating edge toggle on the right border line */}
+        {onToggleCollapse && (
+          <button
+            type="button"
+            className="sidebar-edge-toggle-btn"
+            onClick={onToggleCollapse}
+            title={isCollapsed ? 'Perbesar Menu Sidebar' : 'Kecilkan Menu Sidebar'}
+            aria-label={isCollapsed ? 'Perbesar Menu Sidebar' : 'Kecilkan Menu Sidebar'}
+          >
+            {isCollapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
+          </button>
+        )}
+
         <div className="sidebar-header">
-          <img src="/Logo%20Salut.jpeg" alt="Logo SALUT Awwabin" className="sidebar-logo" />
-          <div>
-            <div className="sidebar-brand-title">SALUT Awwabin</div>
-            <div className="sidebar-brand-subtitle">Sistem Akademik & Tagihan</div>
+          <div className="sidebar-brand-group">
+            <img src="/Logo%20Salut.jpeg" alt="Logo SALUT Awwabin" className="sidebar-logo" />
+            {!isCollapsed && (
+              <div className="sidebar-brand-text">
+                <div className="sidebar-brand-title">SALUT Awwabin</div>
+                <div className="sidebar-brand-subtitle">Sistem Akademik & Tagihan</div>
+              </div>
+            )}
           </div>
         </div>
 
@@ -60,20 +88,44 @@ export default function Sidebar({ activeView, setActiveView, isOpen, onClose }) 
               <button
                 key={item.id}
                 type="button"
-                className={`nav-item ${isActive ? 'is-active' : ''}`}
+                className={`nav-item ${isActive ? 'is-active' : ''} ${isCollapsed ? 'nav-item-collapsed' : ''}`}
                 onClick={() => handleNavClick(item.id)}
+                title={isCollapsed ? item.label : undefined}
               >
                 <Icon size={18} />
-                <span>{item.label}</span>
+                {!isCollapsed && <span>{item.label}</span>}
               </button>
             );
           })}
         </nav>
 
         <div className="sidebar-footer">
-          <button type="button" className="logout-btn" onClick={logout}>
+          {onToggleCollapse && (
+            <button
+              type="button"
+              className={`sidebar-footer-toggle-btn ${isCollapsed ? 'footer-toggle-collapsed' : ''}`}
+              onClick={onToggleCollapse}
+              title={isCollapsed ? 'Perbesar Menu Sidebar' : 'Kecilkan Menu Sidebar'}
+            >
+              {isCollapsed ? (
+                <PanelLeftOpen size={16} />
+              ) : (
+                <>
+                  <PanelLeftClose size={16} />
+                  <span>Kecilkan Menu</span>
+                </>
+              )}
+            </button>
+          )}
+
+          <button
+            type="button"
+            className={`logout-btn ${isCollapsed ? 'logout-btn-collapsed' : ''}`}
+            onClick={logout}
+            title={isCollapsed ? 'Keluar Sistem' : undefined}
+          >
             <LogOut size={16} />
-            <span>Keluar Sistem</span>
+            {!isCollapsed && <span>Keluar Sistem</span>}
           </button>
         </div>
       </aside>

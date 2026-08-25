@@ -1,5 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Search, Plus, Edit2, Trash2, ChevronLeft, ChevronRight, CheckCircle2, RefreshCw, AlertCircle, Info, DollarSign, UserCheck, Clock, X } from 'lucide-react';
+import {
+  Search, Plus, Edit2, Trash2, ChevronLeft, ChevronRight, CheckCircle2,
+  RefreshCw, AlertCircle, Info, DollarSign, UserCheck, Clock, X, CreditCard
+} from 'lucide-react';
 import { billsApi, studentsApi, masterApi } from '../services/api';
 import { useToast } from '../components/common/Toast';
 import { useAuth } from '../context/AuthContext';
@@ -15,7 +18,7 @@ const formatRupiah = (val) => {
   }).format(num);
 };
 
-export default function BillsPage() {
+export default function BillsPage({ navigateTo }) {
   const { showToast } = useToast();
   const { can } = useAuth();
 
@@ -436,9 +439,22 @@ export default function BillsPage() {
                 {bills.map((b) => (
                   <tr key={b.id}>
                     <td>
-                      <strong>{b.student_name || b.full_name}</strong>
-                      <div style={{ fontSize: 11, color: 'var(--muted)' }}>
-                        NIM: {b.student_nim || b.nim} {b.study_program_name ? `• ${b.study_program_name}` : ''}
+                      <div>
+                        {b.student_id && navigateTo ? (
+                          <button
+                            type="button"
+                            className="table-link-btn"
+                            onClick={() => navigateTo('student-profile', { studentId: b.student_id })}
+                            title="Lihat Profil Mahasiswa"
+                          >
+                            {b.student_name || b.full_name}
+                          </button>
+                        ) : (
+                          <strong>{b.student_name || b.full_name}</strong>
+                        )}
+                        <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>
+                          NIM: <span className="mono-font">{b.student_nim || b.nim}</span> {b.study_program_name ? `• ${b.study_program_name}` : ''}
+                        </div>
                       </div>
                     </td>
                     <td>
@@ -461,70 +477,73 @@ export default function BillsPage() {
                         </div>
                       )}
                       {b.status === 'paid' && (
-                        <div style={{ fontSize: 11, color: 'var(--success)', marginTop: 2 }}>
+                        <div style={{ fontSize: 11, color: 'var(--success)', marginTop: 2, fontWeight: 600 }}>
                           Lunas penuh
                         </div>
                       )}
                     </td>
                     <td>
-                      {!can('manage_billing') ? (
-                        <span className={`badge ${b.status === 'paid' ? 'badge-success' : b.status === 'partial' ? 'badge-warning' : 'badge-danger'}`}>
-                          {b.status === 'paid' ? 'Lunas' : b.status === 'partial' ? 'Bayar Sebagian' : 'Belum Lunas'}
-                        </span>
-                      ) : (
-                        <select
-                          className="select-filter"
-                          style={{
-                            padding: '4px 8px',
-                            fontSize: 12,
-                            fontWeight: 700,
-                            background: b.status === 'paid' ? '#dcfce7' : b.status === 'partial' ? '#fef3c7' : '#fee2e2',
-                            color: b.status === 'paid' ? '#166534' : b.status === 'partial' ? '#92400e' : '#991b1b',
-                            border: 'none',
-                            cursor: 'pointer',
-                          }}
-                          value={b.status}
-                          onChange={(e) => handleStatusChange(b, e.target.value)}
-                        >
-                          <option value="unpaid">Belum Lunas</option>
-                          <option value="partial">Bayar Sebagian</option>
-                          <option value="paid">Lunas</option>
-                        </select>
-                      )}
+                      <span
+                        className={`badge ${b.status === 'paid' ? 'badge-success' : b.status === 'partial' ? 'badge-warning' : 'badge-danger'}`}
+                        style={{ cursor: can('manage_billing') && b.status !== 'paid' && navigateTo ? 'pointer' : 'default' }}
+                        onClick={() => {
+                          if (can('manage_billing') && b.status !== 'paid' && navigateTo) {
+                            navigateTo('bill-payment', { billId: b.id });
+                          }
+                        }}
+                        title={can('manage_billing') && b.status !== 'paid' ? 'Klik untuk catat pembayaran' : undefined}
+                      >
+                        {b.status === 'paid' ? 'Lunas' : b.status === 'partial' ? 'Bayar Sebagian' : 'Belum Lunas'}
+                      </span>
                     </td>
                     <td>{b.due_date_formatted || '-'}</td>
                     <td><code style={{ fontFamily: 'var(--font-mono)' }}>{b.briva}</code></td>
                     <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
-                      <button
-                        type="button"
-                        className="btn btn-secondary btn-sm"
-                        style={{ marginRight: 6 }}
-                        onClick={() => handleOpenHistory(b)}
-                        title="Riwayat Pembayaran"
-                      >
-                        <Clock size={14} />
-                      </button>
-                      {can('manage_billing') && (
-                        <>
+                      <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'flex-end', gap: 6 }}>
+                        {can('manage_billing') && (
                           <button
                             type="button"
-                            className="btn btn-secondary btn-sm"
-                            style={{ marginRight: 6 }}
-                            onClick={() => handleOpenEdit(b)}
-                            title="Edit Tagihan"
+                            className="btn btn-sm btn-brand"
+                            onClick={() => {
+                              if (navigateTo) {
+                                navigateTo('bill-payment', { billId: b.id });
+                              }
+                            }}
+                            title="Buka Halaman Pembayaran Tagihan"
                           >
-                            <Edit2 size={14} />
+                            <CreditCard size={13} />
+                            <span>Bayar</span>
                           </button>
-                          <button
-                            type="button"
-                            className="btn btn-danger btn-sm"
-                            onClick={() => setDeleteTarget(b)}
-                            title="Hapus Tagihan"
-                          >
-                            <Trash2 size={14} />
-                          </button>
-                        </>
-                      )}
+                        )}
+                        <button
+                          type="button"
+                          className="btn btn-secondary btn-sm"
+                          onClick={() => handleOpenHistory(b)}
+                          title="Riwayat Pembayaran"
+                        >
+                          <Clock size={13} />
+                        </button>
+                        {can('manage_billing') && (
+                          <>
+                            <button
+                              type="button"
+                              className="btn btn-secondary btn-sm"
+                              onClick={() => handleOpenEdit(b)}
+                              title="Edit Data Pokok Tagihan"
+                            >
+                              <Edit2 size={13} />
+                            </button>
+                            <button
+                              type="button"
+                              className="btn btn-danger btn-sm"
+                              onClick={() => setDeleteTarget(b)}
+                              title="Hapus Tagihan"
+                            >
+                              <Trash2 size={13} />
+                            </button>
+                          </>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}

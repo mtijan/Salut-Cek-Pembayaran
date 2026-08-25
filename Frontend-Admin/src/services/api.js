@@ -119,6 +119,12 @@ export const billsApi = {
       method: 'DELETE',
       body: JSON.stringify({ reason }),
     }),
+  getDetail: (id) => apiFetch(`/admin/bills/${id}`),
+  recordPayment: (id, data) =>
+    apiFetch(`/admin/bills/${id}/payments`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
   getTransactions: (id, params = {}) =>
     apiFetch(`/admin/bills/${id}/transactions?limit=${params.limit || 50}&offset=${params.offset || 0}`),
 };

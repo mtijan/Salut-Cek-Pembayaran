@@ -10,7 +10,7 @@ import { useAuth } from '../context/AuthContext';
 import Student360Modal from './Student360Modal';
 import ConfirmModal from '../components/common/ConfirmModal';
 
-export default function StudentsPage() {
+export default function StudentsPage({ navigateTo }) {
   const { showToast } = useToast();
   const { can } = useAuth();
 
@@ -457,7 +457,20 @@ export default function StudentsPage() {
                       </td>
                       <td>
                         <div>
-                          <div style={{ fontWeight: 700, color: 'var(--ink)' }}>{s.full_name}</div>
+                          <button
+                            type="button"
+                            className="table-link-btn"
+                            onClick={() => {
+                              if (navigateTo) {
+                                navigateTo('student-profile', { studentId: s.id });
+                              } else {
+                                setSelected360Id(s.id);
+                              }
+                            }}
+                            title="Buka Halaman Profil 360 Mahasiswa"
+                          >
+                            {s.full_name}
+                          </button>
                           {s.email && <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>{s.email}</div>}
                         </div>
                       </td>
@@ -508,7 +521,13 @@ export default function StudentsPage() {
                             type="button"
                             className="btn btn-secondary btn-sm"
                             style={{ height: 30, padding: '0 8px', gap: 4 }}
-                            onClick={() => setSelected360Id(s.id)}
+                            onClick={() => {
+                              if (navigateTo) {
+                                navigateTo('student-profile', { studentId: s.id, initialTab: 'profile' });
+                              } else {
+                                setSelected360Id(s.id);
+                              }
+                            }}
                             title="Lihat Profil 360 Mahasiswa"
                           >
                             <Eye size={13} color="var(--brand)" />
@@ -520,11 +539,18 @@ export default function StudentsPage() {
                               <button
                                 type="button"
                                 className="btn btn-secondary btn-sm"
-                                style={{ height: 30, width: 30, padding: 0 }}
-                                onClick={() => handleOpenEdit(s)}
+                                style={{ height: 30, padding: '0 8px', gap: 4 }}
+                                onClick={() => {
+                                  if (navigateTo) {
+                                    navigateTo('student-profile', { studentId: s.id, initialTab: 'edit' });
+                                  } else {
+                                    handleOpenEdit(s);
+                                  }
+                                }}
                                 title="Edit Data Mahasiswa"
                               >
                                 <Edit2 size={13} />
+                                <span>Edit</span>
                               </button>
                               <button
                                 type="button"

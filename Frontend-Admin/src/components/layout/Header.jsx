@@ -1,30 +1,44 @@
 import React from 'react';
-import { Menu, User } from 'lucide-react';
+import { PanelLeftClose, PanelLeftOpen, User } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { NAV_ITEMS } from './Sidebar';
 
-export default function Header({ activeView, onToggleSidebar }) {
+const VIEW_TITLES = {
+  'student-profile': { label: 'Profil 360 Mahasiswa', kicker: 'Data Akademik & Biodata' },
+  'bill-payment': { label: 'Pencatatan Pembayaran', kicker: 'Manajemen Keuangan & Kasir' },
+};
+
+export default function Header({
+  activeView,
+  onToggleSidebar,
+  isCollapsed = false,
+  onToggleCollapse,
+}) {
   const { admin } = useAuth();
-  const currentNav = NAV_ITEMS.find((n) => n.id === activeView) || NAV_ITEMS[0];
+  const currentNav =
+    VIEW_TITLES[activeView] ||
+    NAV_ITEMS.find((n) => n.id === activeView) ||
+    NAV_ITEMS[0];
+
+  const handleToggle = () => {
+    if (window.innerWidth <= 768) {
+      if (onToggleSidebar) onToggleSidebar();
+    } else {
+      if (onToggleCollapse) onToggleCollapse();
+    }
+  };
 
   return (
     <header className="app-header">
       <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
         <button
           type="button"
-          onClick={onToggleSidebar}
-          style={{
-            display: 'inline-flex',
-            padding: 8,
-            border: '1px solid var(--line)',
-            background: '#ffffff',
-            borderRadius: 'var(--radius-md)',
-            cursor: 'pointer',
-          }}
-          className="md:hidden"
-          aria-label="Buka Menu"
+          onClick={handleToggle}
+          className="header-sidebar-toggle"
+          aria-label={isCollapsed ? 'Perbesar Menu Sidebar' : 'Kecilkan Menu Sidebar'}
+          title={isCollapsed ? 'Perbesar Menu Sidebar (Expand)' : 'Kecilkan Menu Sidebar (Collapse)'}
         >
-          <Menu size={20} />
+          {isCollapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}
         </button>
 
         <div className="header-title-area">
