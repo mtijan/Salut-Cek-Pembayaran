@@ -8,6 +8,7 @@ import StudentsPage from './pages/StudentsPage';
 import StudentProfilePage from './pages/StudentProfilePage';
 import BillsPage from './pages/BillsPage';
 import BillPaymentPage from './pages/BillPaymentPage';
+import BillEditPage from './pages/BillEditPage';
 import ReportsPage from './pages/ReportsPage';
 import FilesPage from './pages/FilesPage';
 import UploadPage from './pages/UploadPage';
@@ -116,6 +117,13 @@ export default function App() {
           {activeView === 'bill-payment' && (
             <BillPaymentPage
               billId={viewParams.billId}
+              navigateTo={navigateTo}
+            />
+          )}
+          {activeView === 'bill-edit' && (
+            <BillEditPage
+              billId={viewParams.billId}
+              mode={viewParams.mode}
               navigateTo={navigateTo}
             />
           )}

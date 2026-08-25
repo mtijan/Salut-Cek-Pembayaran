@@ -6,6 +6,7 @@ import { NAV_ITEMS } from './Sidebar';
 const VIEW_TITLES = {
   'student-profile': { label: 'Profil 360 Mahasiswa', kicker: 'Data Akademik & Biodata' },
   'bill-payment': { label: 'Pencatatan Pembayaran', kicker: 'Manajemen Keuangan & Kasir' },
+  'bill-edit': { label: 'Kelola Tagihan Mahasiswa', kicker: 'Manajemen Data Finansial' },
 };
 
 export default function Header({

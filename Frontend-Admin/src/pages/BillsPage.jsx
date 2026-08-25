@@ -1,9 +1,11 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   Search, Plus, Edit2, Trash2, ChevronLeft, ChevronRight, CheckCircle2,
-  RefreshCw, AlertCircle, Info, DollarSign, UserCheck, Clock, X, CreditCard
+  RefreshCw, AlertCircle, Info, DollarSign, UserCheck, Clock, X, CreditCard,
+  Building, Calendar, Filter, ArrowUpDown, Copy, Check, FileText, Sparkles,
+  TrendingUp, AlertTriangle, CheckCheck, Layers, HelpCircle, Eye, Users, UserX
 } from 'lucide-react';
-import { billsApi, studentsApi, masterApi } from '../services/api';
+import { billsApi, masterApi } from '../services/api';
 import { useToast } from '../components/common/Toast';
 import { useAuth } from '../context/AuthContext';
 import ConfirmModal from '../components/common/ConfirmModal';
@@ -27,51 +29,37 @@ export default function BillsPage({ navigateTo }) {
   const [pagination, setPagination] = useState({ total: 0, limit: 100, offset: 0, page: 1, total_pages: 1 });
   const [loading, setLoading] = useState(true);
 
-  // Filters & Pagination
+  // Filters
   const [query, setQuery] = useState('');
+  const [selectedProdi, setSelectedProdi] = useState('');
+  const [selectedPeriod, setSelectedPeriod] = useState('');
+  const [selectedEntryPeriod, setSelectedEntryPeriod] = useState('');
   const [selectedStatus, setSelectedStatus] = useState('');
-  const [selectedSource, setSelectedSource] = useState('');
+  const [sortBy, setSortBy] = useState('updated_desc');
   const [page, setPage] = useState(1);
   const limit = 100;
 
-  // Master options for modal
+  // Master options
+  const [prodis, setProdis] = useState([]);
   const [periods, setPeriods] = useState([]);
-  const [students, setStudents] = useState([]);
 
-  // Modals state
-  const [editorModalOpen, setEditorModalOpen] = useState(false);
-  const [editingBill, setEditingBill] = useState(null);
+  // Copy state
+  const [copiedKey, setCopiedKey] = useState(null);
+
+  // Modal / Drawer state
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [historyTarget, setHistoryTarget] = useState(null);
   const [historyList, setHistoryList] = useState([]);
   const [historyLoading, setHistoryLoading] = useState(false);
 
-  // Form state
-  const [formData, setFormData] = useState({
-    student_id: '',
-    period_mode: 'master',
-    period: '20251',
-    custom_period: '',
-    bill_type_mode: 'UKT',
-    custom_bill_type: '',
-    amount: '',
-    paid_amount: '',
-    briva: '',
-    status: 'unpaid',
-    due_date: '',
-    instructions: '',
-  });
-  const [formError, setFormError] = useState('');
-  const [saving, setSaving] = useState(false);
-
   const fetchMasterOptions = async () => {
     try {
-      const [pRes, sRes] = await Promise.all([
+      const [pRes, prRes] = await Promise.all([
         masterApi.listPeriods(),
-        studentsApi.list({ limit: 1000 }),
+        masterApi.listProdi(),
       ]);
       setPeriods(pRes.academic_periods || []);
-      setStudents(sRes.students || []);
+      setProdis(prRes.study_programs || []);
     } catch {}
   };
 
@@ -81,8 +69,11 @@ export default function BillsPage({ navigateTo }) {
       const offset = (page - 1) * limit;
       const res = await billsApi.list({
         query: query.trim(),
+        study_program_id: selectedProdi,
+        period: selectedPeriod,
+        entry_period: selectedEntryPeriod,
         status: selectedStatus,
-        source: selectedSource,
+        sort_by: sortBy,
         limit,
         offset,
       });
@@ -95,7 +86,7 @@ export default function BillsPage({ navigateTo }) {
     } finally {
       setLoading(false);
     }
-  }, [query, selectedStatus, selectedSource, page, showToast]);
+  }, [query, selectedProdi, selectedPeriod, selectedEntryPeriod, selectedStatus, sortBy, page, showToast]);
 
   useEffect(() => {
     fetchMasterOptions();
@@ -105,206 +96,71 @@ export default function BillsPage({ navigateTo }) {
     fetchBills();
   }, [fetchBills]);
 
-  const handleStatusChange = async (bill, newStatus) => {
-    if (!can('manage_billing')) return;
-    if (newStatus === 'partial') {
-      // Open edit modal directly to allow entering partial paid_amount with full calculation UI
-      handleOpenEdit(bill, 'partial');
-      return;
-    }
-    const paymentDate = window.prompt('Tanggal transaksi (YYYY-MM-DD):', new Date().toISOString().slice(0, 10));
-    if (paymentDate === null) return;
-    const referenceNumber = window.prompt('Nomor referensi pembayaran (opsional):', '');
-    if (referenceNumber === null) return;
-    const notes = window.prompt('Catatan pembayaran/koreksi (opsional):', '');
-    if (notes === null) return;
-    try {
-      await billsApi.updateStatus(bill.id, newStatus, null, {
-        payment_date: paymentDate,
-        reference_number: referenceNumber,
-        notes,
-      });
-      showToast('Status tagihan berhasil diperbarui.');
-      fetchBills();
-    } catch (err) {
-      showToast(err.message || 'Gagal memperbarui status tagihan.', 'error');
-    }
-  };
+  // Statistics calculation for summary cards
+  const stats = useMemo(() => {
+    let totalNominal = 0;
+    let totalPaid = 0;
+    let totalRemaining = 0;
+    let paidCount = 0;
+    let partialCount = 0;
+    let unpaidCount = 0;
 
-  const handleOpenCreate = () => {
-    setEditingBill(null);
-    const activePeriod = periods.find((p) => p.is_active)?.code || (periods[0]?.code || '20251');
-    setFormData({
-      student_id: students[0]?.id || '',
-      period_mode: 'master',
-      period: activePeriod,
-      custom_period: '',
-      bill_type_mode: 'UKT',
-      custom_bill_type: '',
-      amount: '',
-      paid_amount: '',
-      briva: '',
-      status: 'unpaid',
-      payment_date: '',
-      reference_number: '',
-      notes: '',
-      due_date: '',
-      instructions: '',
+    bills.forEach((b) => {
+      const amt = Number(b.amount) || 0;
+      const paid = Number(b.paid_amount) || 0;
+      const rem = Number(b.remaining_amount) || Math.max(0, amt - paid);
+      totalNominal += amt;
+      totalPaid += paid;
+      totalRemaining += rem;
+
+      if (b.status === 'paid') paidCount++;
+      else if (b.status === 'partial') partialCount++;
+      else unpaidCount++;
     });
-    setFormError('');
-    setEditorModalOpen(true);
-  };
 
-  const handleOpenEdit = (bill, overrideStatus = null) => {
-    setEditingBill(bill);
-
-    // Resolve period mode
-    const isMasterPeriod = periods.some((p) => p.code === bill.period);
-    const periodMode = isMasterPeriod ? 'master' : (bill.period ? 'custom' : 'master');
-    const periodVal = isMasterPeriod ? bill.period : (periods[0]?.code || '20251');
-    const customPeriodVal = !isMasterPeriod ? bill.period : '';
-
-    // Resolve bill type mode
-    const upperType = (bill.bill_type || '').toUpperCase();
-    let typeMode = 'custom';
-    let customTypeVal = bill.bill_type || '';
-    if (upperType === 'UKT' || upperType.includes('UKT') || upperType.includes('SPP')) {
-      typeMode = 'UKT';
-      customTypeVal = '';
-    } else if (upperType === 'WISUDA' || upperType.includes('WISUDA')) {
-      typeMode = 'WISUDA';
-      customTypeVal = '';
-    }
-
-    const currentStatus = overrideStatus || bill.status || 'unpaid';
-    const currentPaid = bill.paid_amount || (currentStatus === 'paid' ? bill.amount : '');
-
-    setFormData({
-      student_id: bill.student_id,
-      period_mode: periodMode,
-      period: periodVal,
-      custom_period: customPeriodVal,
-      bill_type_mode: typeMode,
-      custom_bill_type: customTypeVal,
-      amount: String(bill.amount || ''),
-      paid_amount: String(currentPaid || ''),
-      briva: bill.briva || '',
-      status: currentStatus,
-      payment_date: '',
-      reference_number: '',
-      notes: '',
-      due_date: bill.due_date || '',
-      instructions: bill.instructions || '',
-    });
-    setFormError('');
-    setEditorModalOpen(true);
-  };
-
-  const handleSaveBill = async (e) => {
-    e.preventDefault();
-
-    // Determine final period
-    let finalPeriod = '';
-    if (formData.period_mode === 'custom') {
-      finalPeriod = formData.custom_period.trim();
-      if (!finalPeriod) {
-        setFormError('Periode custom wajib diisi.');
-        return;
-      }
-    } else {
-      finalPeriod = formData.period;
-      if (!finalPeriod) {
-        setFormError('Periode akademik wajib dipilih.');
-        return;
-      }
-    }
-
-    // Determine final bill type
-    let finalBillType = '';
-    if (formData.bill_type_mode === 'custom') {
-      finalBillType = formData.custom_bill_type.trim();
-      if (!finalBillType) {
-        setFormError('Jenis tagihan custom wajib diisi.');
-        return;
-      }
-    } else {
-      finalBillType = formData.bill_type_mode;
-    }
-
-    // Validation
-    if (!editingBill && !formData.student_id) {
-      setFormError('Mahasiswa wajib dipilih.');
-      return;
-    }
-    if (!formData.amount || Number(formData.amount) <= 0) {
-      setFormError('Nominal total tagihan wajib diisi dan lebih dari 0.');
-      return;
-    }
-    if (!formData.briva || !formData.briva.trim()) {
-      setFormError('Nomor BRIVA wajib diisi.');
-      return;
-    }
-
-    const amountNum = Number(formData.amount);
-    let paidAmountNum = 0;
-
-    if (formData.status === 'paid') {
-      paidAmountNum = amountNum;
-    } else if (formData.status === 'unpaid') {
-      paidAmountNum = 0;
-    } else if (formData.status === 'partial') {
-      if (!formData.paid_amount || Number(formData.paid_amount) <= 0) {
-        setFormError('Nominal yang dibayarkan wajib diisi untuk status Bayar Sebagian.');
-        return;
-      }
-      paidAmountNum = Number(formData.paid_amount);
-      if (paidAmountNum >= amountNum) {
-        setFormError('Nominal bayar sebagian harus lebih kecil dari total tagihan. Jika sudah lunas, silakan pilih status Lunas.');
-        return;
-      }
-    }
-
-    setFormError('');
-    setSaving(true);
-
-    const payload = {
-      student_id: formData.student_id,
-      period: finalPeriod,
-      bill_type: finalBillType,
-      amount: amountNum,
-      paid_amount: paidAmountNum,
-      briva: formData.briva.trim(),
-      status: formData.status,
-      payment_date: formData.payment_date || null,
-      reference_number: formData.reference_number || null,
-      notes: formData.notes || null,
-      due_date: formData.due_date || null,
-      instructions: formData.instructions || null,
+    return {
+      totalCount: totalCount || bills.length,
+      pageCount: bills.length,
+      totalNominal,
+      totalPaid,
+      totalRemaining,
+      paidCount,
+      partialCount,
+      unpaidCount,
     };
+  }, [bills, totalCount]);
 
-    try {
-      if (editingBill) {
-        await billsApi.update(editingBill.id, payload);
-        showToast('Tagihan berhasil diperbarui.');
-      } else {
-        await billsApi.create(payload);
-        showToast('Tagihan baru berhasil dibuat.');
-      }
-      setEditorModalOpen(false);
-      fetchMasterOptions();
-      fetchBills();
-    } catch (err) {
-      setFormError(err.message || 'Gagal menyimpan tagihan.');
-    } finally {
-      setSaving(false);
-    }
+  const handleCopy = (text, label) => {
+    if (!text) return;
+    navigator.clipboard.writeText(text);
+    setCopiedKey(label);
+    showToast(`${label} disalin!`, 'success');
+    setTimeout(() => setCopiedKey(null), 2000);
   };
+
+  const handleResetFilters = () => {
+    setQuery('');
+    setSelectedProdi('');
+    setSelectedPeriod('');
+    setSelectedEntryPeriod('');
+    setSelectedStatus('');
+    setSortBy('updated_desc');
+    setPage(1);
+  };
+
+  const hasActiveFilter = Boolean(
+    query || selectedProdi || selectedPeriod || selectedEntryPeriod || selectedStatus || sortBy !== 'updated_desc'
+  );
+
+  // Active filter label helpers for chips
+  const activeProdiObj = prodis.find((p) => p.id === selectedProdi);
+  const activePeriodObj = periods.find((p) => p.code === selectedPeriod);
 
   const handleDeleteConfirm = async (reason) => {
     if (!deleteTarget) return;
     try {
       await billsApi.delete(deleteTarget.id, reason);
-      showToast(`Tagihan ${deleteTarget.amount_formatted} berhasil dihapus.`);
+      showToast(`Tagihan ${deleteTarget.amount_formatted || ''} berhasil dihapus.`, 'success');
       setDeleteTarget(null);
       fetchBills();
     } catch (err) {
@@ -328,32 +184,220 @@ export default function BillsPage({ navigateTo }) {
 
   const totalPages = Number(pagination.total_pages) || Math.ceil(totalCount / limit) || 1;
 
-  // Real-time calculation helpers for modal
-  const calcAmount = Number(formData.amount) || 0;
-  const calcPaid = formData.status === 'paid' ? calcAmount : (formData.status === 'unpaid' ? 0 : (Number(formData.paid_amount) || 0));
-  const calcRemaining = Math.max(0, calcAmount - calcPaid);
-
   return (
     <div>
+      {/* Summary Statistics Bar (Aligned with StudentsPage) */}
+      <div className="student-stats-row">
+        <div
+          className={`student-stat-card ${!selectedStatus ? 'is-active' : ''}`}
+          onClick={() => {
+            setSelectedStatus('');
+            setPage(1);
+          }}
+          style={{ cursor: 'pointer' }}
+          title="Klik untuk menampilkan seluruh tagihan"
+        >
+          <div className="student-stat-icon" style={{ background: 'var(--brand-surface)', color: 'var(--brand)' }}>
+            <FileText size={22} />
+          </div>
+          <div className="student-stat-meta">
+            <span className="student-stat-title">Total Tagihan</span>
+            <strong className="student-stat-number">{totalCount.toLocaleString('id-ID')}</strong>
+          </div>
+        </div>
+
+        <div
+          className={`student-stat-card ${selectedStatus === 'paid' ? 'is-active' : ''}`}
+          onClick={() => {
+            setSelectedStatus(selectedStatus === 'paid' ? '' : 'paid');
+            setPage(1);
+          }}
+          style={{ cursor: 'pointer' }}
+          title="Klik untuk filter tagihan lunas"
+        >
+          <div className="student-stat-icon" style={{ background: 'var(--success-bg)', color: 'var(--success)' }}>
+            <CheckCircle2 size={22} />
+          </div>
+          <div className="student-stat-meta">
+            <span className="student-stat-title">Total Terbayar</span>
+            <strong className="student-stat-number" style={{ color: 'var(--success)' }}>
+              {formatRupiah(stats.totalPaid)}
+            </strong>
+          </div>
+        </div>
+
+        <div
+          className={`student-stat-card ${selectedStatus === 'partial' || selectedStatus === 'unpaid' ? 'is-active' : ''}`}
+          onClick={() => {
+            setSelectedStatus(selectedStatus === 'partial' ? 'unpaid' : selectedStatus === 'unpaid' ? '' : 'partial');
+            setPage(1);
+          }}
+          style={{ cursor: 'pointer' }}
+          title="Klik untuk beralih filter Cicilan / Belum Lunas"
+        >
+          <div className="student-stat-icon" style={{ background: 'var(--warning-bg)', color: 'var(--warning)' }}>
+            <Clock size={22} />
+          </div>
+          <div className="student-stat-meta">
+            <span className="student-stat-title">Sisa Tunggakan</span>
+            <strong className="student-stat-number" style={{ color: stats.totalRemaining > 0 ? 'var(--warning)' : 'var(--success)' }}>
+              {formatRupiah(stats.totalRemaining)}
+            </strong>
+          </div>
+        </div>
+
+        <div className="student-stat-card">
+          <div className="student-stat-icon" style={{ background: 'var(--info-bg)', color: 'var(--info)' }}>
+            <CreditCard size={22} />
+          </div>
+          <div className="student-stat-meta">
+            <span className="student-stat-title">Total Nominal Piutang</span>
+            <strong className="student-stat-number" style={{ color: 'var(--info)' }}>
+              {formatRupiah(stats.totalNominal)}
+            </strong>
+          </div>
+        </div>
+      </div>
+
+      {/* Main Panel Card (Table & Toolbar Aligned with StudentsPage) */}
       <div className="panel-card">
-        {/* Toolbar */}
-        <div className="toolbar-row">
-          <div className="toolbar-filters">
-            <div className="search-input-wrap">
+        {/* Toolbar & Filters */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 20 }}>
+          {/* Top Row: Search Input + Action Buttons */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+            <div className="search-input-wrap" style={{ flex: 1, maxWidth: 440 }}>
               <Search size={16} />
               <input
                 type="text"
-                placeholder="Cari NIM, nama mahasiswa, BRIVA..."
+                placeholder="Cari NIM, nama, no BRIVA, jenis tagihan..."
                 value={query}
                 onChange={(e) => {
                   setQuery(e.target.value);
                   setPage(1);
                 }}
               />
+              {query && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setQuery('');
+                    setPage(1);
+                  }}
+                  style={{
+                    position: 'absolute',
+                    right: 10,
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    background: 'transparent',
+                    border: 'none',
+                    color: 'var(--muted)',
+                    cursor: 'pointer',
+                    padding: 4,
+                  }}
+                  title="Hapus pencarian"
+                >
+                  <X size={14} />
+                </button>
+              )}
             </div>
 
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                style={{ height: 38 }}
+                onClick={() => {
+                  fetchBills();
+                  fetchMasterOptions();
+                }}
+                title="Segarkan Data"
+              >
+                <RefreshCw size={15} />
+                <span>Segarkan</span>
+              </button>
+
+              {can('manage_billing') && (
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  style={{ height: 38 }}
+                  onClick={() => {
+                    if (navigateTo) navigateTo('bill-edit', { mode: 'create' });
+                  }}
+                >
+                  <Plus size={16} />
+                  <span>Buat Tagihan Baru</span>
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Bottom Row: Dedicated Filter Strip */}
+          <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 10, padding: '10px 14px', background: '#f8fafc', border: '1px solid var(--line)', borderRadius: 'var(--radius-md)' }}>
+            <span style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--muted)', marginRight: 4 }}>
+              Filter:
+            </span>
+
+            {/* Filter Program Studi */}
             <select
               className="select-filter"
+              style={{ minWidth: 180, flex: '1 1 180px' }}
+              value={selectedProdi}
+              onChange={(e) => {
+                setSelectedProdi(e.target.value);
+                setPage(1);
+              }}
+            >
+              <option value="">Semua Program Studi</option>
+              {prodis.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
+
+            {/* Filter Periode Tagihan */}
+            <select
+              className="select-filter"
+              style={{ minWidth: 140, flex: '1 1 140px' }}
+              value={selectedPeriod}
+              onChange={(e) => {
+                setSelectedPeriod(e.target.value);
+                setPage(1);
+              }}
+            >
+              <option value="">Semua Periode</option>
+              {periods.map((p) => (
+                <option key={p.id} value={p.code}>
+                  {p.name} ({p.code})
+                </option>
+              ))}
+            </select>
+
+            {/* Filter Periode Masuk */}
+            <select
+              className="select-filter"
+              style={{ minWidth: 150, flex: '1 1 150px' }}
+              value={selectedEntryPeriod}
+              onChange={(e) => {
+                setSelectedEntryPeriod(e.target.value);
+                setPage(1);
+              }}
+            >
+              <option value="">Semua Periode Masuk</option>
+              <option value="2026.1">2026.1 (Ganjil)</option>
+              <option value="2025.2">2025.2 (Genap)</option>
+              <option value="2025.1">2025.1 (Ganjil)</option>
+              <option value="2024.2">2024.2 (Genap)</option>
+              <option value="2024.1">2024.1 (Ganjil)</option>
+              <option value="2023.2">2023.2 (Genap)</option>
+              <option value="2023.1">2023.1 (Ganjil)</option>
+            </select>
+
+            {/* Filter Status Pembayaran */}
+            <select
+              className="select-filter"
+              style={{ minWidth: 140, flex: '1 1 140px' }}
               value={selectedStatus}
               onChange={(e) => {
                 setSelectedStatus(e.target.value);
@@ -366,527 +410,419 @@ export default function BillsPage({ navigateTo }) {
               <option value="paid">Lunas</option>
             </select>
 
+            {/* Urutan / Sorting */}
             <select
               className="select-filter"
-              value={selectedSource}
+              style={{ minWidth: 160, flex: '1 1 160px' }}
+              value={sortBy}
               onChange={(e) => {
-                setSelectedSource(e.target.value);
+                setSortBy(e.target.value);
                 setPage(1);
               }}
+              title="Urutan Data"
             >
-              <option value="">Semua Sumber</option>
-              <option value="import">Hasil Import Excel</option>
-              <option value="manual">Input Manual</option>
+              <option value="updated_desc">Urutan: Terakhir Diperbarui</option>
+              <option value="created_desc">Urutan: Terbaru Dibuat</option>
+              <option value="amount_desc">Urutan: Nominal Tertinggi</option>
+              <option value="amount_asc">Urutan: Nominal Terendah</option>
+              <option value="due_date_asc">Urutan: Jatuh Tempo Terdekat</option>
+              <option value="nim_asc">Urutan: NIM (A-Z)</option>
+              <option value="name_asc">Urutan: Nama (A-Z)</option>
             </select>
 
-            <button
-              type="button"
-              className="btn btn-secondary btn-sm"
-              onClick={() => {
-                fetchBills();
-                fetchMasterOptions();
-              }}
-              title="Muat ulang"
-            >
-              <RefreshCw size={14} />
-            </button>
-          </div>
-
-          <div className="toolbar-actions">
-            {can('manage_billing') && (
+            {hasActiveFilter && (
               <button
                 type="button"
-                className="btn btn-primary"
-                onClick={handleOpenCreate}
+                className="btn btn-secondary"
+                style={{ height: 38, padding: '0 12px', color: '#b91c1c' }}
+                onClick={handleResetFilters}
+                title="Reset Semua Filter"
               >
-                <Plus size={16} />
-                <span>Buat Tagihan</span>
+                <X size={14} />
+                <span>Reset Filter</span>
               </button>
             )}
           </div>
+
+          {/* Active Filter Chips Bar & Result Count */}
+          {hasActiveFilter && (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, paddingTop: 4 }}>
+              <div className="filter-chips-container" style={{ paddingTop: 0 }}>
+                <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 4 }}>
+                  <Filter size={13} /> Filter Aktif:
+                </span>
+
+                {query && (
+                  <span className="filter-chip">
+                    <span className="filter-chip-label">Cari:</span> &ldquo;{query}&rdquo;
+                    <button type="button" className="filter-chip-close" onClick={() => setQuery('')}>
+                      <X size={12} />
+                    </button>
+                  </span>
+                )}
+
+                {activeProdiObj && (
+                  <span className="filter-chip">
+                    <span className="filter-chip-label">Prodi:</span> {activeProdiObj.name}
+                    <button type="button" className="filter-chip-close" onClick={() => setSelectedProdi('')}>
+                      <X size={12} />
+                    </button>
+                  </span>
+                )}
+
+                {activePeriodObj && (
+                  <span className="filter-chip">
+                    <span className="filter-chip-label">Periode:</span> {activePeriodObj.name}
+                    <button type="button" className="filter-chip-close" onClick={() => setSelectedPeriod('')}>
+                      <X size={12} />
+                    </button>
+                  </span>
+                )}
+
+                {selectedEntryPeriod && (
+                  <span className="filter-chip">
+                    <span className="filter-chip-label">Periode Masuk:</span> {selectedEntryPeriod}
+                    <button type="button" className="filter-chip-close" onClick={() => setSelectedEntryPeriod('')}>
+                      <X size={12} />
+                    </button>
+                  </span>
+                )}
+
+                {selectedStatus && (
+                  <span className="filter-chip">
+                    <span className="filter-chip-label">Status:</span>{' '}
+                    {selectedStatus === 'paid' ? 'Lunas' : selectedStatus === 'partial' ? 'Bayar Sebagian' : 'Belum Lunas'}
+                    <button type="button" className="filter-chip-close" onClick={() => setSelectedStatus('')}>
+                      <X size={12} />
+                    </button>
+                  </span>
+                )}
+
+                {sortBy !== 'updated_desc' && (
+                  <span className="filter-chip">
+                    <span className="filter-chip-label">Urutan:</span> {sortBy}
+                    <button type="button" className="filter-chip-close" onClick={() => setSortBy('updated_desc')}>
+                      <X size={12} />
+                    </button>
+                  </span>
+                )}
+              </div>
+
+              <span style={{ fontSize: 12.5, color: 'var(--muted)' }}>
+                Menampilkan <strong>{bills.length}</strong> dari <strong>{totalCount}</strong> tagihan
+              </span>
+            </div>
+          )}
         </div>
 
-        {/* Total count badge */}
-        <div style={{ marginBottom: 16, fontSize: 13, color: 'var(--muted)' }}>
-          Menampilkan {bills.length} dari {totalCount} total tagihan
-        </div>
-
-        {/* Table */}
+        {/* Data Table */}
         {loading ? (
-          <div style={{ padding: 40, textAlign: 'center', color: 'var(--muted)' }}>
-            <span>Memuat daftar tagihan...</span>
+          <div style={{ padding: '60px 20px', textAlign: 'center', color: 'var(--muted)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
+            <RefreshCw size={28} className="spin" style={{ color: 'var(--brand)' }} />
+            <span>Memuat data tagihan...</span>
           </div>
-        ) : !bills.length ? (
-          <div style={{ padding: 40, textAlign: 'center', color: 'var(--muted)' }}>
-            <p>Tidak ada tagihan yang sesuai dengan filter.</p>
+        ) : bills.length === 0 ? (
+          <div style={{ padding: '60px 20px', textAlign: 'center', color: 'var(--muted)' }}>
+            <AlertCircle size={36} style={{ color: 'var(--muted-light)', marginBottom: 10 }} />
+            <h3 style={{ fontSize: 16, fontWeight: 600, color: 'var(--ink)', margin: 0 }}>
+              Tidak ada data tagihan yang sesuai
+            </h3>
+            <p style={{ fontSize: 13, margin: '6px 0 0 0' }}>
+              Coba sesuaikan kata kunci pencarian atau ubah filter di atas.
+            </p>
+            {hasActiveFilter && (
+              <button
+                type="button"
+                onClick={handleResetFilters}
+                className="btn btn-secondary"
+                style={{ marginTop: 14, fontSize: 13 }}
+              >
+                Reset Semua Filter
+              </button>
+            )}
           </div>
         ) : (
           <div className="table-responsive">
             <table className="data-table">
               <thead>
                 <tr>
-                  <th>Mahasiswa</th>
-                  <th>Periode</th>
-                  <th>Jenis Tagihan</th>
-                  <th>Nominal Tagihan</th>
-                  <th>Status Pembayaran</th>
-                  <th>Batas Aktif</th>
-                  <th>Nomor BRIVA</th>
-                  <th style={{ textAlign: 'right' }}>Aksi</th>
+                  <th style={{ width: '28%' }}>MAHASISWA</th>
+                  <th style={{ width: '14%' }}>PERIODE & JENIS</th>
+                  <th style={{ width: '18%' }}>NOMINAL & TERBAYAR</th>
+                  <th style={{ width: '13%', textAlign: 'center' }}>STATUS</th>
+                  <th style={{ width: '12%' }}>JATUH TEMPO</th>
+                  <th style={{ width: '15%' }}>NOMOR BRIVA</th>
+                  <th style={{ width: '10%', textAlign: 'right' }}>AKSI</th>
                 </tr>
               </thead>
               <tbody>
-                {bills.map((b) => (
-                  <tr key={b.id}>
-                    <td>
-                      <div>
-                        {b.student_id && navigateTo ? (
-                          <button
-                            type="button"
-                            className="table-link-btn"
-                            onClick={() => navigateTo('student-profile', { studentId: b.student_id })}
-                            title="Lihat Profil Mahasiswa"
-                          >
-                            {b.student_name || b.full_name}
-                          </button>
-                        ) : (
-                          <strong>{b.student_name || b.full_name}</strong>
-                        )}
-                        <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>
-                          NIM: <span className="mono-font">{b.student_nim || b.nim}</span> {b.study_program_name ? `• ${b.study_program_name}` : ''}
-                        </div>
-                      </div>
-                    </td>
-                    <td>
-                      <span className="badge badge-info">{b.period}</span>
-                    </td>
-                    <td>{b.bill_type}</td>
-                    <td>
-                      <div>
-                        <strong>{b.amount_formatted}</strong>
-                      </div>
-                      {b.status === 'partial' && (
-                        <div style={{ fontSize: 11, marginTop: 4 }}>
-                          <span style={{ color: 'var(--success)', fontWeight: 600 }}>
-                            Dibayar: {b.paid_amount_formatted}
-                          </span>
-                          <br />
-                          <span style={{ color: 'var(--danger)', fontWeight: 600 }}>
-                            Sisa: {b.remaining_amount_formatted}
-                          </span>
-                        </div>
-                      )}
-                      {b.status === 'paid' && (
-                        <div style={{ fontSize: 11, color: 'var(--success)', marginTop: 2, fontWeight: 600 }}>
-                          Lunas penuh
-                        </div>
-                      )}
-                    </td>
-                    <td>
-                      <span
-                        className={`badge ${b.status === 'paid' ? 'badge-success' : b.status === 'partial' ? 'badge-warning' : 'badge-danger'}`}
-                        style={{ cursor: can('manage_billing') && b.status !== 'paid' && navigateTo ? 'pointer' : 'default' }}
-                        onClick={() => {
-                          if (can('manage_billing') && b.status !== 'paid' && navigateTo) {
-                            navigateTo('bill-payment', { billId: b.id });
-                          }
-                        }}
-                        title={can('manage_billing') && b.status !== 'paid' ? 'Klik untuk catat pembayaran' : undefined}
-                      >
-                        {b.status === 'paid' ? 'Lunas' : b.status === 'partial' ? 'Bayar Sebagian' : 'Belum Lunas'}
-                      </span>
-                    </td>
-                    <td>{b.due_date_formatted || '-'}</td>
-                    <td><code style={{ fontFamily: 'var(--font-mono)' }}>{b.briva}</code></td>
-                    <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
-                      <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'flex-end', gap: 6 }}>
-                        {can('manage_billing') && (
-                          <button
-                            type="button"
-                            className="btn btn-sm btn-brand"
-                            onClick={() => {
-                              if (navigateTo) {
-                                navigateTo('bill-payment', { billId: b.id });
-                              }
+                {bills.map((b) => {
+                  const amtNum = Number(b.amount) || 0;
+                  const paidNum = Number(b.paid_amount) || 0;
+                  const pct = amtNum > 0 ? Math.min(100, Math.round((paidNum / amtNum) * 100)) : 0;
+
+                  return (
+                    <tr key={b.id} className="table-row-modern">
+                      {/* Mahasiswa Info */}
+                      <td>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                          <div
+                            style={{
+                              width: 36,
+                              height: 36,
+                              borderRadius: 'var(--radius-md)',
+                              background: 'var(--brand-surface)',
+                              color: 'var(--brand)',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              fontSize: 14,
+                              fontWeight: 700,
+                              flexShrink: 0,
                             }}
-                            title="Buka Halaman Pembayaran Tagihan"
                           >
-                            <CreditCard size={13} />
-                            <span>Bayar</span>
-                          </button>
+                            {(b.student_name || b.full_name || 'M').charAt(0).toUpperCase()}
+                          </div>
+
+                          <div style={{ minWidth: 0 }}>
+                            {b.student_id && navigateTo ? (
+                              <button
+                                type="button"
+                                onClick={() => navigateTo('student-profile', { studentId: b.student_id })}
+                                style={{
+                                  background: 'none',
+                                  border: 'none',
+                                  padding: 0,
+                                  fontWeight: 700,
+                                  fontSize: 13.5,
+                                  color: 'var(--brand-strong)',
+                                  cursor: 'pointer',
+                                  textAlign: 'left',
+                                  display: 'block',
+                                  whiteSpace: 'nowrap',
+                                  overflow: 'hidden',
+                                  textOverflow: 'ellipsis',
+                                }}
+                                title="Buka Profil 360 Mahasiswa"
+                              >
+                                {b.student_name || b.full_name}
+                              </button>
+                            ) : (
+                              <strong style={{ fontSize: 13.5, color: 'var(--ink)' }}>
+                                {b.student_name || b.full_name}
+                              </strong>
+                            )}
+                            <div style={{ fontSize: 11.5, color: 'var(--muted)', marginTop: 2, display: 'flex', alignItems: 'center', gap: 6 }}>
+                              <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 600 }}>
+                                {b.student_nim || b.nim}
+                              </span>
+                              {b.study_program_name && <span>&bull; {b.study_program_name}</span>}
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+
+                      {/* Periode & Jenis */}
+                      <td>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                          <span
+                            style={{
+                              display: 'inline-block',
+                              width: 'fit-content',
+                              padding: '1px 6px',
+                              borderRadius: 4,
+                              fontSize: 11,
+                              fontWeight: 700,
+                              background: '#f1f5f9',
+                              color: '#334155',
+                              border: '1px solid #e2e8f0',
+                            }}
+                          >
+                            {b.period}
+                          </span>
+                          <span style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--ink)' }}>
+                            {b.bill_type || 'UKT'}
+                          </span>
+                        </div>
+                      </td>
+
+                      {/* Nominal & Terbayar */}
+                      <td>
+                        <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--ink)' }}>
+                          {b.amount_formatted || formatRupiah(b.amount)}
+                        </div>
+                        {b.status === 'partial' && (
+                          <div style={{ fontSize: 11, marginTop: 3 }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 6 }}>
+                              <span style={{ color: 'var(--success)', fontWeight: 600 }}>
+                                Terbayar: {b.paid_amount_formatted || formatRupiah(b.paid_amount)}
+                              </span>
+                              <span style={{ color: 'var(--warning)', fontWeight: 600 }}>
+                                Sisa: {b.remaining_amount_formatted || formatRupiah(b.remaining_amount)}
+                              </span>
+                            </div>
+                            <div className="micro-progress-wrap">
+                              <div
+                                className="micro-progress-bar"
+                                style={{
+                                  width: `${pct}%`,
+                                  background: 'var(--warning)',
+                                }}
+                              />
+                            </div>
+                          </div>
                         )}
-                        <button
-                          type="button"
-                          className="btn btn-secondary btn-sm"
-                          onClick={() => handleOpenHistory(b)}
-                          title="Riwayat Pembayaran"
+                        {b.status === 'paid' && (
+                          <div style={{ fontSize: 11, color: 'var(--success)', fontWeight: 600, marginTop: 2 }}>
+                            Lunas Penuh (100%)
+                          </div>
+                        )}
+                      </td>
+
+                      {/* Status Badge */}
+                      <td style={{ textAlign: 'center' }}>
+                        <span
+                          className={`badge ${b.status === 'paid' ? 'badge-success' : b.status === 'partial' ? 'badge-warning' : 'badge-danger'}`}
+                          style={{ cursor: can('manage_billing') && b.status !== 'paid' && navigateTo ? 'pointer' : 'default' }}
+                          onClick={() => {
+                            if (can('manage_billing') && b.status !== 'paid' && navigateTo) {
+                              navigateTo('bill-payment', { billId: b.id });
+                            }
+                          }}
+                          title={can('manage_billing') && b.status !== 'paid' ? 'Klik untuk bayar di kasir' : undefined}
                         >
-                          <Clock size={13} />
-                        </button>
-                        {can('manage_billing') && (
-                          <>
+                          {b.status === 'paid' ? 'Lunas' : b.status === 'partial' ? 'Bayar Sebagian' : 'Belum Lunas'}
+                        </span>
+                      </td>
+
+                      {/* Due Date */}
+                      <td style={{ fontSize: 12.5, color: 'var(--muted)' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                          <Calendar size={13} style={{ color: 'var(--muted-light)' }} />
+                          <span>{b.due_date_formatted || (b.due_date ? String(b.due_date).slice(0, 10) : '-')}</span>
+                        </div>
+                      </td>
+
+                      {/* BRIVA */}
+                      <td>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                          <span className="mono-tag">
+                            {b.briva}
+                          </span>
+                          {b.briva && (
                             <button
                               type="button"
-                              className="btn btn-secondary btn-sm"
-                              onClick={() => handleOpenEdit(b)}
-                              title="Edit Data Pokok Tagihan"
+                              onClick={() => handleCopy(b.briva, `BRIVA ${b.briva}`)}
+                              style={{ background: 'none', border: 'none', padding: 3, cursor: 'pointer', color: 'var(--muted)' }}
+                              title="Salin BRIVA"
                             >
-                              <Edit2 size={13} />
+                              {copiedKey === `BRIVA ${b.briva}` ? <Check size={14} style={{ color: 'var(--success)' }} /> : <Copy size={14} />}
                             </button>
+                          )}
+                        </div>
+                      </td>
+
+                      {/* Actions */}
+                      <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                        <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'flex-end', gap: 6 }}>
+                          {/* Bayar button */}
+                          {can('manage_billing') && (
                             <button
                               type="button"
-                              className="btn btn-danger btn-sm"
-                              onClick={() => setDeleteTarget(b)}
-                              title="Hapus Tagihan"
+                              className="btn btn-primary btn-sm"
+                              style={{ height: 30, padding: '0 8px', gap: 4 }}
+                              onClick={() => {
+                                if (navigateTo) navigateTo('bill-payment', { billId: b.id });
+                              }}
+                              title="Buka Kasir Pembayaran Tagihan"
                             >
-                              <Trash2 size={13} />
+                              <CreditCard size={13} />
+                              <span>Bayar</span>
                             </button>
-                          </>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                          )}
+
+                          {/* Riwayat mutasi */}
+                          <button
+                            type="button"
+                            className="btn btn-secondary btn-sm"
+                            style={{ height: 30, width: 30, padding: 0 }}
+                            onClick={() => handleOpenHistory(b)}
+                            title="Lihat Riwayat Transaksi"
+                          >
+                            <Clock size={13} />
+                          </button>
+
+                          {/* Edit bill */}
+                          {can('manage_billing') && (
+                            <>
+                              <button
+                                type="button"
+                                className="btn btn-secondary btn-sm"
+                                style={{ height: 30, width: 30, padding: 0 }}
+                                onClick={() => {
+                                  if (navigateTo) navigateTo('bill-edit', { billId: b.id });
+                                }}
+                                title="Edit Data Pokok Tagihan (Halaman Penuh)"
+                              >
+                                <Edit2 size={13} />
+                              </button>
+
+                              <button
+                                type="button"
+                                className="btn btn-danger btn-sm"
+                                style={{ height: 30, width: 30, padding: 0 }}
+                                onClick={() => setDeleteTarget(b)}
+                                title="Hapus Tagihan"
+                              >
+                                <Trash2 size={13} />
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
         )}
 
-        {/* Pagination */}
-        {totalPages > 1 && (
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 20, paddingTop: 16, borderTop: '1px solid var(--line)' }}>
-            <span style={{ fontSize: 13, color: 'var(--muted)' }}>
-              Halaman {page} dari {totalPages}
-            </span>
-            <div style={{ display: 'flex', gap: 8 }}>
+        {/* Pagination Footer (Aligned with StudentsPage) */}
+        <div className="pagination-wrap">
+          <div className="pagination-info">
+            Menampilkan <strong>{(page - 1) * limit + 1}</strong> s.d. <strong>{Math.min(page * limit, totalCount)}</strong> dari <strong>{totalCount}</strong> tagihan
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+            <div className="pagination-controls">
               <button
                 type="button"
-                className="btn btn-secondary btn-sm"
+                className="pagination-btn"
                 disabled={page <= 1}
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
               >
                 <ChevronLeft size={16} />
-                <span>Sebelumnya</span>
               </button>
+
+              <span style={{ fontSize: 13, fontWeight: 600, padding: '0 8px', color: 'var(--ink)' }}>
+                {page} / {totalPages}
+              </span>
+
               <button
                 type="button"
-                className="btn btn-secondary btn-sm"
+                className="pagination-btn"
                 disabled={page >= totalPages}
                 onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
               >
-                <span>Berikutnya</span>
                 <ChevronRight size={16} />
               </button>
             </div>
           </div>
-        )}
+        </div>
       </div>
 
-      {/* Create / Edit Bill Modal */}
-      {editorModalOpen && (
-        <div className="modal-backdrop" onClick={() => setEditorModalOpen(false)}>
-          <div
-            className="modal-dialog large"
-            onClick={(e) => e.stopPropagation()}
-            role="dialog"
-            aria-modal="true"
-          >
-            <div className="modal-header">
-              <h2>{editingBill ? 'Edit Tagihan Mahasiswa' : 'Buat Tagihan Baru'}</h2>
-              <button
-                type="button"
-                className="modal-close-btn"
-                onClick={() => setEditorModalOpen(false)}
-                aria-label="Tutup"
-              >
-                <ChevronLeft size={20} />
-              </button>
-            </div>
-
-            <form onSubmit={handleSaveBill}>
-              <div className="modal-body">
-                {formError && (
-                  <div style={{ padding: '10px 14px', background: 'var(--danger-bg)', color: 'var(--danger)', borderRadius: 8, fontSize: 13, marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <AlertCircle size={16} />
-                    <span>{formError}</span>
-                  </div>
-                )}
-
-                {/* Edit Mode: Readonly Student Badge */}
-                {editingBill ? (
-                  <div style={{ padding: '14px 16px', background: 'var(--bg-subtle, #f8fafc)', border: '1px solid var(--line)', borderRadius: 8, marginBottom: 18 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-                      <UserCheck size={16} style={{ color: 'var(--primary)' }} />
-                      <span style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, color: 'var(--primary)' }}>
-                        Mahasiswa Terkait (Terkunci)
-                      </span>
-                    </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 10, fontSize: 13 }}>
-                      <div>
-                        <span style={{ color: 'var(--muted)', fontSize: 11, display: 'block' }}>NIM</span>
-                        <strong>{editingBill.student_nim || editingBill.nim}</strong>
-                      </div>
-                      <div>
-                        <span style={{ color: 'var(--muted)', fontSize: 11, display: 'block' }}>Nama Lengkap</span>
-                        <strong>{editingBill.student_name || editingBill.full_name}</strong>
-                      </div>
-                      <div>
-                        <span style={{ color: 'var(--muted)', fontSize: 11, display: 'block' }}>Program Studi</span>
-                        <span>{editingBill.study_program_name || '-'}</span>
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  /* Create Mode: Select Student */
-                  <div className="form-group" style={{ marginBottom: 16 }}>
-                    <label>Pilih Mahasiswa *</label>
-                    <select
-                      className="form-control"
-                      value={formData.student_id}
-                      onChange={(e) => setFormData({ ...formData, student_id: e.target.value })}
-                      required
-                    >
-                      <option value="">-- Pilih Mahasiswa --</option>
-                      {students.map((s) => (
-                        <option key={s.id} value={s.id}>
-                          {s.nim} - {s.full_name} ({s.study_program_name || s.program_study || '-'})
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                )}
-
-                <div className="form-grid-2">
-                  {/* Jenis Tagihan Dropdown */}
-                  <div className="form-group">
-                    <label>Jenis Tagihan *</label>
-                    <select
-                      className="form-control"
-                      value={formData.bill_type_mode}
-                      onChange={(e) => setFormData({ ...formData, bill_type_mode: e.target.value })}
-                      required
-                    >
-                      <option value="UKT">UKT (Uang Kuliah Tunggal / SPP)</option>
-                      <option value="WISUDA">WISUDA (Biaya Wisuda)</option>
-                      <option value="custom">Custom (Jenis Lainnya)</option>
-                    </select>
-                    {formData.bill_type_mode === 'custom' && (
-                      <input
-                        type="text"
-                        className="form-control"
-                        placeholder="Masukkan jenis tagihan (contoh: PRAKTIKUM)"
-                        style={{ marginTop: 8 }}
-                        value={formData.custom_bill_type}
-                        onChange={(e) => setFormData({ ...formData, custom_bill_type: e.target.value })}
-                        required
-                      />
-                    )}
-                  </div>
-
-                  {/* Periode Akademik Dropdown */}
-                  <div className="form-group">
-                    <label>Periode Akademik *</label>
-                    <select
-                      className="form-control"
-                      value={formData.period_mode === 'custom' ? 'custom' : formData.period}
-                      onChange={(e) => {
-                        if (e.target.value === 'custom') {
-                          setFormData({ ...formData, period_mode: 'custom' });
-                        } else {
-                          setFormData({ ...formData, period_mode: 'master', period: e.target.value });
-                        }
-                      }}
-                      required
-                    >
-                      {periods.map((p) => (
-                        <option key={p.id || p.code} value={p.code}>
-                          {p.code} - {p.name} {p.is_active ? '(Semester Aktif)' : ''}
-                        </option>
-                      ))}
-                      <option value="custom">-- Periode Kustom Lainnya --</option>
-                    </select>
-                    {formData.period_mode === 'custom' && (
-                      <div style={{ marginTop: 8 }}>
-                        <input
-                          type="text"
-                          className="form-control"
-                          placeholder="Masukkan kode periode (contoh: 20261 atau 2026.1)"
-                          value={formData.custom_period}
-                          onChange={(e) => setFormData({ ...formData, custom_period: e.target.value })}
-                          required
-                        />
-                        <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4, display: 'flex', alignItems: 'center', gap: 4 }}>
-                          <Info size={12} />
-                          <span>Periode kustom akan otomatis terdaftar ke Master Periode secara global.</span>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Nominal Tagihan */}
-                  <div className="form-group">
-                    <label>Nominal Total Tagihan (Rp) *</label>
-                    <input
-                      type="number"
-                      className="form-control"
-                      placeholder="1850000"
-                      value={formData.amount}
-                      onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
-                      required
-                    />
-                  </div>
-
-                  {/* Nomor BRIVA */}
-                  <div className="form-group">
-                    <label>Nomor BRIVA *</label>
-                    <input
-                      type="text"
-                      className="form-control"
-                      placeholder="178100023200040"
-                      value={formData.briva}
-                      onChange={(e) => setFormData({ ...formData, briva: e.target.value })}
-                      required
-                    />
-                  </div>
-
-                  {/* Status Pembayaran */}
-                  <div className="form-group">
-                    <label>Status Pembayaran *</label>
-                    <select
-                      className="form-control"
-                      value={formData.status}
-                      onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-                      required
-                    >
-                      <option value="unpaid">Belum Lunas (Belum Ada Pembayaran)</option>
-                      <option value="partial">Bayar Sebagian (Cicilan)</option>
-                      <option value="paid">Lunas Penuh</option>
-                    </select>
-                  </div>
-
-                  {/* Batas Aktif Pembayaran */}
-                  <div className="form-group">
-                    <label>Batas Aktif Pembayaran</label>
-                    <input
-                      type="date"
-                      className="form-control"
-                      value={formData.due_date}
-                      onChange={(e) => setFormData({ ...formData, due_date: e.target.value })}
-                    />
-                  </div>
-
-                  {/* Bayar Sebagian (Partial) Input & Real-time Calculation */}
-                  {formData.status === 'partial' && (
-                    <div className="form-group" style={{ gridColumn: '1 / -1', padding: '14px 16px', background: '#fefce8', border: '1px solid #fef08a', borderRadius: 8 }}>
-                      <label style={{ color: '#854d0e', fontWeight: 700 }}>
-                        Nominal yang Dibayarkan (Rp) *
-                      </label>
-                      <input
-                        type="number"
-                        className="form-control"
-                        placeholder="Contoh: 1000000"
-                        style={{ marginTop: 4, background: '#fff' }}
-                        value={formData.paid_amount}
-                        onChange={(e) => setFormData({ ...formData, paid_amount: e.target.value })}
-                        required
-                      />
-
-                      {/* Realtime calculation box */}
-                      <div style={{ marginTop: 12, display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, background: '#fff', padding: '10px 14px', borderRadius: 6, border: '1px solid #fef08a' }}>
-                        <div>
-                          <span style={{ fontSize: 11, color: 'var(--muted)', display: 'block' }}>Total Tagihan</span>
-                          <strong>{formatRupiah(calcAmount)}</strong>
-                        </div>
-                        <div>
-                          <span style={{ fontSize: 11, color: '#15803d', display: 'block' }}>Nominal Dibayar</span>
-                          <strong style={{ color: '#15803d' }}>{formatRupiah(calcPaid)}</strong>
-                        </div>
-                        <div>
-                          <span style={{ fontSize: 11, color: '#b91c1c', display: 'block' }}>Sisa Piutang</span>
-                          <strong style={{ color: '#b91c1c' }}>{formatRupiah(calcRemaining)}</strong>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {formData.status !== 'unpaid' && (
-                    <>
-                      <div className="form-group">
-                        <label>Tanggal Transaksi</label>
-                        <input
-                          type="date"
-                          className="form-control"
-                          value={formData.payment_date}
-                          onChange={(e) => setFormData({ ...formData, payment_date: e.target.value })}
-                        />
-                      </div>
-                      <div className="form-group">
-                        <label>Nomor Referensi (Opsional)</label>
-                        <input
-                          type="text"
-                          maxLength={100}
-                          className="form-control"
-                          placeholder="Contoh: BRI-20260822-001"
-                          value={formData.reference_number}
-                          onChange={(e) => setFormData({ ...formData, reference_number: e.target.value })}
-                        />
-                      </div>
-                      <div className="form-group" style={{ gridColumn: '1 / -1' }}>
-                        <label>Catatan Transaksi (Opsional)</label>
-                        <textarea
-                          className="form-control"
-                          rows={2}
-                          maxLength={1000}
-                          value={formData.notes}
-                          onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                        />
-                      </div>
-                    </>
-                  )}
-
-                  {/* Instruksi Pembayaran */}
-                  <div className="form-group" style={{ gridColumn: '1 / -1' }}>
-                    <label>Instruksi Pembayaran Khusus (Opsional)</label>
-                    <textarea
-                      className="form-control"
-                      rows={2}
-                      placeholder="Bayar melalui BRIVA BRI dengan nomor BRIVA yang tampil..."
-                      value={formData.instructions}
-                      onChange={(e) => setFormData({ ...formData, instructions: e.target.value })}
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="modal-footer">
-                <button
-                  type="button"
-                  className="btn btn-secondary"
-                  onClick={() => setEditorModalOpen(false)}
-                  disabled={saving}
-                >
-                  Batal
-                </button>
-                <button type="submit" className="btn btn-primary" disabled={saving}>
-                  {saving ? 'Menyimpan...' : (editingBill ? 'Simpan Perubahan Tagihan' : 'Simpan Tagihan Baru')}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Delete Confirmation Modal */}
-      <ConfirmModal
-        isOpen={Boolean(deleteTarget)}
-        title="Hapus Tagihan Mahasiswa"
-        description={`Apakah Anda yakin ingin menghapus tagihan sebesar ${deleteTarget?.amount_formatted} untuk mahasiswa "${deleteTarget?.student_name || deleteTarget?.full_name}"?`}
-        confirmText="Hapus Tagihan"
-        onConfirm={handleDeleteConfirm}
-        onClose={() => setDeleteTarget(null)}
-      />
-
-      {/* Payment History Modal */}
+      {/* Transaction History Modal Drawer */}
       {historyTarget && (
         <div className="modal-backdrop" onClick={() => setHistoryTarget(null)}>
           <div
@@ -894,99 +830,97 @@ export default function BillsPage({ navigateTo }) {
             onClick={(e) => e.stopPropagation()}
             role="dialog"
             aria-modal="true"
+            style={{ maxWidth: 640, borderRadius: 'var(--radius-lg)', padding: 24 }}
           >
-            <div className="modal-header">
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingBottom: 14, borderBottom: '1px solid var(--line)', marginBottom: 16 }}>
               <div>
-                <h3 style={{ margin: 0, fontSize: 17, fontWeight: 800 }}>
-                  Riwayat Pembayaran Tagihan
+                <h3 style={{ fontSize: 17, fontWeight: 700, margin: 0, color: 'var(--ink)' }}>
+                  Riwayat Mutasi Pembayaran
                 </h3>
-                <p style={{ margin: '4px 0 0', fontSize: 13, color: 'var(--muted)' }}>
-                  {historyTarget.student_name || historyTarget.full_name} • {historyTarget.period} • BRIVA: <code>{historyTarget.briva}</code>
+                <p style={{ fontSize: 13, color: 'var(--muted)', margin: '2px 0 0 0' }}>
+                  BRIVA: <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 600 }}>{historyTarget.briva}</span> &bull; {historyTarget.student_name || historyTarget.full_name}
                 </p>
               </div>
               <button
                 type="button"
-                className="modal-close-btn"
                 onClick={() => setHistoryTarget(null)}
-                aria-label="Tutup"
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', padding: 4 }}
               >
                 <X size={20} />
               </button>
             </div>
 
-            <div className="modal-body" style={{ maxHeight: '60vh', overflowY: 'auto' }}>
-              {historyLoading ? (
-                <div style={{ padding: 30, textAlign: 'center', color: 'var(--muted)' }}>
-                  Memuat riwayat transaksi...
-                </div>
-              ) : !historyList.length ? (
-                <div className="empty-state-card" style={{ padding: 24, border: '1px solid var(--line)' }}>
-                  <Clock size={32} color="var(--muted-light)" style={{ marginBottom: 8 }} />
-                  <p style={{ color: 'var(--muted)', fontSize: 13 }}>
-                    Belum ada log transaksi pembayaran untuk tagihan ini.
-                  </p>
-                </div>
-              ) : (
-                <div className="table-responsive">
-                  <table className="data-table">
-                    <thead>
-                      <tr>
-                        <th>Waktu & Tanggal</th>
-                        <th>Tipe</th>
-                        <th>Perubahan Status</th>
-                        <th>Nominal</th>
-                        <th>Total Terbayar</th>
-                        <th>Dicatat Oleh</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {historyList.map((tx) => (
-                        <tr key={tx.id}>
-                          <td style={{ fontSize: 12 }}>
-                            <div><strong>{tx.payment_date}</strong></div>
-                            <span style={{ color: 'var(--muted)', fontSize: 11 }}>{tx.created_at}</span>
-                          </td>
-                          <td>
-                            <span className={`badge ${tx.transaction_type === 'payment' ? 'badge-success' : tx.transaction_type === 'reversal' ? 'badge-danger' : 'badge-warning'}`} style={{ fontSize: 11 }}>
-                              {tx.transaction_type === 'payment' ? 'Pembayaran' : tx.transaction_type === 'reversal' ? 'Pembatalan' : 'Koreksi'}
-                            </span>
-                          </td>
-                          <td style={{ fontSize: 12 }}>
-                            <span style={{ textTransform: 'capitalize' }}>{tx.previous_status}</span>
-                            <span style={{ margin: '0 6px', color: 'var(--muted)' }}>&rarr;</span>
-                            <span style={{ textTransform: 'capitalize', fontWeight: 700 }}>{tx.new_status}</span>
-                          </td>
-                          <td>
-                            <strong style={{ color: tx.amount >= 0 ? 'var(--success)' : 'var(--danger)' }}>
-                              {tx.amount >= 0 ? `+${tx.amount_formatted}` : `-${tx.amount_formatted}`}
-                            </strong>
-                          </td>
-                          <td>
-                            <strong style={{ color: 'var(--ink)' }}>{tx.running_paid_total_formatted}</strong>
-                          </td>
-                          <td style={{ fontSize: 12 }}>
-                            <div>{tx.recorded_by_name || 'Admin'}</div>
-                            <span style={{ color: 'var(--muted)', fontSize: 10, textTransform: 'uppercase' }}>{tx.source}</span>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
+            {historyLoading ? (
+              <div style={{ padding: 40, textAlign: 'center', color: 'var(--muted)' }}>
+                <RefreshCw size={24} className="spin" style={{ color: 'var(--brand)', marginBottom: 8 }} />
+                <div>Memuat histori transaksi...</div>
+              </div>
+            ) : historyList.length === 0 ? (
+              <div style={{ padding: '40px 20px', textAlign: 'center', color: 'var(--muted)' }}>
+                <p style={{ margin: 0, fontSize: 14 }}>Belum ada catatan mutasi pembayaran untuk tagihan ini.</p>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10, maxHeight: 400, overflowY: 'auto' }}>
+                {historyList.map((tx, idx) => (
+                  <div
+                    key={tx.id || idx}
+                    style={{
+                      background: '#f8fafc',
+                      border: '1px solid var(--line)',
+                      borderRadius: 'var(--radius-md)',
+                      padding: '12px 14px',
+                      fontSize: 13,
+                    }}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                      <span style={{ fontWeight: 700, color: 'var(--success)' }}>
+                        +{formatRupiah(tx.amount)}
+                      </span>
+                      <span style={{ fontSize: 11, color: 'var(--muted)' }}>
+                        {tx.payment_date || tx.created_at?.slice(0, 10) || '-'}
+                      </span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: 'var(--muted)' }}>
+                      <span>Metode: <strong>{tx.payment_method || 'BRIVA'}</strong></span>
+                      <span>Ref: <strong>{tx.reference_number || '-'}</strong></span>
+                    </div>
+                    {tx.notes && (
+                      <div style={{ fontSize: 12, color: 'var(--ink)', marginTop: 4, fontStyle: 'italic' }}>
+                        &ldquo;{tx.notes}&rdquo;
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
 
-            <div className="modal-footer">
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 20, paddingTop: 14, borderTop: '1px solid var(--line)' }}>
               <button
                 type="button"
                 className="btn btn-secondary"
                 onClick={() => setHistoryTarget(null)}
+                style={{ padding: '8px 16px', borderRadius: 'var(--radius-md)' }}
               >
                 Tutup
               </button>
             </div>
           </div>
         </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {deleteTarget && (
+        <ConfirmModal
+          isOpen={Boolean(deleteTarget)}
+          title="Hapus Data Tagihan"
+          message={`Apakah Anda yakin ingin menghapus tagihan sebesar ${deleteTarget.amount_formatted || formatRupiah(deleteTarget.amount)} untuk ${deleteTarget.student_name || deleteTarget.full_name}? Tindakan ini akan dicatat ke audit log.`}
+          confirmLabel="Hapus Tagihan"
+          danger
+          requireReason
+          reasonPlaceholder="Alasan penghapusan data tagihan..."
+          onConfirm={handleDeleteConfirm}
+          onCancel={() => setDeleteTarget(null)}
+        />
       )}
     </div>
   );

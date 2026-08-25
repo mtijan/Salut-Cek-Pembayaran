@@ -95,6 +95,11 @@ export const billsApi = {
     if (params.query) query.set('query', params.query);
     if (params.status) query.set('status', params.status);
     if (params.source) query.set('source', params.source);
+    if (params.study_program_id) query.set('study_program_id', params.study_program_id);
+    if (params.period) query.set('period', params.period);
+    if (params.bill_type) query.set('bill_type', params.bill_type);
+    if (params.entry_period) query.set('entry_period', params.entry_period);
+    if (params.sort_by) query.set('sort_by', params.sort_by);
     if (params.limit) query.set('limit', String(params.limit));
     if (params.offset) query.set('offset', String(params.offset));
     return apiFetch(`/admin/bills?${query.toString()}`);
