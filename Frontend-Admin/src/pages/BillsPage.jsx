@@ -9,6 +9,7 @@ import { billsApi, masterApi } from '../services/api';
 import { useToast } from '../components/common/Toast';
 import { useAuth } from '../context/AuthContext';
 import ConfirmModal from '../components/common/ConfirmModal';
+import { clampPage } from '../utils/pagination';
 
 const formatRupiah = (val) => {
   const num = Number(val) || 0;
@@ -53,7 +54,7 @@ export default function BillsPage({ navigateTo }) {
   const [historyLoading, setHistoryLoading] = useState(false);
   const [summary, setSummary] = useState(null);
 
-  const fetchMasterOptions = async () => {
+  const fetchMasterOptions = useCallback(async () => {
     try {
       const [pRes, prRes] = await Promise.all([
         masterApi.listPeriods(),
@@ -61,8 +62,10 @@ export default function BillsPage({ navigateTo }) {
       ]);
       setPeriods(pRes.academic_periods || []);
       setProdis(prRes.study_programs || []);
-    } catch {}
-  };
+    } catch (err) {
+      showToast(err.message || 'Gagal memuat opsi filter tagihan.', 'error');
+    }
+  }, [showToast]);
 
   const fetchBills = useCallback(async () => {
     setLoading(true);
@@ -92,7 +95,7 @@ export default function BillsPage({ navigateTo }) {
 
   useEffect(() => {
     fetchMasterOptions();
-  }, []);
+  }, [fetchMasterOptions]);
 
   useEffect(() => {
     fetchBills();
@@ -200,6 +203,10 @@ export default function BillsPage({ navigateTo }) {
   };
 
   const totalPages = Number(pagination.total_pages) || Math.ceil(totalCount / limit) || 1;
+
+  useEffect(() => {
+    setPage((currentPage) => clampPage(currentPage, totalPages));
+  }, [totalPages]);
 
   return (
     <div>
@@ -484,7 +491,7 @@ export default function BillsPage({ navigateTo }) {
                 {query && (
                   <span className="filter-chip">
                     <span className="filter-chip-label">Cari:</span> &ldquo;{query}&rdquo;
-                    <button type="button" className="filter-chip-close" onClick={() => setQuery('')}>
+                    <button type="button" className="filter-chip-close" onClick={() => { setQuery(''); setPage(1); }}>
                       <X size={12} />
                     </button>
                   </span>
@@ -493,7 +500,7 @@ export default function BillsPage({ navigateTo }) {
                 {activeProdiObj && (
                   <span className="filter-chip">
                     <span className="filter-chip-label">Prodi:</span> {activeProdiObj.name}
-                    <button type="button" className="filter-chip-close" onClick={() => setSelectedProdi('')}>
+                    <button type="button" className="filter-chip-close" onClick={() => { setSelectedProdi(''); setPage(1); }}>
                       <X size={12} />
                     </button>
                   </span>
@@ -502,7 +509,7 @@ export default function BillsPage({ navigateTo }) {
                 {activePeriodObj && (
                   <span className="filter-chip">
                     <span className="filter-chip-label">Periode:</span> {activePeriodObj.name}
-                    <button type="button" className="filter-chip-close" onClick={() => setSelectedPeriod('')}>
+                    <button type="button" className="filter-chip-close" onClick={() => { setSelectedPeriod(''); setPage(1); }}>
                       <X size={12} />
                     </button>
                   </span>
@@ -511,7 +518,7 @@ export default function BillsPage({ navigateTo }) {
                 {selectedEntryPeriod && (
                   <span className="filter-chip">
                     <span className="filter-chip-label">Periode Masuk:</span> {selectedEntryPeriod}
-                    <button type="button" className="filter-chip-close" onClick={() => setSelectedEntryPeriod('')}>
+                    <button type="button" className="filter-chip-close" onClick={() => { setSelectedEntryPeriod(''); setPage(1); }}>
                       <X size={12} />
                     </button>
                   </span>
@@ -521,7 +528,7 @@ export default function BillsPage({ navigateTo }) {
                   <span className="filter-chip">
                     <span className="filter-chip-label">Status:</span>{' '}
                     {selectedStatus === 'paid' ? 'Lunas' : selectedStatus === 'partial' ? 'Bayar Sebagian' : 'Belum Lunas'}
-                    <button type="button" className="filter-chip-close" onClick={() => setSelectedStatus('')}>
+                    <button type="button" className="filter-chip-close" onClick={() => { setSelectedStatus(''); setPage(1); }}>
                       <X size={12} />
                     </button>
                   </span>
@@ -530,7 +537,7 @@ export default function BillsPage({ navigateTo }) {
                 {sortBy !== 'updated_desc' && (
                   <span className="filter-chip">
                     <span className="filter-chip-label">Urutan:</span> {sortBy}
-                    <button type="button" className="filter-chip-close" onClick={() => setSortBy('updated_desc')}>
+                    <button type="button" className="filter-chip-close" onClick={() => { setSortBy('updated_desc'); setPage(1); }}>
                       <X size={12} />
                     </button>
                   </span>

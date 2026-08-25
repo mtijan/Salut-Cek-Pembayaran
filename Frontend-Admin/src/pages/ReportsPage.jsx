@@ -7,6 +7,7 @@ import {
 import { reportsApi, masterApi } from '../services/api';
 import { useToast } from '../components/common/Toast';
 import { toCsv } from '../utils/csv';
+import { clampPage } from '../utils/pagination';
 
 const formatRupiah = (val) => {
   const num = Number(val) || 0;
@@ -43,7 +44,7 @@ export default function ReportsPage({ navigateTo }) {
   const [page, setPage] = useState(1);
   const limit = 50;
 
-  const fetchMasterOptions = async () => {
+  const fetchMasterOptions = useCallback(async () => {
     try {
       const [pRes, prRes] = await Promise.all([
         masterApi.listPeriods(),
@@ -51,8 +52,10 @@ export default function ReportsPage({ navigateTo }) {
       ]);
       setPeriods(pRes.academic_periods || []);
       setProdis(prRes.study_programs || []);
-    } catch {}
-  };
+    } catch (err) {
+      showToast(err.message || 'Gagal memuat opsi filter laporan.', 'error');
+    }
+  }, [showToast]);
 
   const fetchReport = useCallback(async () => {
     setLoading(true);
@@ -72,7 +75,7 @@ export default function ReportsPage({ navigateTo }) {
 
   useEffect(() => {
     fetchMasterOptions();
-  }, []);
+  }, [fetchMasterOptions]);
 
   useEffect(() => {
     fetchReport();
@@ -141,6 +144,11 @@ export default function ReportsPage({ navigateTo }) {
   // Paginated students
   const totalCount = filteredAndSortedStudents.length;
   const totalPages = Math.ceil(totalCount / limit) || 1;
+
+  useEffect(() => {
+    setPage((currentPage) => clampPage(currentPage, totalPages));
+  }, [totalPages]);
+
   const paginatedStudents = useMemo(() => {
     const start = (page - 1) * limit;
     return filteredAndSortedStudents.slice(start, start + limit);
@@ -219,6 +227,7 @@ export default function ReportsPage({ navigateTo }) {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    URL.revokeObjectURL(url);
     showToast(`Berhasil mengekspor ${filteredAndSortedStudents.length} data ke CSV.`, 'success');
   };
 
@@ -491,7 +500,7 @@ export default function ReportsPage({ navigateTo }) {
                 {query && (
                   <span className="filter-chip">
                     <span className="filter-chip-label">Cari:</span> &ldquo;{query}&rdquo;
-                    <button type="button" className="filter-chip-close" onClick={() => setQuery('')}>
+                    <button type="button" className="filter-chip-close" onClick={() => { setQuery(''); setPage(1); }}>
                       <X size={12} />
                     </button>
                   </span>
@@ -500,7 +509,7 @@ export default function ReportsPage({ navigateTo }) {
                 {activeProdiObj && (
                   <span className="filter-chip">
                     <span className="filter-chip-label">Prodi:</span> {activeProdiObj.name}
-                    <button type="button" className="filter-chip-close" onClick={() => setSelectedProdi('')}>
+                    <button type="button" className="filter-chip-close" onClick={() => { setSelectedProdi(''); setPage(1); }}>
                       <X size={12} />
                     </button>
                   </span>
@@ -509,7 +518,7 @@ export default function ReportsPage({ navigateTo }) {
                 {activePeriodObj && (
                   <span className="filter-chip">
                     <span className="filter-chip-label">Periode:</span> {activePeriodObj.name}
-                    <button type="button" className="filter-chip-close" onClick={() => setSelectedPeriod('')}>
+                    <button type="button" className="filter-chip-close" onClick={() => { setSelectedPeriod(''); setPage(1); }}>
                       <X size={12} />
                     </button>
                   </span>
@@ -518,7 +527,7 @@ export default function ReportsPage({ navigateTo }) {
                 {selectedEntryPeriod && (
                   <span className="filter-chip">
                     <span className="filter-chip-label">Periode Masuk:</span> {selectedEntryPeriod}
-                    <button type="button" className="filter-chip-close" onClick={() => setSelectedEntryPeriod('')}>
+                    <button type="button" className="filter-chip-close" onClick={() => { setSelectedEntryPeriod(''); setPage(1); }}>
                       <X size={12} />
                     </button>
                   </span>
@@ -528,7 +537,7 @@ export default function ReportsPage({ navigateTo }) {
                   <span className="filter-chip">
                     <span className="filter-chip-label">Status:</span>{' '}
                     {selectedStatus === 'paid' ? 'Lunas' : selectedStatus === 'partial' ? 'Bayar Sebagian' : 'Belum Lunas'}
-                    <button type="button" className="filter-chip-close" onClick={() => setSelectedStatus('')}>
+                    <button type="button" className="filter-chip-close" onClick={() => { setSelectedStatus(''); setPage(1); }}>
                       <X size={12} />
                     </button>
                   </span>
@@ -537,7 +546,7 @@ export default function ReportsPage({ navigateTo }) {
                 {sortBy !== 'amount_desc' && (
                   <span className="filter-chip">
                     <span className="filter-chip-label">Urutan:</span> {sortBy}
-                    <button type="button" className="filter-chip-close" onClick={() => setSortBy('amount_desc')}>
+                    <button type="button" className="filter-chip-close" onClick={() => { setSortBy('amount_desc'); setPage(1); }}>
                       <X size={12} />
                     </button>
                   </span>
