@@ -88,11 +88,20 @@ async def security_headers(request: Request, call_next):
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["Referrer-Policy"] = "no-referrer"
     response.headers["X-Frame-Options"] = "DENY"
-    response.headers["Content-Security-Policy"] = (
-        "default-src 'self'; base-uri 'none'; frame-ancestors 'none'; "
-        "script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
-        "font-src 'self' https://fonts.gstatic.com; img-src 'self' data:"
-    )
+    if request.url.path in {"/docs", "/redoc", "/openapi.json"}:
+        response.headers["Content-Security-Policy"] = (
+            "default-src 'self'; base-uri 'none'; frame-ancestors 'none'; "
+            "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
+            "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://fonts.googleapis.com; "
+            "font-src 'self' https://fonts.gstatic.com; "
+            "img-src 'self' data: https://fastapi.tiangolo.com https://cdn.jsdelivr.net;"
+        )
+    else:
+        response.headers["Content-Security-Policy"] = (
+            "default-src 'self'; base-uri 'none'; frame-ancestors 'none'; "
+            "script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+            "font-src 'self' https://fonts.gstatic.com; img-src 'self' data:"
+        )
     return response
 
 
@@ -566,6 +575,12 @@ async def admin_bills(request: Request, admin=Depends(require_admin("view_billin
     query = str(request.query_params.get("query") or "")
     status = str(request.query_params.get("status") or "").strip().lower()
     source = str(request.query_params.get("source") or "").strip().lower()
+    study_program_id = str(request.query_params.get("study_program_id") or request.query_params.get("prodi") or "").strip()
+    period = str(request.query_params.get("period") or "").strip()
+    bill_type = str(request.query_params.get("bill_type") or "").strip()
+    sort_by = str(request.query_params.get("sort_by") or "").strip()
+    entry_period = str(request.query_params.get("entry_period") or "").strip()
+
     if status not in {"", "paid", "partial", "unpaid"}:
         return error_response(400, "VALIDATION_ERROR", "Filter status tidak valid.")
     if source not in {"", "import", "manual"}:
@@ -575,12 +590,34 @@ async def admin_bills(request: Request, admin=Depends(require_admin("view_billin
         offset = parse_offset(request)
     except ValueError as exc:
         return error_response(400, "VALIDATION_ERROR", str(exc))
-    total = count_bills(config.DB_PATH, query, status, source)
-    page = (offset // limit) + 1
-    total_pages = max(1, (total + limit - 1) // limit)
+
+    total = count_bills(
+        config.DB_PATH,
+        query=query,
+        status=status,
+        source=source,
+        study_program_id=study_program_id,
+        period=period,
+        bill_type=bill_type,
+        entry_period=entry_period,
+    )
+    page = (offset // limit) + 1 if limit > 0 else 1
+    total_pages = max(1, (total + limit - 1) // limit) if limit > 0 else 1
     return success_response(
         {
-            "bills": list_bills(config.DB_PATH, query, limit, offset, status, source),
+            "bills": list_bills(
+                config.DB_PATH,
+                query=query,
+                limit=limit,
+                offset=offset,
+                status=status,
+                source=source,
+                study_program_id=study_program_id,
+                period=period,
+                bill_type=bill_type,
+                sort_by=sort_by,
+                entry_period=entry_period,
+            ),
             "pagination": {
                 "total": total,
                 "limit": limit,

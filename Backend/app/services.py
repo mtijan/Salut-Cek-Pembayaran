@@ -780,10 +780,22 @@ def delete_student(db_path: str | Path, student_id: str, actor_id: str | None = 
         conn.close()
 
 
-def bill_filter_clause(query: str = "", status: str = "", source: str = "") -> tuple[str, list[object]]:
+def bill_filter_clause(
+    query: str = "",
+    status: str = "",
+    source: str = "",
+    study_program_id: str = "",
+    period: str = "",
+    bill_type: str = "",
+    entry_period: str = "",
+) -> tuple[str, list[object]]:
     search = normalize_text(query)
     normalized_status = normalize_text(status).lower()
     normalized_source = normalize_text(source).lower()
+    normalized_prodi = normalize_text(study_program_id)
+    normalized_period = normalize_text(period)
+    normalized_type = normalize_text(bill_type)
+    normalized_entry_period = normalize_text(entry_period)
     params: list[object] = []
     where_clauses = ["b.deleted_at is null", "s.deleted_at is null"]
     if search:
@@ -796,6 +808,18 @@ def bill_filter_clause(query: str = "", status: str = "", source: str = "") -> t
         where_clauses.append("lower(trim(b.source_file)) in ('manual', 'manual admin')")
     elif normalized_source == "import":
         where_clauses.append("lower(trim(b.source_file)) not in ('manual', 'manual admin')")
+    if normalized_prodi:
+        where_clauses.append("s.study_program_id = ?")
+        params.append(normalized_prodi)
+    if normalized_period:
+        where_clauses.append("b.period = ?")
+        params.append(normalized_period)
+    if normalized_type:
+        where_clauses.append("b.bill_type = ?")
+        params.append(normalized_type)
+    if normalized_entry_period:
+        where_clauses.append("(s.entry_period = ? or s.initial_registration like ?)")
+        params.extend([normalized_entry_period, f"%{normalized_entry_period}%"])
     return "where " + " and ".join(where_clauses), params
 
 
@@ -806,17 +830,45 @@ def list_bills(
     offset: int = 0,
     status: str = "",
     source: str = "",
+    study_program_id: str = "",
+    period: str = "",
+    bill_type: str = "",
+    sort_by: str = "",
+    entry_period: str = "",
 ) -> list[dict[str, object]]:
     limit = max(1, min(int(limit or 2000), 5000))
     offset = max(0, int(offset or 0))
     conn = connect(db_path)
     init_db(conn)
-    where, params = bill_filter_clause(query, status, source)
+    where, params = bill_filter_clause(
+        query=query,
+        status=status,
+        source=source,
+        study_program_id=study_program_id,
+        period=period,
+        bill_type=bill_type,
+        entry_period=entry_period,
+    )
+
+    sort_order_map = {
+        "updated_desc": "order by b.updated_at desc, b.created_at desc",
+        "updated_asc": "order by b.updated_at asc, b.created_at asc",
+        "created_desc": "order by b.created_at desc, b.rowid desc",
+        "created_asc": "order by b.created_at asc, b.rowid asc",
+        "amount_desc": "order by b.amount desc",
+        "amount_asc": "order by b.amount asc",
+        "due_date_asc": "order by case when b.due_date is null or b.due_date = '' then 1 else 0 end, b.due_date asc",
+        "due_date_desc": "order by b.due_date desc",
+        "nim_asc": "order by s.nim asc",
+        "name_asc": "order by s.full_name asc",
+    }
+    order_clause = sort_order_map.get(sort_by, "order by b.updated_at desc, b.created_at desc")
+
     rows = conn.execute(
         f"""
         {joined_bill_select()}
         {where}
-        order by b.updated_at desc, b.created_at desc
+        {order_clause}
         limit ? offset ?
         """,
         (*params, limit, offset),
@@ -825,10 +877,27 @@ def list_bills(
     return [bill_row_to_dict(row) for row in rows]
 
 
-def count_bills(db_path: str | Path = config.DB_PATH, query: str = "", status: str = "", source: str = "") -> int:
+def count_bills(
+    db_path: str | Path = config.DB_PATH,
+    query: str = "",
+    status: str = "",
+    source: str = "",
+    study_program_id: str = "",
+    period: str = "",
+    bill_type: str = "",
+    entry_period: str = "",
+) -> int:
     conn = connect(db_path)
     init_db(conn)
-    where, params = bill_filter_clause(query, status, source)
+    where, params = bill_filter_clause(
+        query=query,
+        status=status,
+        source=source,
+        study_program_id=study_program_id,
+        period=period,
+        bill_type=bill_type,
+        entry_period=entry_period,
+    )
     row = conn.execute(
         f"""
         select count(*) as total

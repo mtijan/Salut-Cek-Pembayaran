@@ -1929,6 +1929,69 @@ class CoreBehaviorTests(unittest.TestCase):
                     finally:
                         client.close()
 
+    def test_admin_bills_rich_filters_and_sorting(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            database = Path(temporary_directory) / "test.sqlite"
+            with mock.patch("Backend.app.config.DB_PATH", database):
+                from Backend.app.main import app
+                from Backend.app.services import list_study_programs, create_student, create_bill
+                conn = connect(database)
+                init_db(conn)
+                prodis = list_study_programs(database)
+                p1 = prodis[0]
+                p2 = prodis[1]
+                
+                # Create students with different prodis and entry periods
+                st1 = create_student(database, {"nim": "01001", "full_name": "Mahasiswa Satu", "study_program_id": p1["id"], "entry_period": "2024.1"})
+                st2 = create_student(database, {"nim": "02002", "full_name": "Mahasiswa Dua", "study_program_id": p2["id"], "entry_period": "2025.2"})
+                
+                # Create bills
+                b1 = create_bill(database, {"student_id": st1["id"], "briva": "1111", "amount": 1000000, "period": "2025.1", "bill_type": "UKT"})
+                b2 = create_bill(database, {"student_id": st2["id"], "briva": "2222", "amount": 2500000, "period": "2025.2", "bill_type": "WISUDA"})
+                conn.close()
+
+                fake_admin = {"id": "admin-1", "email": "admin@salut.id", "role": "admin", "full_name": "Admin Test"}
+                with mock.patch("Backend.app.main.find_admin_by_session", return_value=fake_admin):
+                    client = TestClient(app)
+                    try:
+                        # 1. Filter by study program
+                        res_prodi = client.get(f"/api/admin/bills?study_program_id={p1['id']}")
+                        self.assertEqual(res_prodi.status_code, 200)
+                        bills_p = res_prodi.json()["data"]["bills"]
+                        self.assertEqual(len(bills_p), 1)
+                        self.assertEqual(bills_p[0]["nim"], "01001")
+
+                        # 2. Filter by period
+                        res_period = client.get("/api/admin/bills?period=2025.2")
+                        self.assertEqual(res_period.status_code, 200)
+                        bills_per = res_period.json()["data"]["bills"]
+                        self.assertEqual(len(bills_per), 1)
+                        self.assertEqual(bills_per[0]["period"], "2025.2")
+
+                        # 3. Filter by bill type
+                        res_type = client.get("/api/admin/bills?bill_type=WISUDA")
+                        self.assertEqual(res_type.status_code, 200)
+                        bills_t = res_type.json()["data"]["bills"]
+                        self.assertEqual(len(bills_t), 1)
+                        self.assertEqual(bills_t[0]["bill_type"], "WISUDA")
+
+                        # 4. Filter by student entry_period
+                        res_entry = client.get("/api/admin/bills?entry_period=2024.1")
+                        self.assertEqual(res_entry.status_code, 200)
+                        bills_e = res_entry.json()["data"]["bills"]
+                        self.assertEqual(len(bills_e), 1)
+                        self.assertEqual(bills_e[0]["nim"], "01001")
+
+                        # 5. Sort by amount desc
+                        res_sort = client.get("/api/admin/bills?sort_by=amount_desc")
+                        self.assertEqual(res_sort.status_code, 200)
+                        bills_s = res_sort.json()["data"]["bills"]
+                        self.assertEqual(len(bills_s), 2)
+                        self.assertEqual(bills_s[0]["amount"], 2500000)
+                        self.assertEqual(bills_s[1]["amount"], 1000000)
+                    finally:
+                        client.close()
+
     def test_python_systemd_jobs_use_package_module_entrypoints(self) -> None:
         project_root = Path(__file__).resolve().parents[1]
         maintenance_unit = (project_root / "deploy" / "salut-cek-pembayaran-maintenance.service").read_text(encoding="utf-8")
