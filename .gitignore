@@ -13,7 +13,7 @@ dist/
 build/
 .vercel/
 
-# Local documentation and deployment artifacts
+# Private operational documentation and deployment artifacts
 docs/
 deploy/
 

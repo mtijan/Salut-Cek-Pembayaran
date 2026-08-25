@@ -135,6 +135,7 @@ Build frontend:
 
 ```powershell
 Set-Location Frontend-Admin
+npm test
 npm run build
 ```
 
@@ -144,3 +145,6 @@ npm run build
 - Gunakan data sintetis ketika mendemonstrasikan aplikasi.
 - Ganti kredensial bootstrap bila workspace digunakan bersama.
 - Jangan menggunakan contoh secret dan password development untuk server publik.
+- `docs/` dan `deploy/` adalah artefak internal dan tidak boleh dilacak pada repository publik.
+- Jalankan `python scripts/check_public_repo_boundary.py` sebelum commit atau pull request.
+- Kebijakan pelaporan kerentanan tersedia di [`SECURITY.md`](SECURITY.md).
