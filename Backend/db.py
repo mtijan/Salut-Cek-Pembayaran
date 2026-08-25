@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+import hashlib
 import re
 import sqlite3
+from contextlib import contextmanager
 from pathlib import Path
+from typing import Iterator
 
 BASE_DIR = Path(__file__).resolve().parent
 DEFAULT_DB_PATH = BASE_DIR / "data" / "salut.sqlite"
@@ -27,8 +30,32 @@ def connect(db_path: str | Path = DEFAULT_DB_PATH) -> sqlite3.Connection:
     return conn
 
 
+@contextmanager
+def database_connection(db_path: str | Path = DEFAULT_DB_PATH) -> Iterator[sqlite3.Connection]:
+    """Open a configured connection and always close it without running migrations."""
+    conn = connect(db_path)
+    try:
+        yield conn
+    finally:
+        conn.close()
+
+
+@contextmanager
+def database_transaction(db_path: str | Path = DEFAULT_DB_PATH) -> Iterator[sqlite3.Connection]:
+    """Own one SQLite transaction and close its connection on every exit path."""
+    with database_connection(db_path) as conn:
+        with conn:
+            yield conn
+
+
+def migrate_database(db_path: str | Path = DEFAULT_DB_PATH) -> None:
+    """Apply schema/data migrations at an explicit startup or CLI boundary."""
+    with database_connection(db_path) as conn:
+        init_db(conn)
+
+
 def init_db(conn: sqlite3.Connection) -> None:
-    """Apply schema/data migrations once per database, not per service request."""
+    """Apply schema/data migrations; callers must invoke this only at explicit boundaries."""
     try:
         row = conn.execute("select version from schema_migrations order by version desc limit 1").fetchone()
     except sqlite3.OperationalError:
@@ -395,6 +422,13 @@ def ensure_academic_period(conn: sqlite3.Connection, period_code: str, default_n
         return str(row["code"])
 
     period_id = f"prd_{re.sub(r'[^a-zA-Z0-9]', '', code_clean).lower()}"
+    # Human-readable IDs can collide for distinct supported formats such as
+    # "2025.1" and "20251". Preserve the legacy ID when available and add a
+    # deterministic suffix only when another code already owns it.
+    id_owner = conn.execute("select code from academic_periods where id = ?", (period_id,)).fetchone()
+    if id_owner and str(id_owner["code"]).casefold() != code_clean.casefold():
+        suffix = hashlib.sha256(code_clean.casefold().encode("utf-8")).hexdigest()[:10]
+        period_id = f"{period_id}_{suffix}"
     sem_type = "ganjil"
     name = default_name
 
@@ -410,17 +444,14 @@ def ensure_academic_period(conn: sqlite3.Connection, period_code: str, default_n
     else:
         name = name or f"Periode {code_clean}"
 
-    try:
-        conn.execute(
-            """
-            insert into academic_periods (id, code, name, semester_type, is_active)
-            values (?, ?, ?, ?, 0)
-            on conflict(code) do nothing
-            """,
-            (period_id, code_clean, name, sem_type),
-        )
-    except Exception:
-        pass
+    conn.execute(
+        """
+        insert into academic_periods (id, code, name, semester_type, is_active)
+        values (?, ?, ?, ?, 0)
+        on conflict(code) do nothing
+        """,
+        (period_id, code_clean, name, sem_type),
+    )
 
     return code_clean
 

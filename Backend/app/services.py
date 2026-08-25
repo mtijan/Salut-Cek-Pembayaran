@@ -10,7 +10,13 @@ from pathlib import Path
 
 from Backend.app import config
 from Backend.app.security import digest, hash_password, token_hash, verify_password
-from Backend.db import connect, init_db, parse_entry_registration
+from Backend.db import (
+    connect,
+    database_connection,
+    database_transaction,
+    migrate_database,
+    parse_entry_registration,
+)
 from Backend.excel_reader import (
     clean_demographic_value,
     normalize_imported_name,
@@ -144,51 +150,42 @@ def cleanup_stale_imports() -> int:
         if workbook.stat().st_mtime < cutoff:
             workbook.unlink(missing_ok=True)
             removed_files += 1
-    conn = connect(config.DB_PATH)
-    with conn:
+    with database_transaction(config.DB_PATH) as conn:
         conn.execute("delete from import_previews where expires_at <= datetime('now')")
-    conn.close()
     return removed_files
 
 
 def cleanup_operational_data() -> dict[str, int]:
     """Prune only approved operational data; audit_logs are intentionally retained."""
     cleanup_stale_imports()
-    conn = connect(config.DB_PATH)
-    init_db(conn)
-    try:
-        with conn:
-            deleted_sessions = conn.execute(
-                "delete from admin_sessions where expires_at <= datetime('now', ?)",
-                (f"-{config.SESSION_RETENTION_DAYS} days",),
-            ).rowcount
-            deleted_lookups = conn.execute(
-                "delete from lookup_logs where created_at < datetime('now', ?)",
-                (f"-{config.LOOKUP_LOG_RETENTION_DAYS} days",),
-            ).rowcount
-            deleted_issues = conn.execute(
-                "delete from import_issues where created_at < datetime('now', ?)",
-                (f"-{config.IMPORT_ISSUE_RETENTION_DAYS} days",),
-            ).rowcount
-        return {
-            "expired_sessions": max(0, deleted_sessions),
-            "lookup_logs": max(0, deleted_lookups),
-            "import_issues": max(0, deleted_issues),
-        }
-    finally:
-        conn.close()
+    with database_transaction(config.DB_PATH) as conn:
+        deleted_sessions = conn.execute(
+            "delete from admin_sessions where expires_at <= datetime('now', ?)",
+            (f"-{config.SESSION_RETENTION_DAYS} days",),
+        ).rowcount
+        deleted_lookups = conn.execute(
+            "delete from lookup_logs where created_at < datetime('now', ?)",
+            (f"-{config.LOOKUP_LOG_RETENTION_DAYS} days",),
+        ).rowcount
+        deleted_issues = conn.execute(
+            "delete from import_issues where created_at < datetime('now', ?)",
+            (f"-{config.IMPORT_ISSUE_RETENTION_DAYS} days",),
+        ).rowcount
+    return {
+        "expired_sessions": max(0, deleted_sessions),
+        "lookup_logs": max(0, deleted_lookups),
+        "import_issues": max(0, deleted_issues),
+    }
 
 
 def ensure_database() -> None:
     validate_runtime_configuration()
-    conn = connect(config.DB_PATH)
-    init_db(conn)
-    admin_total = conn.execute("select count(*) as total from admin_users").fetchone()["total"]
-    if admin_total == 0:
-        if not config.ADMIN_BOOTSTRAP_EMAIL or not config.ADMIN_BOOTSTRAP_PASSWORD:
-            conn.close()
-            raise RuntimeError("Admin awal belum ada. Set ADMIN_BOOTSTRAP_EMAIL dan ADMIN_BOOTSTRAP_PASSWORD.")
-        with conn:
+    migrate_database(config.DB_PATH)
+    with database_transaction(config.DB_PATH) as conn:
+        admin_total = conn.execute("select count(*) as total from admin_users").fetchone()["total"]
+        if admin_total == 0:
+            if not config.ADMIN_BOOTSTRAP_EMAIL or not config.ADMIN_BOOTSTRAP_PASSWORD:
+                raise RuntimeError("Admin awal belum ada. Set ADMIN_BOOTSTRAP_EMAIL dan ADMIN_BOOTSTRAP_PASSWORD.")
             conn.execute(
                 """
                 insert into admin_users (id, email, password_hash, full_name, role)
@@ -201,7 +198,6 @@ def ensure_database() -> None:
                     "Admin SALUT",
                 ),
             )
-    conn.close()
 
 
 def bill_row_to_dict(row: sqlite3.Row) -> dict[str, object]:
@@ -523,8 +519,6 @@ def list_students(
 ) -> list[dict[str, object]]:
     search = normalize_text(query)
     limit = max(1, min(int(limit or 2000), 5000))
-    conn = connect(db_path)
-    init_db(conn)
     params: list[object] = []
     where_clauses = ["s.deleted_at is null"]
     if search:
@@ -556,59 +550,56 @@ def list_students(
         order_by = "order by s.updated_at desc"
 
     where = "where " + " and ".join(where_clauses)
-    rows = conn.execute(
-        f"""
-        select s.id, s.nim, s.full_name, s.no_ktp, s.tempat_lahir, s.tanggal_lahir, s.nama_ibu_kandung,
-               s.program_study, s.study_program_id, s.academic_status,
-               s.entry_year, s.entry_semester, s.entry_period,
-               s.email, s.address, s.phone_number, s.initial_registration,
-               sp.name as study_program_name, sp.code as study_program_code,
-               count(b.id) as bill_count, coalesce(sum(b.amount), 0) as total_amount
-        from students s
-        left join study_programs sp on sp.id = s.study_program_id
-        left join bills b on b.student_id = s.id and b.deleted_at is null
-        {where}
-        group by s.id, s.nim, s.full_name, s.no_ktp, s.tempat_lahir, s.tanggal_lahir, s.nama_ibu_kandung,
-                 s.program_study, s.study_program_id, s.academic_status, s.entry_year, s.entry_semester, s.entry_period,
-                 s.email, s.address, s.phone_number, s.initial_registration, sp.name, sp.code
-        {order_by}
-        limit ?
-        """,
-        (*params, limit),
-    ).fetchall()
-    conn.close()
+    with database_connection(db_path) as conn:
+        rows = conn.execute(
+            f"""
+            select s.id, s.nim, s.full_name, s.no_ktp, s.tempat_lahir, s.tanggal_lahir, s.nama_ibu_kandung,
+                   s.program_study, s.study_program_id, s.academic_status,
+                   s.entry_year, s.entry_semester, s.entry_period,
+                   s.email, s.address, s.phone_number, s.initial_registration,
+                   sp.name as study_program_name, sp.code as study_program_code,
+                   count(b.id) as bill_count, coalesce(sum(b.amount), 0) as total_amount
+            from students s
+            left join study_programs sp on sp.id = s.study_program_id
+            left join bills b on b.student_id = s.id and b.deleted_at is null
+            {where}
+            group by s.id, s.nim, s.full_name, s.no_ktp, s.tempat_lahir, s.tanggal_lahir, s.nama_ibu_kandung,
+                     s.program_study, s.study_program_id, s.academic_status, s.entry_year, s.entry_semester, s.entry_period,
+                     s.email, s.address, s.phone_number, s.initial_registration, sp.name, sp.code
+            {order_by}
+            limit ?
+            """,
+            (*params, limit),
+        ).fetchall()
     return [student_row_to_dict(row) for row in rows]
 
 
 def get_student_detail(db_path: str | Path, student_id: str) -> dict[str, object] | None:
-    conn = connect(db_path)
-    init_db(conn)
-    student = conn.execute(
-        """
-        select s.id, s.nim, s.full_name, s.no_ktp, s.tempat_lahir, s.tanggal_lahir, s.nama_ibu_kandung,
-               s.program_study, s.study_program_id, s.academic_status,
-               s.entry_year, s.entry_semester, s.entry_period,
-               s.email, s.address, s.phone_number, s.initial_registration, s.created_at,
-               sp.name as study_program_name, sp.code as study_program_code, sp.degree as study_program_degree
-        from students s
-        left join study_programs sp on sp.id = s.study_program_id
-        where s.id = ? and s.deleted_at is null
-        """,
-        (student_id,),
-    ).fetchone()
-    if not student:
-        conn.close()
-        return None
+    with database_connection(db_path) as conn:
+        student = conn.execute(
+            """
+            select s.id, s.nim, s.full_name, s.no_ktp, s.tempat_lahir, s.tanggal_lahir, s.nama_ibu_kandung,
+                   s.program_study, s.study_program_id, s.academic_status,
+                   s.entry_year, s.entry_semester, s.entry_period,
+                   s.email, s.address, s.phone_number, s.initial_registration, s.created_at,
+                   sp.name as study_program_name, sp.code as study_program_code, sp.degree as study_program_degree
+            from students s
+            left join study_programs sp on sp.id = s.study_program_id
+            where s.id = ? and s.deleted_at is null
+            """,
+            (student_id,),
+        ).fetchone()
+        if not student:
+            return None
 
-    bills = conn.execute(
-        f"""
-        {joined_bill_select()}
-        where b.student_id = ? and b.deleted_at is null
-        order by b.created_at desc, b.period desc
-        """,
-        (student_id,),
-    ).fetchall()
-    conn.close()
+        bills = conn.execute(
+            f"""
+            {joined_bill_select()}
+            where b.student_id = ? and b.deleted_at is null
+            order by b.created_at desc, b.period desc
+            """,
+            (student_id,),
+        ).fetchall()
 
     bill_list = [bill_row_to_dict(b) for b in bills]
     total_amount = sum(int(b["amount"]) for b in bill_list)
@@ -651,7 +642,6 @@ def create_student(
         data = {"nim": nim_or_payload, "full_name": full_name}
 
     conn = connect(db_path)
-    init_db(conn)
     try:
         with conn:
             student = ensure_student(
@@ -716,7 +706,6 @@ def update_student(db_path: str | Path, student_id: str, payload: dict[str, obje
     period = clean_demographic_value(payload.get("entry_period")) or parsed_period
 
     conn = connect(db_path)
-    init_db(conn)
     try:
         with conn:
             existing = conn.execute("select id from students where id = ?", (student_id,)).fetchone()
@@ -752,7 +741,6 @@ def update_student(db_path: str | Path, student_id: str, payload: dict[str, obje
 def delete_student(db_path: str | Path, student_id: str, actor_id: str | None = None, reason: str = "") -> sqlite3.Row | None:
     reason = require_delete_reason(reason)
     conn = connect(db_path)
-    init_db(conn)
     try:
         with conn:
             row = conn.execute("select id, nim, full_name from students where id = ? and deleted_at is null", (student_id,)).fetchone()
@@ -838,8 +826,6 @@ def list_bills(
 ) -> list[dict[str, object]]:
     limit = max(1, min(int(limit or 2000), 5000))
     offset = max(0, int(offset or 0))
-    conn = connect(db_path)
-    init_db(conn)
     where, params = bill_filter_clause(
         query=query,
         status=status,
@@ -864,16 +850,16 @@ def list_bills(
     }
     order_clause = sort_order_map.get(sort_by, "order by b.updated_at desc, b.created_at desc")
 
-    rows = conn.execute(
-        f"""
-        {joined_bill_select()}
-        {where}
-        {order_clause}
-        limit ? offset ?
-        """,
-        (*params, limit, offset),
-    ).fetchall()
-    conn.close()
+    with database_connection(db_path) as conn:
+        rows = conn.execute(
+            f"""
+            {joined_bill_select()}
+            {where}
+            {order_clause}
+            limit ? offset ?
+            """,
+            (*params, limit, offset),
+        ).fetchall()
     return [bill_row_to_dict(row) for row in rows]
 
 
@@ -887,8 +873,6 @@ def count_bills(
     bill_type: str = "",
     entry_period: str = "",
 ) -> int:
-    conn = connect(db_path)
-    init_db(conn)
     where, params = bill_filter_clause(
         query=query,
         status=status,
@@ -898,16 +882,16 @@ def count_bills(
         bill_type=bill_type,
         entry_period=entry_period,
     )
-    row = conn.execute(
-        f"""
-        select count(*) as total
-        from bills b
-        join students s on s.id = b.student_id
-        {where}
-        """,
-        params,
-    ).fetchone()
-    conn.close()
+    with database_connection(db_path) as conn:
+        row = conn.execute(
+            f"""
+            select count(*) as total
+            from bills b
+            join students s on s.id = b.student_id
+            {where}
+            """,
+            params,
+        ).fetchone()
     return int(row["total"] if row else 0)
 
 
@@ -921,8 +905,6 @@ def get_bills_summary(
     bill_type: str = "",
     entry_period: str = "",
 ) -> dict[str, int]:
-    conn = connect(db_path)
-    init_db(conn)
     where, params = bill_filter_clause(
         query=query,
         status=status,
@@ -932,23 +914,23 @@ def get_bills_summary(
         bill_type=bill_type,
         entry_period=entry_period,
     )
-    row = conn.execute(
-        f"""
-        select 
-            count(b.id) as total_count,
-            count(distinct b.student_id) as student_count,
-            coalesce(sum(b.amount), 0) as total_amount,
-            coalesce(sum(b.paid_amount), 0) as total_paid,
-            coalesce(sum(case when b.status = 'paid' then 1 else 0 end), 0) as paid_count,
-            coalesce(sum(case when b.status = 'partial' then 1 else 0 end), 0) as partial_count,
-            coalesce(sum(case when b.status = 'unpaid' then 1 else 0 end), 0) as unpaid_count
-        from bills b
-        join students s on s.id = b.student_id
-        {where}
-        """,
-        params,
-    ).fetchone()
-    conn.close()
+    with database_connection(db_path) as conn:
+        row = conn.execute(
+            f"""
+            select
+                count(b.id) as total_count,
+                count(distinct b.student_id) as student_count,
+                coalesce(sum(b.amount), 0) as total_amount,
+                coalesce(sum(b.paid_amount), 0) as total_paid,
+                coalesce(sum(case when b.status = 'paid' then 1 else 0 end), 0) as paid_count,
+                coalesce(sum(case when b.status = 'partial' then 1 else 0 end), 0) as partial_count,
+                coalesce(sum(case when b.status = 'unpaid' then 1 else 0 end), 0) as unpaid_count
+            from bills b
+            join students s on s.id = b.student_id
+            {where}
+            """,
+            params,
+        ).fetchone()
 
     if not row:
         return {
@@ -978,18 +960,16 @@ def get_bills_summary(
 
 def list_import_issues(db_path: str | Path = config.DB_PATH, limit: int = 500) -> list[dict[str, object]]:
     limit = max(1, min(int(limit or 500), 2000))
-    conn = connect(db_path)
-    init_db(conn)
-    rows = conn.execute(
-        """
-        select id, source_file, sheet_name, row_number, nim, full_name, briva, amount, note, created_at
-        from import_issues
-        order by created_at desc, source_file asc, row_number asc
-        limit ?
-        """,
-        (limit,),
-    ).fetchall()
-    conn.close()
+    with database_connection(db_path) as conn:
+        rows = conn.execute(
+            """
+            select id, source_file, sheet_name, row_number, nim, full_name, briva, amount, note, created_at
+            from import_issues
+            order by created_at desc, source_file asc, row_number asc
+            limit ?
+            """,
+            (limit,),
+        ).fetchall()
     return [dict(row) for row in rows]
 
 
@@ -1012,7 +992,6 @@ def create_bill(db_path: str | Path, payload: dict[str, object], actor_id: str |
     )
 
     conn = connect(db_path)
-    init_db(conn)
     try:
         with conn:
             from Backend.db import ensure_academic_period
@@ -1070,7 +1049,6 @@ def update_bill(
     )
 
     conn = connect(db_path)
-    init_db(conn)
     try:
         with conn:
             current = conn.execute(
@@ -1122,31 +1100,28 @@ def update_bill(
 
 
 def get_bill_detail(db_path: str | Path, bill_id: str) -> dict[str, object] | None:
-    conn = connect(db_path)
-    init_db(conn)
-    row = conn.execute(
-        f"{joined_bill_select()} where b.id = ? and b.deleted_at is null and s.deleted_at is null",
-        (bill_id,),
-    ).fetchone()
-    if not row:
-        conn.close()
-        return None
+    with database_connection(db_path) as conn:
+        row = conn.execute(
+            f"{joined_bill_select()} where b.id = ? and b.deleted_at is null and s.deleted_at is null",
+            (bill_id,),
+        ).fetchone()
+        if not row:
+            return None
 
-    student_id = str(row["student_id"])
-    student = conn.execute(
-        """
-        select s.id, s.nim, s.full_name, s.no_ktp, s.tempat_lahir, s.tanggal_lahir, s.nama_ibu_kandung,
-               s.program_study, s.study_program_id, s.academic_status,
-               s.entry_year, s.entry_semester, s.entry_period,
-               s.email, s.address, s.phone_number, s.initial_registration, s.created_at,
-               sp.name as study_program_name, sp.code as study_program_code
-        from students s
-        left join study_programs sp on sp.id = s.study_program_id
-        where s.id = ? and s.deleted_at is null
-        """,
-        (student_id,),
-    ).fetchone()
-    conn.close()
+        student_id = str(row["student_id"])
+        student = conn.execute(
+            """
+            select s.id, s.nim, s.full_name, s.no_ktp, s.tempat_lahir, s.tanggal_lahir, s.nama_ibu_kandung,
+                   s.program_study, s.study_program_id, s.academic_status,
+                   s.entry_year, s.entry_semester, s.entry_period,
+                   s.email, s.address, s.phone_number, s.initial_registration, s.created_at,
+                   sp.name as study_program_name, sp.code as study_program_code
+            from students s
+            left join study_programs sp on sp.id = s.study_program_id
+            where s.id = ? and s.deleted_at is null
+            """,
+            (student_id,),
+        ).fetchone()
 
     bill_dict = bill_row_to_dict(row)
     tx_res = list_payment_transactions(db_path, bill_id=bill_id, limit=50, offset=0)
@@ -1166,7 +1141,6 @@ def record_bill_payment(
     actor_id: str | None = None,
 ) -> dict[str, object]:
     conn = connect(db_path)
-    init_db(conn)
     try:
         with conn:
             row = conn.execute(
@@ -1262,7 +1236,6 @@ def record_bill_payment(
 def delete_bill(db_path: str | Path, bill_id: str, actor_id: str | None = None, reason: str = "") -> sqlite3.Row | None:
     reason = require_delete_reason(reason)
     conn = connect(db_path)
-    init_db(conn)
     try:
         with conn:
             row = conn.execute(f"{joined_bill_select()} where b.id = ? and b.deleted_at is null", (bill_id,)).fetchone()
@@ -1283,21 +1256,19 @@ def delete_bill(db_path: str | Path, bill_id: str, actor_id: str | None = None, 
 
 
 def list_imported_bill_groups(db_path: str | Path = config.DB_PATH) -> list[dict[str, object]]:
-    conn = connect(db_path)
-    init_db(conn)
-    rows = conn.execute(
-        f"""
-        select b.id, b.briva, b.amount, b.period, b.bill_type, b.status, b.payment_method, b.due_date, b.created_at,
-               b.source_file, b.source_row_number, s.nim, s.full_name
-        from bills b
-        join students s on s.id = b.student_id
-        where b.deleted_at is null
-          and s.deleted_at is null
-          and lower(trim(b.source_file)) not in ('manual', 'manual admin')
-        order by b.source_file desc, s.nim asc, b.source_row_number asc, b.created_at asc, b.briva asc
-        """
-    ).fetchall()
-    conn.close()
+    with database_connection(db_path) as conn:
+        rows = conn.execute(
+            f"""
+            select b.id, b.briva, b.amount, b.period, b.bill_type, b.status, b.payment_method, b.due_date, b.created_at,
+                   b.source_file, b.source_row_number, s.nim, s.full_name
+            from bills b
+            join students s on s.id = b.student_id
+            where b.deleted_at is null
+              and s.deleted_at is null
+              and lower(trim(b.source_file)) not in ('manual', 'manual admin')
+            order by b.source_file desc, s.nim asc, b.source_row_number asc, b.created_at asc, b.briva asc
+            """
+        ).fetchall()
 
     groups: list[dict[str, object]] = []
     by_file: dict[str, dict[str, object]] = {}
@@ -1358,7 +1329,6 @@ def delete_imported_bill_group(
     delete_reason = require_delete_reason(reason)
 
     conn = connect(db_path)
-    init_db(conn)
     try:
         with conn:
             rows = conn.execute(
@@ -1396,7 +1366,6 @@ def update_bill_status(
     payment_date, reference_number, notes = validate_payment_metadata(payment_date, reference_number, notes)
 
     conn = connect(db_path)
-    init_db(conn)
     try:
         with conn:
             row = conn.execute(
@@ -1461,9 +1430,7 @@ def update_bill_due_date(db_path: str | Path, bill_ids: list[str], due_date: str
         if len(parts) != 3 or not all(p.isdigit() for p in parts):
             raise ValueError("Format tanggal harus YYYY-MM-DD.")
 
-    conn = connect(db_path)
-    init_db(conn)
-    with conn:
+    with database_transaction(db_path) as conn:
         placeholders = ",".join("?" for _ in bill_ids)
         conn.execute(
             f"update bills set due_date = ?, updated_at = datetime('now') where deleted_at is null and id in ({placeholders})",
@@ -1482,13 +1449,11 @@ def update_bill_due_date(db_path: str | Path, bill_ids: list[str], due_date: str
         if actor_id:
             for row in updated:
                 write_audit(conn, actor_id, "bill.due_date_update", "bill", row["id"], {"due_date": row["due_date"], "briva": row["briva"], "nim": row["nim"]})
-    conn.close()
     return list(updated)
 
 
 def write_lookup_log(nim: str, name: str, result_type: str) -> None:
-    conn = connect(config.DB_PATH)
-    with conn:
+    with database_transaction(config.DB_PATH) as conn:
         conn.execute(
             """
             insert into lookup_logs (id, nim_hash, name_hash, result_type)
@@ -1496,7 +1461,6 @@ def write_lookup_log(nim: str, name: str, result_type: str) -> None:
             """,
             (str(uuid.uuid4()), digest(nim), digest(name), result_type),
         )
-    conn.close()
 
 
 def write_audit(
@@ -1581,9 +1545,6 @@ def list_payment_transactions(
     offset: int = 0,
 ) -> dict[str, object]:
     """Retrieve paginated payment transactions filtered by bill_id or student_id."""
-    conn = connect(db_path)
-    init_db(conn)
-
     conditions = []
     params: list[object] = []
     if bill_id:
@@ -1595,32 +1556,32 @@ def list_payment_transactions(
 
     where = f"where {' and '.join(conditions)}" if conditions else ""
 
-    count_row = conn.execute(
-        f"select count(*) as cnt from payment_transactions pt left join bills b on b.id = pt.bill_id {where}",
-        params,
-    ).fetchone()
-    total = int(count_row["cnt"]) if count_row else 0
+    with database_connection(db_path) as conn:
+        count_row = conn.execute(
+            f"select count(*) as cnt from payment_transactions pt left join bills b on b.id = pt.bill_id {where}",
+            params,
+        ).fetchone()
+        total = int(count_row["cnt"]) if count_row else 0
 
-    rows = conn.execute(
-        f"""
-        select pt.id, pt.bill_id, coalesce(pt.student_id, b.student_id) as student_id,
-               pt.transaction_type, pt.amount,
-               pt.running_paid_total, pt.previous_status, pt.new_status,
-               pt.payment_date, pt.payment_method, pt.reference_number, pt.notes,
-               pt.recorded_by, pt.source, pt.created_at,
-               au.full_name as recorded_by_name,
-               b.briva, s.nim, s.full_name as student_name
-        from payment_transactions pt
-        left join admin_users au on au.id = pt.recorded_by
-        left join bills b on b.id = pt.bill_id
-        left join students s on s.id = coalesce(pt.student_id, b.student_id)
-        {where}
-        order by pt.created_at desc, pt.rowid desc
-        limit ? offset ?
-        """,
-        (*params, limit, offset),
-    ).fetchall()
-    conn.close()
+        rows = conn.execute(
+            f"""
+            select pt.id, pt.bill_id, coalesce(pt.student_id, b.student_id) as student_id,
+                   pt.transaction_type, pt.amount,
+                   pt.running_paid_total, pt.previous_status, pt.new_status,
+                   pt.payment_date, pt.payment_method, pt.reference_number, pt.notes,
+                   pt.recorded_by, pt.source, pt.created_at,
+                   au.full_name as recorded_by_name,
+                   b.briva, s.nim, s.full_name as student_name
+            from payment_transactions pt
+            left join admin_users au on au.id = pt.recorded_by
+            left join bills b on b.id = pt.bill_id
+            left join students s on s.id = coalesce(pt.student_id, b.student_id)
+            {where}
+            order by pt.created_at desc, pt.rowid desc
+            limit ? offset ?
+            """,
+            (*params, limit, offset),
+        ).fetchall()
 
     transactions = []
     for r in rows:
@@ -1662,8 +1623,7 @@ def payment_transaction_target_exists(
     if bool(bill_id) == bool(student_id):
         raise ValueError("Tentukan tepat satu target riwayat pembayaran.")
 
-    conn = connect(db_path)
-    try:
+    with database_connection(db_path) as conn:
         if bill_id:
             row = conn.execute(
                 "select 1 from bills where id = ? and deleted_at is null",
@@ -1675,13 +1635,10 @@ def payment_transaction_target_exists(
                 (student_id,),
             ).fetchone()
         return row is not None
-    finally:
-        conn.close()
 
 
 def store_import_preview(token: str, admin_id: str, file_name: str, stored_path: str | Path) -> None:
-    conn = connect(config.DB_PATH)
-    with conn:
+    with database_transaction(config.DB_PATH) as conn:
         conn.execute(
             """
             insert into import_previews (token, admin_id, file_name, stored_path, expires_at)
@@ -1694,43 +1651,38 @@ def store_import_preview(token: str, admin_id: str, file_name: str, stored_path:
             """,
             (token, admin_id, file_name, str(stored_path), f"+{config.IMPORT_RETENTION_SECONDS} seconds"),
         )
-    conn.close()
 
 
 def get_import_preview_for_admin(token: str, admin: sqlite3.Row) -> sqlite3.Row | None:
-    conn = connect(config.DB_PATH)
-    row = conn.execute(
-        """
-        select token, admin_id, file_name, stored_path, expires_at
-        from import_previews
-        where token = ?
-          and expires_at > datetime('now')
-          and (? = 'super_admin' or admin_id = ?)
-        """,
-        (token, admin["role"], admin["id"]),
-    ).fetchone()
-    conn.close()
+    with database_connection(config.DB_PATH) as conn:
+        row = conn.execute(
+            """
+            select token, admin_id, file_name, stored_path, expires_at
+            from import_previews
+            where token = ?
+              and expires_at > datetime('now')
+              and (? = 'super_admin' or admin_id = ?)
+            """,
+            (token, admin["role"], admin["id"]),
+        ).fetchone()
     return row
 
 
 def delete_import_preview(token: str) -> None:
-    conn = connect(config.DB_PATH)
-    with conn:
+    with database_transaction(config.DB_PATH) as conn:
         conn.execute("delete from import_previews where token = ?", (token,))
-    conn.close()
 
 
 def authenticate_admin(email: str, password: str) -> sqlite3.Row | None:
-    conn = connect(config.DB_PATH)
-    admin = conn.execute(
-        """
-        select id, email, password_hash, full_name, role, is_active
-        from admin_users
-        where email = ?
-        """,
-        (email,),
-    ).fetchone()
-    conn.close()
+    with database_connection(config.DB_PATH) as conn:
+        admin = conn.execute(
+            """
+            select id, email, password_hash, full_name, role, is_active
+            from admin_users
+            where email = ?
+            """,
+            (email,),
+        ).fetchone()
     if not admin or not admin["is_active"] or not verify_password(password, admin["password_hash"]):
         return None
     return admin
@@ -1739,8 +1691,7 @@ def authenticate_admin(email: str, password: str) -> sqlite3.Row | None:
 def create_admin_session(admin: sqlite3.Row) -> str:
     token = secrets.token_urlsafe(32)
     session_id = str(uuid.uuid4())
-    conn = connect(config.DB_PATH)
-    with conn:
+    with database_transaction(config.DB_PATH) as conn:
         conn.execute(
             """
             insert into admin_sessions (id, admin_id, token_hash, expires_at)
@@ -1749,36 +1700,32 @@ def create_admin_session(admin: sqlite3.Row) -> str:
             (session_id, admin["id"], token_hash(token), f"+{config.SESSION_TTL_HOURS} hours"),
         )
         write_audit(conn, admin["id"], "admin.login", "admin_session", session_id, {"email": admin["email"]})
-    conn.close()
     return token
 
 
 def delete_admin_session(token: str | None, admin: sqlite3.Row | None) -> None:
-    conn = connect(config.DB_PATH)
-    with conn:
+    with database_transaction(config.DB_PATH) as conn:
         if token:
             conn.execute("delete from admin_sessions where token_hash = ?", (token_hash(token),))
         if admin:
             write_audit(conn, admin["id"], "admin.logout", "admin_session", None, {"email": admin["email"]})
-    conn.close()
 
 
 def find_admin_by_session(token: str | None) -> sqlite3.Row | None:
     if not token:
         return None
-    conn = connect(config.DB_PATH)
-    admin = conn.execute(
-        """
-        select u.id, u.email, u.full_name, u.role
-        from admin_sessions s
-        join admin_users u on u.id = s.admin_id
-        where s.token_hash = ?
-          and s.expires_at > datetime('now')
-          and u.is_active = 1
-        """,
-        (token_hash(token),),
-    ).fetchone()
-    conn.close()
+    with database_connection(config.DB_PATH) as conn:
+        admin = conn.execute(
+            """
+            select u.id, u.email, u.full_name, u.role
+            from admin_sessions s
+            join admin_users u on u.id = s.admin_id
+            where s.token_hash = ?
+              and s.expires_at > datetime('now')
+              and u.is_active = 1
+            """,
+            (token_hash(token),),
+        ).fetchone()
     return admin
 
 
@@ -1787,27 +1734,25 @@ def find_admin_by_session(token: str | None) -> sqlite3.Row | None:
 # ==========================================
 
 def list_study_programs(db_path: str | Path = config.DB_PATH) -> list[dict[str, object]]:
-    conn = connect(db_path)
-    init_db(conn)
-    rows = conn.execute(
-        """
-        select sp.id, sp.code, sp.name, sp.degree, sp.faculty, sp.is_active, sp.created_at, sp.updated_at,
-               count(distinct s.id) as student_count
-        from study_programs sp
-        left join students s on (
-            s.study_program_id = sp.id
-            or (
-                s.study_program_id is null
-                and trim(coalesce(s.program_study, '')) <> ''
-                and lower(trim(s.program_study)) = lower(trim(sp.name))
-            )
-        ) and s.deleted_at is null
-        where sp.is_active = 1
-        group by sp.id, sp.code, sp.name, sp.degree, sp.faculty, sp.is_active, sp.created_at, sp.updated_at
-        order by sp.name asc
-        """
-    ).fetchall()
-    conn.close()
+    with database_connection(db_path) as conn:
+        rows = conn.execute(
+            """
+            select sp.id, sp.code, sp.name, sp.degree, sp.faculty, sp.is_active, sp.created_at, sp.updated_at,
+                   count(distinct s.id) as student_count
+            from study_programs sp
+            left join students s on (
+                s.study_program_id = sp.id
+                or (
+                    s.study_program_id is null
+                    and trim(coalesce(s.program_study, '')) <> ''
+                    and lower(trim(s.program_study)) = lower(trim(sp.name))
+                )
+            ) and s.deleted_at is null
+            where sp.is_active = 1
+            group by sp.id, sp.code, sp.name, sp.degree, sp.faculty, sp.is_active, sp.created_at, sp.updated_at
+            order by sp.name asc
+            """
+        ).fetchall()
     return [
         {
             "id": r["id"],
@@ -1839,7 +1784,6 @@ def create_study_program(db_path: str | Path, payload: dict[str, object], actor_
         raise ValueError("Nama program studi wajib diisi.")
 
     conn = connect(db_path)
-    init_db(conn)
     try:
         with conn:
             existing = conn.execute("select id from study_programs where upper(code) = ?", (code,)).fetchone()
@@ -1870,7 +1814,6 @@ def update_study_program(db_path: str | Path, program_id: str, payload: dict[str
     is_active = (1 if payload.get("is_active") else 0) if payload.get("is_active") is not None else None
 
     conn = connect(db_path)
-    init_db(conn)
     try:
         with conn:
             current = conn.execute("select * from study_programs where id = ?", (program_id,)).fetchone()
@@ -1913,7 +1856,6 @@ def update_study_program(db_path: str | Path, program_id: str, payload: dict[str
 
 def delete_study_program(db_path: str | Path, program_id: str, actor_id: str | None = None) -> bool:
     conn = connect(db_path)
-    init_db(conn)
     try:
         with conn:
             current = conn.execute("select id from study_programs where id = ? and is_active = 1", (program_id,)).fetchone()
@@ -1937,16 +1879,14 @@ def delete_study_program(db_path: str | Path, program_id: str, actor_id: str | N
 # ==========================================
 
 def list_academic_periods(db_path: str | Path = config.DB_PATH) -> list[dict[str, object]]:
-    conn = connect(db_path)
-    init_db(conn)
-    rows = conn.execute(
-        """
-        select id, code, name, semester_type, is_active, default_due_date, created_at, updated_at
-        from academic_periods
-        order by code desc
-        """
-    ).fetchall()
-    conn.close()
+    with database_connection(db_path) as conn:
+        rows = conn.execute(
+            """
+            select id, code, name, semester_type, is_active, default_due_date, created_at, updated_at
+            from academic_periods
+            order by code desc
+            """
+        ).fetchall()
     return [
         {
             "id": r["id"],
@@ -1978,7 +1918,6 @@ def create_academic_period(db_path: str | Path, payload: dict[str, object], acto
         raise ValueError("Tipe semester harus ganjil, genap, atau pendek.")
 
     conn = connect(db_path)
-    init_db(conn)
     try:
         with conn:
             existing = conn.execute("select id from academic_periods where code = ?", (code,)).fetchone()
@@ -2011,7 +1950,6 @@ def update_academic_period(db_path: str | Path, period_id: str, payload: dict[st
     default_due_date = validate_due_date_value(payload.get("default_due_date")) if "default_due_date" in payload else None
 
     conn = connect(db_path)
-    init_db(conn)
     try:
         with conn:
             current = conn.execute("select * from academic_periods where id = ?", (period_id,)).fetchone()
@@ -2060,37 +1998,33 @@ def update_academic_period(db_path: str | Path, period_id: str, payload: dict[st
 # ==========================================
 
 def get_dashboard_stats(db_path: str | Path = config.DB_PATH) -> dict[str, object]:
-    conn = connect(db_path)
-    init_db(conn)
+    with database_connection(db_path) as conn:
+        # Students count
+        s_row = conn.execute(
+            """
+            select
+              count(*) as total_students,
+              sum(case when academic_status = 'aktif' then 1 else 0 end) as active_students
+            from students
+            where deleted_at is null
+            """
+        ).fetchone()
 
-    # Students count
-    s_row = conn.execute(
-        """
-        select
-          count(*) as total_students,
-          sum(case when academic_status = 'aktif' then 1 else 0 end) as active_students
-        from students
-        where deleted_at is null
-        """
-    ).fetchone()
-
-    # Bills count & sums
-    b_row = conn.execute(
-        """
-        select
-          count(*) as total_bills,
-          sum(case when b.status = 'paid' then 1 else 0 end) as paid_bills,
-          sum(case when b.status = 'partial' then 1 else 0 end) as partial_bills,
-          sum(case when b.status = 'unpaid' then 1 else 0 end) as unpaid_bills,
-          coalesce(sum(b.amount), 0) as total_billed_amount,
-          coalesce(sum(case when b.status = 'paid' then b.amount when b.status = 'partial' then coalesce(b.paid_amount, 0) else 0 end), 0) as total_paid_amount
-        from bills b
-        join students s on s.id = b.student_id
-        where b.deleted_at is null and s.deleted_at is null
-        """
-    ).fetchone()
-
-    conn.close()
+        # Bills count & sums
+        b_row = conn.execute(
+            """
+            select
+              count(*) as total_bills,
+              sum(case when b.status = 'paid' then 1 else 0 end) as paid_bills,
+              sum(case when b.status = 'partial' then 1 else 0 end) as partial_bills,
+              sum(case when b.status = 'unpaid' then 1 else 0 end) as unpaid_bills,
+              coalesce(sum(b.amount), 0) as total_billed_amount,
+              coalesce(sum(case when b.status = 'paid' then b.amount when b.status = 'partial' then coalesce(b.paid_amount, 0) else 0 end), 0) as total_paid_amount
+            from bills b
+            join students s on s.id = b.student_id
+            where b.deleted_at is null and s.deleted_at is null
+            """
+        ).fetchone()
 
     total_students = int(s_row["total_students"] or 0) if s_row else 0
     active_students = int(s_row["active_students"] or 0) if s_row else 0
@@ -2129,8 +2063,6 @@ def get_financial_summary(
     study_program_id: str = "",
     entry_period: str = "",
 ) -> dict[str, object]:
-    conn = connect(db_path)
-    init_db(conn)
     normalized_period = normalize_text(period)
     normalized_prodi = normalize_text(study_program_id)
     normalized_entry_period = normalize_text(entry_period)
@@ -2151,46 +2083,46 @@ def get_financial_summary(
 
     filter_sql = "where " + " and ".join(where_clauses)
 
-    prodi_rows = conn.execute(
-        f"""
-        select
-          coalesce(sp.name, s.program_study, 'Lainnya') as program_study,
-          count(distinct s.id) as total_students,
-          count(b.id) as total_bills,
-          coalesce(sum(b.amount), 0) as billed_amount,
-          coalesce(sum(case when b.status = 'paid' then b.amount when b.status = 'partial' then coalesce(b.paid_amount, 0) else 0 end), 0) as paid_amount
-        from students s
-        left join study_programs sp on sp.id = s.study_program_id
-        join bills b on b.student_id = s.id
-        {filter_sql}
-        group by coalesce(sp.name, s.program_study, 'Lainnya')
-        order by billed_amount desc
-        """,
-        params,
-    ).fetchall()
+    with database_connection(db_path) as conn:
+        prodi_rows = conn.execute(
+            f"""
+            select
+              coalesce(sp.name, s.program_study, 'Lainnya') as program_study,
+              count(distinct s.id) as total_students,
+              count(b.id) as total_bills,
+              coalesce(sum(b.amount), 0) as billed_amount,
+              coalesce(sum(case when b.status = 'paid' then b.amount when b.status = 'partial' then coalesce(b.paid_amount, 0) else 0 end), 0) as paid_amount
+            from students s
+            left join study_programs sp on sp.id = s.study_program_id
+            join bills b on b.student_id = s.id
+            {filter_sql}
+            group by coalesce(sp.name, s.program_study, 'Lainnya')
+            order by billed_amount desc
+            """,
+            params,
+        ).fetchall()
 
-    student_rows = conn.execute(
-        f"""
-        select
-          s.id as student_id,
-          s.nim,
-          s.full_name,
-          coalesce(s.phone_number, '-') as phone_number,
-          coalesce(sp.name, s.program_study, 'Lainnya') as program_study,
-          coalesce(nullif(s.entry_period, ''), nullif(s.initial_registration, ''), '-') as entry_period,
-          count(b.id) as total_bills,
-          coalesce(sum(b.amount), 0) as billed_amount,
-          coalesce(sum(case when b.status = 'paid' then b.amount when b.status = 'partial' then coalesce(b.paid_amount, 0) else 0 end), 0) as paid_amount
-        from students s
-        left join study_programs sp on sp.id = s.study_program_id
-        join bills b on b.student_id = s.id
-        {filter_sql}
-        group by s.id, s.nim, s.full_name, coalesce(s.phone_number, '-'), coalesce(sp.name, s.program_study, 'Lainnya'), coalesce(nullif(s.entry_period, ''), nullif(s.initial_registration, ''), '-')
-        order by billed_amount desc, s.full_name asc
-        """,
-        params,
-    ).fetchall()
-    conn.close()
+        student_rows = conn.execute(
+            f"""
+            select
+              s.id as student_id,
+              s.nim,
+              s.full_name,
+              coalesce(s.phone_number, '-') as phone_number,
+              coalesce(sp.name, s.program_study, 'Lainnya') as program_study,
+              coalesce(nullif(s.entry_period, ''), nullif(s.initial_registration, ''), '-') as entry_period,
+              count(b.id) as total_bills,
+              coalesce(sum(b.amount), 0) as billed_amount,
+              coalesce(sum(case when b.status = 'paid' then b.amount when b.status = 'partial' then coalesce(b.paid_amount, 0) else 0 end), 0) as paid_amount
+            from students s
+            left join study_programs sp on sp.id = s.study_program_id
+            join bills b on b.student_id = s.id
+            {filter_sql}
+            group by s.id, s.nim, s.full_name, coalesce(s.phone_number, '-'), coalesce(sp.name, s.program_study, 'Lainnya'), coalesce(nullif(s.entry_period, ''), nullif(s.initial_registration, ''), '-')
+            order by billed_amount desc, s.full_name asc
+            """,
+            params,
+        ).fetchall()
 
     by_study_program: list[dict[str, object]] = []
     for r in prodi_rows:

@@ -36,7 +36,7 @@ from Backend.app.services import (
     bill_row_to_dict,
 )
 from import_excel import import_workbook, preview_workbook
-from db import connect, init_db
+from db import connect, init_db, migrate_database
 from fastapi.testclient import TestClient
 
 
@@ -130,6 +130,27 @@ class CoreBehaviorTests(unittest.TestCase):
             self.assertEqual(set(result["data"]["student"]), {"nim", "full_name", "program_study", "payment_period", "due_date", "due_date_formatted"})
             self.assertEqual([bill["bill_label"] for bill in result["data"]["bills"]], ["Tagihan 1", "Tagihan 2"])
 
+    def test_lookup_rejects_letters_instead_of_silently_stripping_them(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            database = Path(temporary_directory) / "salut.sqlite"
+            conn = connect(database)
+            init_db(conn)
+            with conn:
+                conn.execute(
+                    "insert into students (id, nim, full_name, name_norm) values (?, ?, ?, ?)",
+                    ("student-strict-nim", "050117077", "Mahasiswa Valid", "mahasiswa valid"),
+                )
+            conn.close()
+
+            with mock.patch.object(app_config, "DB_PATH", database):
+                response = TestClient(server.app).post("/api/lookup", json={"nim": "ABC-050117077"})
+
+            self.assertEqual(response.status_code, 400)
+            result = response.json()
+            self.assertFalse(result["success"])
+            self.assertEqual(result["error"]["code"], "VALIDATION_ERROR")
+            self.assertIn("NIM hanya boleh", result["error"]["message"])
+
     def test_lookup_reports_partial_payment_status(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
             database = Path(temporary_directory) / "salut.sqlite"
@@ -181,6 +202,7 @@ class CoreBehaviorTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary_directory:
             temp = Path(temporary_directory)
             database = temp / "salut.sqlite"
+            migrate_database(database)
             initial = temp / "initial.xlsx"
             updated = temp / "updated.xlsx"
             self._write_workbook(initial, [("01001", "Ayu Sari", "12345", 100000)])
@@ -212,6 +234,7 @@ class CoreBehaviorTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary_directory:
             temp = Path(temporary_directory)
             database = temp / "salut.sqlite"
+            migrate_database(database)
             initial = temp / "initial.xlsx"
             replacement = temp / "replacement.xlsx"
             changed_amount = temp / "changed-amount.xlsx"
@@ -254,6 +277,7 @@ class CoreBehaviorTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary_directory:
             temp = Path(temporary_directory)
             database = temp / "salut.sqlite"
+            migrate_database(database)
             workbook = temp / "Tagihan tambahan bebas namanya.xlsx"
             self._write_workbook(
                 workbook,
@@ -284,6 +308,7 @@ class CoreBehaviorTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary_directory:
             temp = Path(temporary_directory)
             database = temp / "salut.sqlite"
+            migrate_database(database)
             workbook = temp / "legacy-source.xlsx"
             self._write_workbook(workbook, [("01006", "Fajar Hadi", "60001", 100000)])
             import_workbook(workbook, database)
@@ -325,6 +350,7 @@ class CoreBehaviorTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary_directory:
             temp = Path(temporary_directory)
             database = temp / "salut.sqlite"
+            migrate_database(database)
             workbook = temp / "batch-admin.xlsx"
             self._write_workbook(workbook, [("01005", "Eka Putri", "50001", 125000)])
             import_workbook(workbook, database)
@@ -396,6 +422,7 @@ class CoreBehaviorTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary_directory:
             temp = Path(temporary_directory)
             database = temp / "salut.sqlite"
+            migrate_database(database)
             workbook = temp / "batch-file-delete.xlsx"
             self._write_workbook(workbook, [("01015", "Data Import", "51515", 250000)])
             import_workbook(workbook, database)
@@ -433,6 +460,7 @@ class CoreBehaviorTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary_directory:
             temp = Path(temporary_directory)
             database = temp / "salut.sqlite"
+            migrate_database(database)
             workbook = temp / "batch-due.xlsx"
             self._write_workbook(workbook, [("01006", "Siti Aminah", "50002", 200000)])
             import_workbook(workbook, database)
@@ -453,6 +481,7 @@ class CoreBehaviorTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary_directory:
             temp = Path(temporary_directory)
             database = temp / "salut.sqlite"
+            migrate_database(database)
             workbook = temp / "customer_20260808.xlsx"
             self._write_current_workbook(
                 workbook,
@@ -496,6 +525,7 @@ class CoreBehaviorTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary_directory:
             temp = Path(temporary_directory)
             database = temp / "salut.sqlite"
+            migrate_database(database)
             workbook = temp / "customer_invalid_row.xlsx"
             self._write_current_workbook(
                 workbook,
@@ -526,6 +556,7 @@ class CoreBehaviorTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary_directory:
             temp = Path(temporary_directory)
             database = temp / "salut.sqlite"
+            migrate_database(database)
             workbook = temp / "customer_markers.xlsx"
             self._write_current_workbook(
                 workbook,
@@ -1073,6 +1104,7 @@ class CoreBehaviorTests(unittest.TestCase):
     def test_payment_transaction_ledger_rejects_update_and_delete(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
             database = Path(temporary_directory) / "salut.sqlite"
+            migrate_database(database)
             student = create_student(database, {"nim": "20260002", "full_name": "Mahasiswa Ledger"})
             bill = create_bill(database, {"student_id": student["id"], "briva": "BRIVA-LEDGER", "amount": 100000, "period": "2026.1"})
             update_bill_status(database, bill["id"], "paid", recorded_by="operator-1")
@@ -1093,6 +1125,56 @@ class CoreBehaviorTests(unittest.TestCase):
                 create_student(database, {"nim": "20260003", "full_name": "Invalid Status", "academic_status": "sembarang"})
             with self.assertRaisesRegex(ValueError, "Format tanggal"):
                 create_bill(database, {"nim": "20260004", "full_name": "Invalid Date", "briva": "BRIVA-DATE", "amount": 100000, "period": "2026.1", "due_date": "2026-99-99"})
+
+    def test_automatic_academic_period_registration_handles_readable_id_collisions(self) -> None:
+        from Backend.db import ensure_academic_period
+
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            database = Path(temporary_directory) / "salut.sqlite"
+            conn = connect(database)
+            init_db(conn)
+            with conn:
+                ensure_academic_period(conn, "2025.1")
+            rows = conn.execute(
+                "select id, code from academic_periods where code in ('20251', '2025.1') order by code"
+            ).fetchall()
+            conn.close()
+
+            self.assertEqual({row["code"] for row in rows}, {"20251", "2025.1"})
+            self.assertEqual(len({row["id"] for row in rows}), 2)
+
+    def test_login_rate_limit_is_checked_before_a_correct_password_can_bypass_it(self) -> None:
+        from Backend.app import main as app_main
+
+        fake_admin = {
+            "id": "admin-rate-limit",
+            "email": "limited@example.test",
+            "full_name": "Admin Limited",
+            "role": "admin",
+        }
+        limiter = RateLimiter()
+        with (
+            mock.patch.object(app_main, "RATE_LIMITER", limiter),
+            mock.patch.object(app_main, "authenticate_admin", side_effect=[None, None, None, None, None, fake_admin]) as authenticate,
+        ):
+            client = TestClient(app_main.app)
+            try:
+                for _ in range(5):
+                    response = client.post(
+                        "/api/admin/login",
+                        json={"email": fake_admin["email"], "password": "wrong-password"},
+                    )
+                    self.assertEqual(response.status_code, 401)
+
+                blocked = client.post(
+                    "/api/admin/login",
+                    json={"email": fake_admin["email"], "password": "correct-password"},
+                )
+            finally:
+                client.close()
+
+        self.assertEqual(blocked.status_code, 429)
+        self.assertEqual(authenticate.call_count, 5)
 
     def test_backup_rotation_keeps_daily_weekly_and_monthly_restore_points(self) -> None:
         from datetime import UTC, datetime, timedelta
@@ -1126,6 +1208,7 @@ class CoreBehaviorTests(unittest.TestCase):
     def test_recreate_soft_deleted_student_restores_existing_nim(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
             database = Path(temporary_directory) / "salut.sqlite"
+            migrate_database(database)
             original = create_student(database, {"nim": "20260001", "full_name": "Mahasiswa Lama"})
             deleted = delete_student(database, original["id"], reason="Data duplikat")
             self.assertIsNotNone(deleted)
@@ -1145,6 +1228,7 @@ class CoreBehaviorTests(unittest.TestCase):
 
         with tempfile.TemporaryDirectory() as temporary_directory:
             database = Path(temporary_directory) / "salut.sqlite"
+            migrate_database(database)
             # Invalid code length (< 4 or > 4) must fail
             with self.assertRaises(ValueError):
                 create_study_program(database, {"code": "TI", "name": "Teknik Informatika"})
@@ -1181,6 +1265,7 @@ class CoreBehaviorTests(unittest.TestCase):
 
         with tempfile.TemporaryDirectory() as temporary_directory:
             database = Path(temporary_directory) / "salut.sqlite"
+            migrate_database(database)
             # Create
             created = create_academic_period(database, {"code": "20261", "name": "2026/2027 Ganjil", "semester_type": "ganjil", "is_active": 1, "default_due_date": "2026-09-30"})
             self.assertEqual(created["code"], "20261")
@@ -1202,6 +1287,7 @@ class CoreBehaviorTests(unittest.TestCase):
 
         with tempfile.TemporaryDirectory() as temporary_directory:
             database = Path(temporary_directory) / "salut.sqlite"
+            migrate_database(database)
             student = create_student(
                 database,
                 {
@@ -1236,6 +1322,7 @@ class CoreBehaviorTests(unittest.TestCase):
 
         with tempfile.TemporaryDirectory() as temporary_directory:
             database = Path(temporary_directory) / "salut.sqlite"
+            migrate_database(database)
             create_student(database, {"nim": "1001", "full_name": "Mhs Aktif Hukum", "program_study": "S1 Ilmu Hukum", "academic_status": "aktif", "entry_year": 2024})
             create_student(database, {"nim": "1002", "full_name": "Mhs Cuti Manajemen", "program_study": "S1 Manajemen", "academic_status": "cuti", "entry_year": 2025})
 
@@ -1254,6 +1341,7 @@ class CoreBehaviorTests(unittest.TestCase):
 
         with tempfile.TemporaryDirectory() as temporary_directory:
             database = Path(temporary_directory) / "salut.sqlite"
+            migrate_database(database)
             create_student(database, {"nim": "2001", "full_name": "Student A", "program_study": "S1 Ilmu Hukum", "academic_status": "aktif"})
             create_student(database, {"nim": "2002", "full_name": "Student B", "program_study": "S1 Manajemen", "academic_status": "cuti"})
 
@@ -1276,6 +1364,44 @@ class CoreBehaviorTests(unittest.TestCase):
             self.assertEqual(fin["totals"]["paid_amount"], 2000000)
             self.assertEqual(fin["totals"]["outstanding_amount"], 3000000)
             self.assertEqual(len(fin["by_study_program"]), 2)
+
+    def test_financial_summary_applies_period_program_and_entry_filters_together(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            database = Path(temporary_directory) / "salut.sqlite"
+            migrate_database(database)
+            student_a = create_student(
+                database,
+                {"nim": "3001", "full_name": "Student A", "study_program_id": "sp_hkum", "entry_period": "2024.1"},
+            )
+            student_b = create_student(
+                database,
+                {"nim": "3002", "full_name": "Student B", "study_program_id": "sp_sifo", "entry_period": "2025.2"},
+            )
+            create_bill(
+                database,
+                {"student_id": student_a["id"], "briva": "3001001", "amount": 1000000, "period": "2025.1", "status": "paid"},
+            )
+            create_bill(
+                database,
+                {"student_id": student_a["id"], "briva": "3001002", "amount": 500000, "period": "2025.2", "status": "unpaid"},
+            )
+            create_bill(
+                database,
+                {"student_id": student_b["id"], "briva": "3002001", "amount": 2000000, "period": "2025.1", "status": "unpaid"},
+            )
+
+            summary = get_financial_summary(
+                database,
+                period="2025.1",
+                study_program_id="sp_hkum",
+                entry_period="2024.1",
+            )
+
+            self.assertEqual(summary["totals"]["total_students"], 1)
+            self.assertEqual(summary["totals"]["total_bills"], 1)
+            self.assertEqual(summary["totals"]["billed_amount"], 1000000)
+            self.assertEqual(summary["totals"]["paid_amount"], 1000000)
+            self.assertEqual([row["nim"] for row in summary["by_student"]], ["3001"])
 
     def test_granular_rbac_roles(self) -> None:
         from Backend.app.config import ROLE_PERMISSIONS
@@ -1390,6 +1516,7 @@ class CoreBehaviorTests(unittest.TestCase):
 
         with tempfile.TemporaryDirectory() as temporary_directory:
             database = Path(temporary_directory) / "salut.sqlite"
+            migrate_database(database)
             workbook = Path(temporary_directory) / "MASTER_DATA_TEST.xlsx"
 
             rows = [
@@ -1796,6 +1923,7 @@ class CoreBehaviorTests(unittest.TestCase):
     def test_payment_metadata_rejects_invalid_date_and_oversized_text(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
             database = Path(temporary_directory) / "test.sqlite"
+            migrate_database(database)
             student = create_student(database, {"nim": "088776655", "full_name": "Metadata Test"})
             bill = create_bill(database, {"student_id": student["id"], "briva": "BRIVA-META", "amount": 100000, "period": "2026.1"})
             with self.assertRaisesRegex(ValueError, "Format tanggal"):
@@ -1808,6 +1936,7 @@ class CoreBehaviorTests(unittest.TestCase):
     def test_bill_detail_and_incremental_payments(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
             database = Path(temporary_directory) / "test.sqlite"
+            migrate_database(database)
             student = create_student(database, {"nim": "099112233", "full_name": "Bayar Bertahap Test"})
             bill = create_bill(
                 database,
@@ -1994,8 +2123,13 @@ class CoreBehaviorTests(unittest.TestCase):
 
     def test_python_systemd_jobs_use_package_module_entrypoints(self) -> None:
         project_root = Path(__file__).resolve().parents[1]
-        maintenance_unit = (project_root / "deploy" / "salut-cek-pembayaran-maintenance.service").read_text(encoding="utf-8")
-        verify_unit = (project_root / "deploy" / "salut-cek-pembayaran-backup-verify.service").read_text(encoding="utf-8")
+        maintenance_unit_path = project_root / "deploy" / "salut-cek-pembayaran-maintenance.service"
+        verify_unit_path = project_root / "deploy" / "salut-cek-pembayaran-backup-verify.service"
+        if not maintenance_unit_path.is_file() or not verify_unit_path.is_file():
+            self.skipTest("internal deployment bundle is not part of the public repository")
+
+        maintenance_unit = maintenance_unit_path.read_text(encoding="utf-8")
+        verify_unit = verify_unit_path.read_text(encoding="utf-8")
         self.assertIn("python -m Backend.maintenance", maintenance_unit)
         self.assertIn("python -m Backend.verify_backup", verify_unit)
         self.assertNotIn("python /opt/salut-cek-pembayaran/Backend/maintenance.py", maintenance_unit)

@@ -1,3 +1,4 @@
+import logging
 import re
 import uuid
 from contextlib import asynccontextmanager
@@ -58,12 +59,15 @@ from Backend.app.services import (
     update_bill_status,
     update_student,
     update_study_program,
+    validate_nim_value,
     write_audit,
     write_lookup_log,
 )
 from Backend.db import connect
-from Backend.excel_reader import normalize_nim
 from Backend.import_excel import generate_master_data_template, import_workbook, preview_workbook
+
+
+logger = logging.getLogger(__name__)
 
 
 class AuthError(Exception):
@@ -187,11 +191,10 @@ async def health() -> JSONResponse:
 async def lookup(request: Request) -> JSONResponse:
     req_id = request_id()
     payload = await read_json(request)
-    nim = normalize_nim(payload.get("nim"))
 
     retry_after = enforce_rate_limit("lookup", client_ip(request), 10, 10 * 60)
     if retry_after:
-        write_lookup_log(nim, "", "rate_limited")
+        write_lookup_log("", "", "rate_limited")
         return error_response(
             429,
             "RATE_LIMITED",
@@ -199,6 +202,12 @@ async def lookup(request: Request) -> JSONResponse:
             {"Retry-After": str(retry_after)},
             req_id,
         )
+
+    try:
+        nim = validate_nim_value(payload.get("nim"))
+    except ValueError as exc:
+        write_lookup_log("", "", "invalid")
+        return error_response(400, "VALIDATION_ERROR", str(exc), req_id=req_id)
 
     if not nim:
         write_lookup_log(nim, "", "invalid")
@@ -275,16 +284,20 @@ async def admin_login(request: Request) -> JSONResponse:
     if not email or not password:
         return error_response(400, "VALIDATION_ERROR", "Email dan password wajib diisi.")
 
+    # Consume the rate-limit budget before verifying the password. Checking it
+    # only after a failed verification lets a correct guess bypass an already
+    # exhausted limit and still pays the expensive password-hash cost.
+    retry_after = enforce_rate_limit("login", f"{client_ip(request)}:{email}", 5, 15 * 60)
+    if retry_after:
+        return error_response(
+            429,
+            "RATE_LIMITED",
+            "Terlalu banyak percobaan login. Coba lagi nanti.",
+            {"Retry-After": str(retry_after)},
+        )
+
     admin = authenticate_admin(email, password)
     if not admin:
-        retry_after = enforce_rate_limit("login", f"{client_ip(request)}:{email}", 5, 15 * 60)
-        if retry_after:
-            return error_response(
-                429,
-                "RATE_LIMITED",
-                "Terlalu banyak percobaan login. Coba lagi nanti.",
-                {"Retry-After": str(retry_after)},
-            )
         return error_response(401, "UNAUTHORIZED", "Email atau password tidak sesuai.")
 
     token = create_admin_session(admin)
@@ -758,28 +771,32 @@ async def admin_import_preview(
         preview = preview_workbook(saved_path, config.DB_PATH, source_file_name=safe_name)
         store_import_preview(import_token, admin["id"], safe_name, saved_path)
         conn = connect(config.DB_PATH)
-        with conn:
-            write_audit(
-                conn,
-                admin["id"],
-                "import.preview",
-                "excel_import",
-                import_token,
-                {
-                    "file_name": safe_name,
-                    "valid_rows": preview["valid_rows"],
-                    "critical_rows": preview["critical_rows"],
-                    "issue_rows": preview["issue_rows"],
-                    "new_rows": preview["new_rows"],
-                    "update_rows": preview["update_rows"],
-                    "unchanged_rows": preview["unchanged_rows"],
-                    "amount_change_rows": preview["amount_change_rows"],
-                    "briva_change_rows": preview["briva_change_rows"],
-                },
-            )
-        conn.close()
+        try:
+            with conn:
+                write_audit(
+                    conn,
+                    admin["id"],
+                    "import.preview",
+                    "excel_import",
+                    import_token,
+                    {
+                        "file_name": safe_name,
+                        "valid_rows": preview["valid_rows"],
+                        "critical_rows": preview["critical_rows"],
+                        "issue_rows": preview["issue_rows"],
+                        "new_rows": preview["new_rows"],
+                        "update_rows": preview["update_rows"],
+                        "unchanged_rows": preview["unchanged_rows"],
+                        "amount_change_rows": preview["amount_change_rows"],
+                        "briva_change_rows": preview["briva_change_rows"],
+                    },
+                )
+        finally:
+            conn.close()
         return success_response({"import_token": import_token, "file_name": safe_name, **preview})
     except Exception as exc:
+        if not isinstance(exc, ValueError):
+            logger.exception("Unexpected failure while previewing import")
         if saved_path:
             saved_path.unlink(missing_ok=True)
         message = str(exc) if isinstance(exc, ValueError) else "File tidak dapat diproses. Gunakan workbook Excel yang valid."
@@ -839,6 +856,7 @@ async def admin_import_commit(request: Request, admin=Depends(require_admin("imp
     except ValueError as exc:
         return error_response(400, "IMPORT_VALIDATION_FAILED", str(exc))
     except Exception:
+        logger.exception("Unexpected failure while committing import token %s", import_token)
         return error_response(400, "IMPORT_COMMIT_FAILED", "Import tidak dapat disimpan. Periksa file dan coba lagi.")
 
 

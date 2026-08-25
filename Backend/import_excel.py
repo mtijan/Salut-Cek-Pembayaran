@@ -12,7 +12,14 @@ from pathlib import Path
 import openpyxl
 
 try:
-    from Backend.db import DEFAULT_DB_PATH, connect, init_db, parse_entry_registration, resolve_study_program_id
+    from Backend.db import (
+        DEFAULT_DB_PATH,
+        database_connection,
+        database_transaction,
+        migrate_database,
+        parse_entry_registration,
+        resolve_study_program_id,
+    )
     from Backend.excel_reader import (
         clean_demographic_value,
         clean_excel_text,
@@ -25,7 +32,14 @@ try:
         workbook_sheet_names,
     )
 except ModuleNotFoundError:
-    from db import DEFAULT_DB_PATH, connect, init_db, parse_entry_registration, resolve_study_program_id
+    from db import (
+        DEFAULT_DB_PATH,
+        database_connection,
+        database_transaction,
+        migrate_database,
+        parse_entry_registration,
+        resolve_study_program_id,
+    )
     from excel_reader import (
         clean_demographic_value,
         clean_excel_text,
@@ -320,22 +334,20 @@ def _existing_bills(
     if not nims:
         return {}, {}, {}
 
-    conn = connect(db_path)
-    init_db(conn)
     placeholders = ",".join("?" for _ in nims)
-    rows = conn.execute(
-        f"""
-        select b.id, b.student_id, b.briva, b.amount, b.period, b.status, b.source_file, b.source_row_number,
-               b.due_date, s.nim, s.full_name, s.program_study, s.initial_registration, s.phone_number
-        from bills b
-        join students s on s.id = b.student_id
-        where (b.source_file = ? or b.period = ? or s.nim in ({placeholders}))
-          and b.deleted_at is null
-          and s.deleted_at is null
-        """,
-        (source_file, period, *sorted(nims)),
-    ).fetchall()
-    conn.close()
+    with database_connection(db_path) as conn:
+        rows = conn.execute(
+            f"""
+            select b.id, b.student_id, b.briva, b.amount, b.period, b.status, b.source_file, b.source_row_number,
+                   b.due_date, s.nim, s.full_name, s.program_study, s.initial_registration, s.phone_number
+            from bills b
+            join students s on s.id = b.student_id
+            where (b.source_file = ? or b.period = ? or s.nim in ({placeholders}))
+              and b.deleted_at is null
+              and s.deleted_at is null
+            """,
+            (source_file, period, *sorted(nims)),
+        ).fetchall()
 
     by_briva: dict[str, list[sqlite3.Row]] = {}
     by_nim: dict[str, list[sqlite3.Row]] = {}
@@ -741,14 +753,12 @@ def import_workbook(
     if analysis["requires_update_confirmation"] and not confirm_updates:
         raise ValueError("Perubahan nominal atau BRIVA memerlukan konfirmasi admin.")
 
-    conn = connect(db_path)
-    init_db(conn)
     issues = 0
     created = 0
     updated = 0
     issue_details: list[dict[str, object]] = []
 
-    with conn:
+    with database_transaction(db_path) as conn:
         conn.execute("delete from import_issues where source_file = ?", (source_file,))
         for issue in analysis["_skipped_issues"]:
             assert isinstance(issue, dict)
@@ -820,7 +830,6 @@ def import_workbook(
                 {"file_name": source_file, "created": created, "updated": updated, "issues": issues},
             )
 
-    conn.close()
     return {
         "imported": created + updated,
         "created": created,
@@ -839,6 +848,7 @@ def main() -> None:
     parser.add_argument("--confirm-updates", action="store_true", help="Setujui perubahan nominal atau BRIVA.")
     args = parser.parse_args()
 
+    migrate_database(args.db)
     result = import_workbook(args.file, args.db, args.period, confirm_updates=args.confirm_updates)
     print(f"Changed rows: {result['imported']}")
     print(f"Unchanged rows: {result['unchanged']}")
