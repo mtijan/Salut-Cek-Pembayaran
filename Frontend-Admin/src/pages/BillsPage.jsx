@@ -51,6 +51,7 @@ export default function BillsPage({ navigateTo }) {
   const [historyTarget, setHistoryTarget] = useState(null);
   const [historyList, setHistoryList] = useState([]);
   const [historyLoading, setHistoryLoading] = useState(false);
+  const [summary, setSummary] = useState(null);
 
   const fetchMasterOptions = async () => {
     try {
@@ -81,6 +82,7 @@ export default function BillsPage({ navigateTo }) {
       setBills(res.bills || []);
       setPagination(pageData);
       setTotalCount(Number(pageData.total) || 0);
+      setSummary(res.summary || null);
     } catch (err) {
       showToast(err.message || 'Gagal memuat daftar tagihan.', 'error');
     } finally {
@@ -96,8 +98,21 @@ export default function BillsPage({ navigateTo }) {
     fetchBills();
   }, [fetchBills]);
 
-  // Statistics calculation for summary cards
+  // Statistics calculation for summary cards (uses backend aggregated summary when available)
   const stats = useMemo(() => {
+    if (summary) {
+      return {
+        totalCount: Number(summary.total_count) || 0,
+        studentCount: Number(summary.student_count) || 0,
+        totalNominal: Number(summary.total_amount) || 0,
+        totalPaid: Number(summary.total_paid) || 0,
+        totalRemaining: Number(summary.total_remaining) || 0,
+        paidCount: Number(summary.paid_count) || 0,
+        partialCount: Number(summary.partial_count) || 0,
+        unpaidCount: Number(summary.unpaid_count) || 0,
+      };
+    }
+
     let totalNominal = 0;
     let totalPaid = 0;
     let totalRemaining = 0;
@@ -118,9 +133,11 @@ export default function BillsPage({ navigateTo }) {
       else unpaidCount++;
     });
 
+    const uniqueStudents = new Set(bills.map((b) => b.student_id).filter(Boolean)).size;
+
     return {
       totalCount: totalCount || bills.length,
-      pageCount: bills.length,
+      studentCount: uniqueStudents,
       totalNominal,
       totalPaid,
       totalRemaining,
@@ -128,7 +145,7 @@ export default function BillsPage({ navigateTo }) {
       partialCount,
       unpaidCount,
     };
-  }, [bills, totalCount]);
+  }, [summary, bills, totalCount]);
 
   const handleCopy = (text, label) => {
     if (!text) return;
@@ -202,7 +219,10 @@ export default function BillsPage({ navigateTo }) {
           </div>
           <div className="student-stat-meta">
             <span className="student-stat-title">Total Tagihan</span>
-            <strong className="student-stat-number">{totalCount.toLocaleString('id-ID')}</strong>
+            <strong className="student-stat-number">{stats.totalCount.toLocaleString('id-ID')}</strong>
+            <span style={{ fontSize: 11.5, color: 'var(--muted)', marginTop: 2 }}>
+              {stats.studentCount > 0 ? `Dari ${stats.studentCount.toLocaleString('id-ID')} mahasiswa` : 'Tidak ada data'}
+            </span>
           </div>
         </div>
 
@@ -223,6 +243,9 @@ export default function BillsPage({ navigateTo }) {
             <strong className="student-stat-number" style={{ color: 'var(--success)' }}>
               {formatRupiah(stats.totalPaid)}
             </strong>
+            <span style={{ fontSize: 11.5, color: 'var(--muted)', marginTop: 2 }}>
+              {stats.paidCount.toLocaleString('id-ID')} tagihan lunas
+            </span>
           </div>
         </div>
 
@@ -243,6 +266,9 @@ export default function BillsPage({ navigateTo }) {
             <strong className="student-stat-number" style={{ color: stats.totalRemaining > 0 ? 'var(--warning)' : 'var(--success)' }}>
               {formatRupiah(stats.totalRemaining)}
             </strong>
+            <span style={{ fontSize: 11.5, color: 'var(--muted)', marginTop: 2 }}>
+              {(stats.unpaidCount + stats.partialCount).toLocaleString('id-ID')} tagihan belum lunas
+            </span>
           </div>
         </div>
 
@@ -255,6 +281,9 @@ export default function BillsPage({ navigateTo }) {
             <strong className="student-stat-number" style={{ color: 'var(--info)' }}>
               {formatRupiah(stats.totalNominal)}
             </strong>
+            <span style={{ fontSize: 11.5, color: 'var(--muted)', marginTop: 2 }}>
+              {hasActiveFilter ? 'Akumulasi sesuai filter aktif' : 'Akumulasi seluruh tagihan'}
+            </span>
           </div>
         </div>
       </div>
@@ -507,12 +536,21 @@ export default function BillsPage({ navigateTo }) {
                   </span>
                 )}
               </div>
-
-              <span style={{ fontSize: 12.5, color: 'var(--muted)' }}>
-                Menampilkan <strong>{bills.length}</strong> dari <strong>{totalCount}</strong> tagihan
-              </span>
             </div>
           )}
+        </div>
+
+        {/* Context bar showing matched rows and students */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, padding: '9px 14px', background: 'var(--brand-surface, #f8fafc)', borderRadius: 8, border: '1px solid var(--border-color, #e2e8f0)', fontSize: 12.5, color: 'var(--text-secondary, #475569)', marginBottom: 16 }}>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <FileText size={14} style={{ color: 'var(--brand)' }} />
+            <span>
+              Menampilkan <strong>{bills.length}</strong> baris dari total <strong>{totalCount.toLocaleString('id-ID')}</strong> tagihan milik <strong>{stats.studentCount.toLocaleString('id-ID')}</strong> mahasiswa{hasActiveFilter ? ' (sesuai filter yang diterapkan)' : ' (seluruh data)'}
+            </span>
+          </span>
+          <span style={{ color: 'var(--muted)', fontWeight: 500, fontSize: 12 }}>
+            Halaman {page} dari {totalPages}
+          </span>
         </div>
 
         {/* Data Table */}

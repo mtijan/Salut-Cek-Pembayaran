@@ -127,7 +127,7 @@ export default function App() {
               navigateTo={navigateTo}
             />
           )}
-          {activeView === 'reports' && <ReportsPage />}
+          {activeView === 'reports' && <ReportsPage navigateTo={navigateTo} />}
           {activeView === 'files' && <FilesPage />}
           {activeView === 'upload' && (
             <UploadPage setActiveView={(view) => navigateTo(view, {})} />
