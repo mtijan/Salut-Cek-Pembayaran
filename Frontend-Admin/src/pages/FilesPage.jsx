@@ -70,7 +70,13 @@ export default function FilesPage() {
             <p>Belum ada file Excel yang diimpor ke dalam sistem.</p>
           </div>
         ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 16 }}>
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
+              gap: 16,
+            }}
+          >
             {files.map((f, idx) => (
               <div
                 key={f.file_name || idx}
@@ -86,16 +92,45 @@ export default function FilesPage() {
                 }}
               >
                 <div>
-                  <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 12 }}>
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'flex-start',
+                      justifyContent: 'space-between',
+                      marginBottom: 12,
+                    }}
+                  >
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                      <div style={{ padding: 8, background: '#f1f5f9', borderRadius: 'var(--radius-md)', color: 'var(--brand)' }}>
+                      <div
+                        style={{
+                          padding: 8,
+                          background: '#f1f5f9',
+                          borderRadius: 'var(--radius-md)',
+                          color: 'var(--brand)',
+                        }}
+                      >
                         <FileText size={20} />
                       </div>
                       <div>
-                        <strong style={{ fontSize: 14, color: 'var(--brand-strong)', wordBreak: 'break-all' }}>
+                        <strong
+                          style={{
+                            fontSize: 14,
+                            color: 'var(--brand-strong)',
+                            wordBreak: 'break-all',
+                          }}
+                        >
                           {f.file_name}
                         </strong>
-                        <div style={{ fontSize: 11, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 4, marginTop: 2 }}>
+                        <div
+                          style={{
+                            fontSize: 11,
+                            color: 'var(--muted)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 4,
+                            marginTop: 2,
+                          }}
+                        >
                           <Calendar size={12} />
                           <span>Diimpor: {f.imported_at || '-'}</span>
                         </div>
@@ -103,18 +138,46 @@ export default function FilesPage() {
                     </div>
                   </div>
 
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, margin: '16px 0', padding: 12, background: '#f8fafc', borderRadius: 'var(--radius-md)' }}>
+                  <div
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: '1fr 1fr',
+                      gap: 10,
+                      margin: '16px 0',
+                      padding: 12,
+                      background: '#f8fafc',
+                      borderRadius: 'var(--radius-md)',
+                    }}
+                  >
                     <div>
-                      <span style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase' }}>Mahasiswa</span>
-                      <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--ink)' }}>{f.student_count}</div>
+                      <span
+                        style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase' }}
+                      >
+                        Mahasiswa
+                      </span>
+                      <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--ink)' }}>
+                        {f.student_count}
+                      </div>
                     </div>
                     <div>
-                      <span style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase' }}>Total Tagihan</span>
-                      <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--ink)' }}>{f.bill_count}</div>
+                      <span
+                        style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase' }}
+                      >
+                        Total Tagihan
+                      </span>
+                      <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--ink)' }}>
+                        {f.bill_count}
+                      </div>
                     </div>
                     <div style={{ gridColumn: '1 / -1' }}>
-                      <span style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase' }}>Total Nominal</span>
-                      <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--brand-strong)' }}>{f.total_amount_formatted}</div>
+                      <span
+                        style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase' }}
+                      >
+                        Total Nominal
+                      </span>
+                      <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--brand-strong)' }}>
+                        {f.total_amount_formatted}
+                      </div>
                     </div>
                   </div>
 
@@ -126,7 +189,14 @@ export default function FilesPage() {
                 </div>
 
                 {can('import') && (
-                  <div style={{ borderTop: '1px solid var(--line)', paddingTop: 12, display: 'flex', justifyContent: 'flex-end' }}>
+                  <div
+                    style={{
+                      borderTop: '1px solid var(--line)',
+                      paddingTop: 12,
+                      display: 'flex',
+                      justifyContent: 'flex-end',
+                    }}
+                  >
                     <button
                       type="button"
                       className="btn btn-danger btn-sm"

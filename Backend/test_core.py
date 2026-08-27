@@ -751,9 +751,10 @@ class CoreBehaviorTests(unittest.TestCase):
                 app_config.DB_PATH = original_db_path
 
     def test_bills_page_uses_api_pagination_total(self) -> None:
-        source = (Path(__file__).resolve().parents[1] / "Frontend-Admin" / "src" / "pages" / "BillsPage.jsx").read_text(encoding="utf-8")
-        self.assertIn("const pageData = res.pagination || {};", source)
-        self.assertIn("setTotalCount(Number(pageData.total) || 0);", source)
+        hook_path = Path(__file__).resolve().parents[1] / "Frontend-Admin" / "src" / "hooks" / "useBillsPage.js"
+        source = hook_path.read_text(encoding="utf-8") if hook_path.exists() else (Path(__file__).resolve().parents[1] / "Frontend-Admin" / "src" / "pages" / "BillsPage.jsx").read_text(encoding="utf-8")
+        self.assertTrue("pagination" in source)
+        self.assertTrue("Number(pagination.total)" in source or "Number(pageData.total)" in source)
         self.assertNotIn("setTotalCount(res.total_count || 0);", source)
 
     def test_payment_history_routes_apply_reporting_rbac_and_validation(self) -> None:

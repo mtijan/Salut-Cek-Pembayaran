@@ -1,11 +1,19 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
-  ArrowLeft, CreditCard, User, Check, Copy, AlertCircle,
-  ChevronRight, RefreshCw, Save
+  ArrowLeft,
+  CreditCard,
+  User,
+  Check,
+  Copy,
+  AlertCircle,
+  ChevronRight,
+  RefreshCw,
+  Save,
 } from 'lucide-react';
 import { billsApi, studentsApi, masterApi } from '../services/api';
 import { useToast } from '../components/common/Toast';
 import { useAuth } from '../context/AuthContext';
+import { useCopyFeedback } from '../hooks/useCopyFeedback';
 
 const formatRupiah = (val) => {
   const num = Number(val) || 0;
@@ -24,7 +32,7 @@ export default function BillEditPage({ billId, mode, navigateTo }) {
 
   const [loading, setLoading] = useState(!isCreate);
   const [saving, setSaving] = useState(false);
-  const [copiedKey, setCopiedKey] = useState(null);
+  const { copiedKey, copyToClipboard } = useCopyFeedback();
   const [formError, setFormError] = useState('');
 
   // Master Data Options
@@ -81,7 +89,9 @@ export default function BillEditPage({ billId, mode, navigateTo }) {
 
       // Determine bill type mode
       const rawType = b.bill_type || 'UKT';
-      const isKnownType = ['UKT', 'WISUDA', 'PRAKTIKUM', 'REGISTRASI'].includes(rawType.toUpperCase());
+      const isKnownType = ['UKT', 'WISUDA', 'PRAKTIKUM', 'REGISTRASI'].includes(
+        rawType.toUpperCase(),
+      );
 
       setFormData({
         student_id: b.student_id || s.id || '',
@@ -118,11 +128,7 @@ export default function BillEditPage({ billId, mode, navigateTo }) {
   }, [periods, fetchBillData, isCreate]);
 
   const handleCopy = (text, label) => {
-    if (!text) return;
-    navigator.clipboard.writeText(text);
-    setCopiedKey(label);
-    showToast(`${label} disalin ke clipboard!`, 'success');
-    setTimeout(() => setCopiedKey(null), 2000);
+    copyToClipboard(text, label, () => showToast(`${label} disalin ke clipboard!`, 'success'));
   };
 
   // Status and calculations
@@ -217,13 +223,17 @@ export default function BillEditPage({ billId, mode, navigateTo }) {
       return;
     }
 
-    const finalPeriod = formData.period_mode === 'custom' ? formData.custom_period.trim() : formData.period;
+    const finalPeriod =
+      formData.period_mode === 'custom' ? formData.custom_period.trim() : formData.period;
     if (!finalPeriod) {
       setFormError('Periode tagihan wajib diisi.');
       return;
     }
 
-    const finalBillType = formData.bill_type_mode === 'Custom' ? formData.custom_bill_type.trim() : formData.bill_type_mode;
+    const finalBillType =
+      formData.bill_type_mode === 'Custom'
+        ? formData.custom_bill_type.trim()
+        : formData.bill_type_mode;
     if (!finalBillType) {
       setFormError('Jenis tagihan wajib diisi.');
       return;
@@ -269,9 +279,24 @@ export default function BillEditPage({ billId, mode, navigateTo }) {
   if (loading) {
     return (
       <div className="content-container">
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '350px', gap: '16px' }}>
-          <RefreshCw size={36} className="spin" style={{ color: 'var(--brand-primary, #059669)' }} />
-          <p style={{ color: 'var(--text-muted, #6b7280)', fontSize: '15px' }}>Memuat formulir data tagihan...</p>
+        <div
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            minHeight: '350px',
+            gap: '16px',
+          }}
+        >
+          <RefreshCw
+            size={36}
+            className="spin"
+            style={{ color: 'var(--brand-primary, #059669)' }}
+          />
+          <p style={{ color: 'var(--text-muted, #6b7280)', fontSize: '15px' }}>
+            Memuat formulir data tagihan...
+          </p>
         </div>
       </div>
     );
@@ -284,11 +309,29 @@ export default function BillEditPage({ billId, mode, navigateTo }) {
     <div className="content-container">
       {/* Top Header & Breadcrumbs */}
       <div style={{ marginBottom: '24px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: 'var(--text-muted, #6b7280)', marginBottom: '8px' }}>
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            fontSize: '13px',
+            color: 'var(--text-muted, #6b7280)',
+            marginBottom: '8px',
+          }}
+        >
           <button
             type="button"
             onClick={() => navigateTo('bills')}
-            style={{ background: 'none', border: 'none', padding: 0, color: 'var(--text-muted, #6b7280)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
+            style={{
+              background: 'none',
+              border: 'none',
+              padding: 0,
+              color: 'var(--text-muted, #6b7280)',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px',
+            }}
           >
             Tagihan Mahasiswa
           </button>
@@ -298,22 +341,49 @@ export default function BillEditPage({ billId, mode, navigateTo }) {
           </span>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px' }}>
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: '16px',
+          }}
+        >
           <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
             <button
               type="button"
               onClick={() => navigateTo('bills')}
               className="btn btn-secondary"
-              style={{ padding: '8px 14px', borderRadius: '8px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+              style={{
+                padding: '8px 14px',
+                borderRadius: '8px',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+              }}
             >
               <ArrowLeft size={16} />
               <span>Kembali</span>
             </button>
             <div>
-              <h1 style={{ fontSize: '22px', fontWeight: 700, margin: 0, color: 'var(--text-main, #111827)' }}>
+              <h1
+                style={{
+                  fontSize: '22px',
+                  fontWeight: 700,
+                  margin: 0,
+                  color: 'var(--text-main, #111827)',
+                }}
+              >
                 {isCreate ? 'Buat Tagihan Mahasiswa Baru' : 'Edit Tagihan & Data Finansial'}
               </h1>
-              <p style={{ fontSize: '13px', color: 'var(--text-muted, #6b7280)', margin: '4px 0 0 0' }}>
+              <p
+                style={{
+                  fontSize: '13px',
+                  color: 'var(--text-muted, #6b7280)',
+                  margin: '4px 0 0 0',
+                }}
+              >
                 {isCreate
                   ? 'Entri tagihan baru dengan nomor BRIVA dan kalkulasi pembayaran terstruktur'
                   : `Kelola parameter pokok tagihan, periode, jatuh tempo, dan status pembayaran untuk ${studentData.full_name || formData.full_name}`}
@@ -328,7 +398,12 @@ export default function BillEditPage({ billId, mode, navigateTo }) {
                   type="button"
                   onClick={() => navigateTo('student-profile', { studentId: studentData.id })}
                   className="btn btn-secondary"
-                  style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '13px' }}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    fontSize: '13px',
+                  }}
                 >
                   <User size={15} />
                   <span>Lihat Profil 360</span>
@@ -339,7 +414,12 @@ export default function BillEditPage({ billId, mode, navigateTo }) {
                   type="button"
                   onClick={() => navigateTo('bill-payment', { billId })}
                   className="btn btn-primary"
-                  style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '13px' }}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    fontSize: '13px',
+                  }}
                 >
                   <CreditCard size={15} />
                   <span>Buka Halaman Kasir / Bayar</span>
@@ -356,7 +436,16 @@ export default function BillEditPage({ billId, mode, navigateTo }) {
         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
           {/* Student Identity Card */}
           <div className="card" style={{ padding: '24px', borderRadius: '12px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '20px', paddingBottom: '16px', borderBottom: '1px solid var(--border-color, #e5e7eb)' }}>
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '14px',
+                marginBottom: '20px',
+                paddingBottom: '16px',
+                borderBottom: '1px solid var(--border-color, #e5e7eb)',
+              }}
+            >
               <div
                 style={{
                   width: '52px',
@@ -375,35 +464,70 @@ export default function BillEditPage({ billId, mode, navigateTo }) {
                 {(formData.full_name || 'M').charAt(0).toUpperCase()}
               </div>
               <div style={{ minWidth: 0, flex: 1 }}>
-                <h3 style={{ fontSize: '16px', fontWeight: 700, margin: 0, color: 'var(--text-main, #111827)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                <h3
+                  style={{
+                    fontSize: '16px',
+                    fontWeight: 700,
+                    margin: 0,
+                    color: 'var(--text-main, #111827)',
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                  }}
+                >
                   {formData.full_name || (isCreate ? 'Pilih Mahasiswa' : 'Nama Mahasiswa')}
                 </h3>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '4px' }}>
-                  <span style={{ fontFamily: 'monospace', fontSize: '13px', fontWeight: 600, color: 'var(--brand-primary, #059669)' }}>
+                <div
+                  style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '4px' }}
+                >
+                  <span
+                    style={{
+                      fontFamily: 'monospace',
+                      fontSize: '13px',
+                      fontWeight: 600,
+                      color: 'var(--brand-primary, #059669)',
+                    }}
+                  >
                     {formData.nim || '-'}
                   </span>
                   {formData.nim && (
                     <button
                       type="button"
                       onClick={() => handleCopy(formData.nim, 'NIM')}
-                      style={{ background: 'none', border: 'none', padding: '2px', cursor: 'pointer', color: 'var(--text-muted, #6b7280)' }}
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        padding: '2px',
+                        cursor: 'pointer',
+                        color: 'var(--text-muted, #6b7280)',
+                      }}
                       title="Salin NIM"
                     >
-                      {copiedKey === 'NIM' ? <Check size={13} style={{ color: '#059669' }} /> : <Copy size={13} />}
+                      {copiedKey === 'NIM' ? (
+                        <Check size={13} style={{ color: '#059669' }} />
+                      ) : (
+                        <Copy size={13} />
+                      )}
                     </button>
                   )}
                 </div>
               </div>
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', fontSize: '13px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div
+              style={{ display: 'flex', flexDirection: 'column', gap: '12px', fontSize: '13px' }}
+            >
+              <div
+                style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+              >
                 <span style={{ color: 'var(--text-muted, #6b7280)' }}>Program Studi</span>
                 <span style={{ fontWeight: 600, color: 'var(--text-main, #111827)' }}>
                   {studentData.study_program_name || studentData.prodi_name || '-'}
                 </span>
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div
+                style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+              >
                 <span style={{ color: 'var(--text-muted, #6b7280)' }}>Status Akademik</span>
                 <span
                   style={{
@@ -419,7 +543,9 @@ export default function BillEditPage({ billId, mode, navigateTo }) {
                   {studentData.academic_status || 'Aktif'}
                 </span>
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div
+                style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+              >
                 <span style={{ color: 'var(--text-muted, #6b7280)' }}>Sumber Entri</span>
                 <span style={{ fontWeight: 500, color: 'var(--text-main, #111827)' }}>
                   {billData.source_file || (isCreate ? 'Manual Admin' : 'Manual')}
@@ -429,31 +555,105 @@ export default function BillEditPage({ billId, mode, navigateTo }) {
           </div>
 
           {/* Financial Summary Card */}
-          <div className="card" style={{ padding: '24px', borderRadius: '12px', background: 'var(--bg-card, #ffffff)' }}>
-            <h4 style={{ fontSize: '14px', fontWeight: 700, margin: '0 0 16px 0', color: 'var(--text-main, #111827)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <div
+            className="card"
+            style={{ padding: '24px', borderRadius: '12px', background: 'var(--bg-card, #ffffff)' }}
+          >
+            <h4
+              style={{
+                fontSize: '14px',
+                fontWeight: 700,
+                margin: '0 0 16px 0',
+                color: 'var(--text-main, #111827)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+              }}
+            >
               <CreditCard size={16} style={{ color: 'var(--brand-primary, #059669)' }} />
               <span>Ringkasan Saldo Tagihan</span>
             </h4>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-              <div style={{ background: 'var(--bg-secondary, #f8fafc)', padding: '12px 14px', borderRadius: '8px', border: '1px solid var(--border-color, #e2e8f0)' }}>
-                <div style={{ fontSize: '11px', color: 'var(--text-muted, #64748b)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Total Tagihan</div>
-                <div style={{ fontSize: '18px', fontWeight: 700, color: 'var(--text-main, #0f172a)', marginTop: '2px' }}>
+              <div
+                style={{
+                  background: 'var(--bg-secondary, #f8fafc)',
+                  padding: '12px 14px',
+                  borderRadius: '8px',
+                  border: '1px solid var(--border-color, #e2e8f0)',
+                }}
+              >
+                <div
+                  style={{
+                    fontSize: '11px',
+                    color: 'var(--text-muted, #64748b)',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.05em',
+                  }}
+                >
+                  Total Tagihan
+                </div>
+                <div
+                  style={{
+                    fontSize: '18px',
+                    fontWeight: 700,
+                    color: 'var(--text-main, #0f172a)',
+                    marginTop: '2px',
+                  }}
+                >
                   {formatRupiah(totalAmountNum)}
                 </div>
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                <div style={{ background: '#ecfdf5', padding: '10px 12px', borderRadius: '8px', border: '1px solid #a7f3d0' }}>
-                  <div style={{ fontSize: '11px', color: '#065f46', fontWeight: 600 }}>Terbayar</div>
-                  <div style={{ fontSize: '14px', fontWeight: 700, color: '#047857', marginTop: '2px' }}>
+                <div
+                  style={{
+                    background: '#ecfdf5',
+                    padding: '10px 12px',
+                    borderRadius: '8px',
+                    border: '1px solid #a7f3d0',
+                  }}
+                >
+                  <div style={{ fontSize: '11px', color: '#065f46', fontWeight: 600 }}>
+                    Terbayar
+                  </div>
+                  <div
+                    style={{
+                      fontSize: '14px',
+                      fontWeight: 700,
+                      color: '#047857',
+                      marginTop: '2px',
+                    }}
+                  >
                     {formatRupiah(paidAmountNum)}
                   </div>
                 </div>
 
-                <div style={{ background: remainingAmountNum > 0 ? '#fffbeb' : '#f1f5f9', padding: '10px 12px', borderRadius: '8px', border: remainingAmountNum > 0 ? '1px solid #fde68a' : '1px solid #cbd5e1' }}>
-                  <div style={{ fontSize: '11px', color: remainingAmountNum > 0 ? '#92400e' : '#475569', fontWeight: 600 }}>Sisa Tagihan</div>
-                  <div style={{ fontSize: '14px', fontWeight: 700, color: remainingAmountNum > 0 ? '#b45309' : '#334155', marginTop: '2px' }}>
+                <div
+                  style={{
+                    background: remainingAmountNum > 0 ? '#fffbeb' : '#f1f5f9',
+                    padding: '10px 12px',
+                    borderRadius: '8px',
+                    border: remainingAmountNum > 0 ? '1px solid #fde68a' : '1px solid #cbd5e1',
+                  }}
+                >
+                  <div
+                    style={{
+                      fontSize: '11px',
+                      color: remainingAmountNum > 0 ? '#92400e' : '#475569',
+                      fontWeight: 600,
+                    }}
+                  >
+                    Sisa Tagihan
+                  </div>
+                  <div
+                    style={{
+                      fontSize: '14px',
+                      fontWeight: 700,
+                      color: remainingAmountNum > 0 ? '#b45309' : '#334155',
+                      marginTop: '2px',
+                    }}
+                  >
                     {formatRupiah(remainingAmountNum)}
                   </div>
                 </div>
@@ -461,13 +661,29 @@ export default function BillEditPage({ billId, mode, navigateTo }) {
 
               {/* Progress Bar */}
               <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: 'var(--text-muted, #64748b)', marginBottom: '4px' }}>
+                <div
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    fontSize: '12px',
+                    color: 'var(--text-muted, #64748b)',
+                    marginBottom: '4px',
+                  }}
+                >
                   <span>Progres Pelunasan</span>
                   <span style={{ fontWeight: 600 }}>
                     {totalAmountNum > 0 ? Math.round((paidAmountNum / totalAmountNum) * 100) : 0}%
                   </span>
                 </div>
-                <div style={{ width: '100%', height: '8px', background: '#e2e8f0', borderRadius: '9999px', overflow: 'hidden' }}>
+                <div
+                  style={{
+                    width: '100%',
+                    height: '8px',
+                    background: '#e2e8f0',
+                    borderRadius: '9999px',
+                    overflow: 'hidden',
+                  }}
+                >
                   <div
                     style={{
                       height: '100%',
@@ -480,7 +696,16 @@ export default function BillEditPage({ billId, mode, navigateTo }) {
                 </div>
               </div>
 
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: '8px', borderTop: '1px solid var(--border-color, #e2e8f0)', fontSize: '12px' }}>
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  paddingTop: '8px',
+                  borderTop: '1px solid var(--border-color, #e2e8f0)',
+                  fontSize: '12px',
+                }}
+              >
                 <span style={{ color: 'var(--text-muted, #64748b)' }}>Status Saat Ini</span>
                 <span
                   style={{
@@ -493,17 +718,21 @@ export default function BillEditPage({ billId, mode, navigateTo }) {
                       formData.status === 'paid'
                         ? '#dcfce7'
                         : formData.status === 'partial'
-                        ? '#fef3c7'
-                        : '#fee2e2',
+                          ? '#fef3c7'
+                          : '#fee2e2',
                     color:
                       formData.status === 'paid'
                         ? '#15803d'
                         : formData.status === 'partial'
-                        ? '#b45309'
-                        : '#b91c1c',
+                          ? '#b45309'
+                          : '#b91c1c',
                   }}
                 >
-                  {formData.status === 'paid' ? 'LUNAS' : formData.status === 'partial' ? 'BAYAR SEBAGIAN' : 'BELUM LUNAS'}
+                  {formData.status === 'paid'
+                    ? 'LUNAS'
+                    : formData.status === 'partial'
+                      ? 'BAYAR SEBAGIAN'
+                      : 'BELUM LUNAS'}
                 </span>
               </div>
             </div>
@@ -513,13 +742,36 @@ export default function BillEditPage({ billId, mode, navigateTo }) {
         {/* Right Column: Structured Bill Form Card */}
         <div className="card" style={{ padding: '28px', borderRadius: '12px' }}>
           <form onSubmit={handleSubmit}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingBottom: '16px', marginBottom: '20px', borderBottom: '1px solid var(--border-color, #e5e7eb)' }}>
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                paddingBottom: '16px',
+                marginBottom: '20px',
+                borderBottom: '1px solid var(--border-color, #e5e7eb)',
+              }}
+            >
               <div>
-                <h3 style={{ fontSize: '17px', fontWeight: 700, margin: 0, color: 'var(--text-main, #111827)' }}>
+                <h3
+                  style={{
+                    fontSize: '17px',
+                    fontWeight: 700,
+                    margin: 0,
+                    color: 'var(--text-main, #111827)',
+                  }}
+                >
                   {isCreate ? 'Formulir Tagihan Baru' : 'Formulir Edit Data Tagihan'}
                 </h3>
-                <p style={{ fontSize: '13px', color: 'var(--text-muted, #6b7280)', margin: '4px 0 0 0' }}>
-                  Lengkapi seluruh informasi tagihan dengan teliti untuk sinkronisasi sistem keuangan.
+                <p
+                  style={{
+                    fontSize: '13px',
+                    color: 'var(--text-muted, #6b7280)',
+                    margin: '4px 0 0 0',
+                  }}
+                >
+                  Lengkapi seluruh informasi tagihan dengan teliti untuk sinkronisasi sistem
+                  keuangan.
                 </p>
               </div>
               <span
@@ -557,10 +809,24 @@ export default function BillEditPage({ billId, mode, navigateTo }) {
               </div>
             )}
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '18px' }}>
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
+                gap: '18px',
+              }}
+            >
               {/* Student Picker (Create Mode) or Read-Only Card (Edit Mode) */}
               <div style={{ gridColumn: '1 / -1' }}>
-                <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: 'var(--text-main, #374151)', marginBottom: '6px' }}>
+                <label
+                  style={{
+                    display: 'block',
+                    fontSize: '13px',
+                    fontWeight: 600,
+                    color: 'var(--text-main, #374151)',
+                    marginBottom: '6px',
+                  }}
+                >
                   Mahasiswa Terkait <span style={{ color: '#ef4444' }}>*</span>
                 </label>
                 {isCreate ? (
@@ -569,7 +835,12 @@ export default function BillEditPage({ billId, mode, navigateTo }) {
                     value={formData.student_id}
                     onChange={handleStudentSelect}
                     required
-                    style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--border-color, #d1d5db)' }}
+                    style={{
+                      width: '100%',
+                      padding: '10px 12px',
+                      borderRadius: '8px',
+                      border: '1px solid var(--border-color, #d1d5db)',
+                    }}
                   >
                     <option value="">-- Pilih Mahasiswa Penerima Tagihan --</option>
                     {students.map((s) => (
@@ -592,14 +863,39 @@ export default function BillEditPage({ billId, mode, navigateTo }) {
                     }}
                   >
                     <div>
-                      <div style={{ fontWeight: 600, color: 'var(--text-main, #0f172a)', fontSize: '14px' }}>
+                      <div
+                        style={{
+                          fontWeight: 600,
+                          color: 'var(--text-main, #0f172a)',
+                          fontSize: '14px',
+                        }}
+                      >
                         {studentData.full_name || formData.full_name}
                       </div>
-                      <div style={{ fontSize: '12px', color: 'var(--text-muted, #64748b)', marginTop: '2px' }}>
-                        NIM: <span style={{ fontFamily: 'monospace', fontWeight: 600 }}>{studentData.nim || formData.nim}</span> &bull; {studentData.study_program_name || 'Program Studi'}
+                      <div
+                        style={{
+                          fontSize: '12px',
+                          color: 'var(--text-muted, #64748b)',
+                          marginTop: '2px',
+                        }}
+                      >
+                        NIM:{' '}
+                        <span style={{ fontFamily: 'monospace', fontWeight: 600 }}>
+                          {studentData.nim || formData.nim}
+                        </span>{' '}
+                        &bull; {studentData.study_program_name || 'Program Studi'}
                       </div>
                     </div>
-                    <span style={{ fontSize: '11px', color: '#64748b', background: '#e2e8f0', padding: '3px 8px', borderRadius: '4px', fontWeight: 600 }}>
+                    <span
+                      style={{
+                        fontSize: '11px',
+                        color: '#64748b',
+                        background: '#e2e8f0',
+                        padding: '3px 8px',
+                        borderRadius: '4px',
+                        fontWeight: 600,
+                      }}
+                    >
                       Terkunci (Read-Only)
                     </span>
                   </div>
@@ -608,15 +904,30 @@ export default function BillEditPage({ billId, mode, navigateTo }) {
 
               {/* Bill Type */}
               <div>
-                <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: 'var(--text-main, #374151)', marginBottom: '6px' }}>
+                <label
+                  style={{
+                    display: 'block',
+                    fontSize: '13px',
+                    fontWeight: 600,
+                    color: 'var(--text-main, #374151)',
+                    marginBottom: '6px',
+                  }}
+                >
                   Jenis Tagihan <span style={{ color: '#ef4444' }}>*</span>
                 </label>
                 <div style={{ display: 'flex', gap: '8px' }}>
                   <select
                     className="form-control"
                     value={formData.bill_type_mode}
-                    onChange={(e) => setFormData((prev) => ({ ...prev, bill_type_mode: e.target.value }))}
-                    style={{ flex: 1, padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--border-color, #d1d5db)' }}
+                    onChange={(e) =>
+                      setFormData((prev) => ({ ...prev, bill_type_mode: e.target.value }))
+                    }
+                    style={{
+                      flex: 1,
+                      padding: '10px 12px',
+                      borderRadius: '8px',
+                      border: '1px solid var(--border-color, #d1d5db)',
+                    }}
                   >
                     <option value="UKT">UKT (Uang Kuliah Tunggal)</option>
                     <option value="WISUDA">WISUDA</option>
@@ -630,9 +941,16 @@ export default function BillEditPage({ billId, mode, navigateTo }) {
                       className="form-control"
                       placeholder="Nama jenis tagihan..."
                       value={formData.custom_bill_type}
-                      onChange={(e) => setFormData((prev) => ({ ...prev, custom_bill_type: e.target.value }))}
+                      onChange={(e) =>
+                        setFormData((prev) => ({ ...prev, custom_bill_type: e.target.value }))
+                      }
                       required
-                      style={{ flex: 1, padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--border-color, #d1d5db)' }}
+                      style={{
+                        flex: 1,
+                        padding: '10px 12px',
+                        borderRadius: '8px',
+                        border: '1px solid var(--border-color, #d1d5db)',
+                      }}
                     />
                   )}
                 </div>
@@ -640,7 +958,15 @@ export default function BillEditPage({ billId, mode, navigateTo }) {
 
               {/* Academic Period */}
               <div>
-                <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: 'var(--text-main, #374151)', marginBottom: '6px' }}>
+                <label
+                  style={{
+                    display: 'block',
+                    fontSize: '13px',
+                    fontWeight: 600,
+                    color: 'var(--text-main, #374151)',
+                    marginBottom: '6px',
+                  }}
+                >
                   Periode Tagihan <span style={{ color: '#ef4444' }}>*</span>
                 </label>
                 <div style={{ display: 'flex', gap: '8px' }}>
@@ -655,7 +981,12 @@ export default function BillEditPage({ billId, mode, navigateTo }) {
                         setFormData((prev) => ({ ...prev, period_mode: 'master', period: val }));
                       }
                     }}
-                    style={{ flex: 1, padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--border-color, #d1d5db)' }}
+                    style={{
+                      flex: 1,
+                      padding: '10px 12px',
+                      borderRadius: '8px',
+                      border: '1px solid var(--border-color, #d1d5db)',
+                    }}
                   >
                     {periods.map((p) => (
                       <option key={p.id} value={p.code}>
@@ -670,9 +1001,16 @@ export default function BillEditPage({ billId, mode, navigateTo }) {
                       className="form-control"
                       placeholder="Contoh: 2026.1 atau 20261"
                       value={formData.custom_period}
-                      onChange={(e) => setFormData((prev) => ({ ...prev, custom_period: e.target.value }))}
+                      onChange={(e) =>
+                        setFormData((prev) => ({ ...prev, custom_period: e.target.value }))
+                      }
                       required
-                      style={{ flex: 1, padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--border-color, #d1d5db)' }}
+                      style={{
+                        flex: 1,
+                        padding: '10px 12px',
+                        borderRadius: '8px',
+                        border: '1px solid var(--border-color, #d1d5db)',
+                      }}
                     />
                   )}
                 </div>
@@ -680,11 +1018,28 @@ export default function BillEditPage({ billId, mode, navigateTo }) {
 
               {/* Total Amount */}
               <div>
-                <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: 'var(--text-main, #374151)', marginBottom: '6px' }}>
+                <label
+                  style={{
+                    display: 'block',
+                    fontSize: '13px',
+                    fontWeight: 600,
+                    color: 'var(--text-main, #374151)',
+                    marginBottom: '6px',
+                  }}
+                >
                   Total Nominal Tagihan (Rp) <span style={{ color: '#ef4444' }}>*</span>
                 </label>
                 <div style={{ position: 'relative' }}>
-                  <span style={{ position: 'absolute', left: '12px', top: '10px', color: '#6b7280', fontSize: '13px', fontWeight: 600 }}>
+                  <span
+                    style={{
+                      position: 'absolute',
+                      left: '12px',
+                      top: '10px',
+                      color: '#6b7280',
+                      fontSize: '13px',
+                      fontWeight: 600,
+                    }}
+                  >
                     Rp
                   </span>
                   <input
@@ -695,14 +1050,28 @@ export default function BillEditPage({ billId, mode, navigateTo }) {
                     placeholder="Contoh: 1500000"
                     min="1"
                     required
-                    style={{ width: '100%', padding: '10px 12px 10px 38px', borderRadius: '8px', border: '1px solid var(--border-color, #d1d5db)', fontWeight: 600 }}
+                    style={{
+                      width: '100%',
+                      padding: '10px 12px 10px 38px',
+                      borderRadius: '8px',
+                      border: '1px solid var(--border-color, #d1d5db)',
+                      fontWeight: 600,
+                    }}
                   />
                 </div>
               </div>
 
               {/* BRIVA Account Number */}
               <div>
-                <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: 'var(--text-main, #374151)', marginBottom: '6px' }}>
+                <label
+                  style={{
+                    display: 'block',
+                    fontSize: '13px',
+                    fontWeight: 600,
+                    color: 'var(--text-main, #374151)',
+                    marginBottom: '6px',
+                  }}
+                >
                   Nomor Rekening BRIVA <span style={{ color: '#ef4444' }}>*</span>
                 </label>
                 <div style={{ display: 'flex', gap: '6px' }}>
@@ -713,7 +1082,14 @@ export default function BillEditPage({ billId, mode, navigateTo }) {
                     onChange={(e) => setFormData((prev) => ({ ...prev, briva: e.target.value }))}
                     placeholder="Contoh: 178100012345"
                     required
-                    style={{ flex: 1, padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--border-color, #d1d5db)', fontFamily: 'monospace', fontWeight: 600 }}
+                    style={{
+                      flex: 1,
+                      padding: '10px 12px',
+                      borderRadius: '8px',
+                      border: '1px solid var(--border-color, #d1d5db)',
+                      fontFamily: 'monospace',
+                      fontWeight: 600,
+                    }}
                   />
                   {formData.briva && (
                     <button
@@ -723,7 +1099,11 @@ export default function BillEditPage({ billId, mode, navigateTo }) {
                       style={{ padding: '0 12px', borderRadius: '8px' }}
                       title="Salin BRIVA"
                     >
-                      {copiedKey === 'BRIVA' ? <Check size={15} style={{ color: '#059669' }} /> : <Copy size={15} />}
+                      {copiedKey === 'BRIVA' ? (
+                        <Check size={15} style={{ color: '#059669' }} />
+                      ) : (
+                        <Copy size={15} />
+                      )}
                     </button>
                   )}
                 </div>
@@ -731,7 +1111,15 @@ export default function BillEditPage({ billId, mode, navigateTo }) {
 
               {/* Due Date */}
               <div>
-                <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: 'var(--text-main, #374151)', marginBottom: '6px' }}>
+                <label
+                  style={{
+                    display: 'block',
+                    fontSize: '13px',
+                    fontWeight: 600,
+                    color: 'var(--text-main, #374151)',
+                    marginBottom: '6px',
+                  }}
+                >
                   Batas Pembayaran / Jatuh Tempo
                 </label>
                 <input
@@ -739,20 +1127,39 @@ export default function BillEditPage({ billId, mode, navigateTo }) {
                   className="form-control"
                   value={formData.due_date}
                   onChange={(e) => setFormData((prev) => ({ ...prev, due_date: e.target.value }))}
-                  style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--border-color, #d1d5db)' }}
+                  style={{
+                    width: '100%',
+                    padding: '10px 12px',
+                    borderRadius: '8px',
+                    border: '1px solid var(--border-color, #d1d5db)',
+                  }}
                 />
               </div>
 
               {/* Status Pembayaran */}
               <div>
-                <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: 'var(--text-main, #374151)', marginBottom: '6px' }}>
+                <label
+                  style={{
+                    display: 'block',
+                    fontSize: '13px',
+                    fontWeight: 600,
+                    color: 'var(--text-main, #374151)',
+                    marginBottom: '6px',
+                  }}
+                >
                   Status Pembayaran <span style={{ color: '#ef4444' }}>*</span>
                 </label>
                 <select
                   className="form-control"
                   value={formData.status}
                   onChange={(e) => handleStatusChange(e.target.value)}
-                  style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--border-color, #d1d5db)', fontWeight: 600 }}
+                  style={{
+                    width: '100%',
+                    padding: '10px 12px',
+                    borderRadius: '8px',
+                    border: '1px solid var(--border-color, #d1d5db)',
+                    fontWeight: 600,
+                  }}
                 >
                   <option value="unpaid">Belum Lunas (Unpaid)</option>
                   <option value="partial">Bayar Sebagian (Partial)</option>
@@ -762,11 +1169,28 @@ export default function BillEditPage({ billId, mode, navigateTo }) {
 
               {/* Nominal Terbayar (Conditional / Editable on Partial) */}
               <div>
-                <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: 'var(--text-main, #374151)', marginBottom: '6px' }}>
+                <label
+                  style={{
+                    display: 'block',
+                    fontSize: '13px',
+                    fontWeight: 600,
+                    color: 'var(--text-main, #374151)',
+                    marginBottom: '6px',
+                  }}
+                >
                   Nominal Sudah Terbayar (Rp)
                 </label>
                 <div style={{ position: 'relative' }}>
-                  <span style={{ position: 'absolute', left: '12px', top: '10px', color: '#6b7280', fontSize: '13px', fontWeight: 600 }}>
+                  <span
+                    style={{
+                      position: 'absolute',
+                      left: '12px',
+                      top: '10px',
+                      color: '#6b7280',
+                      fontSize: '13px',
+                      fontWeight: 600,
+                    }}
+                  >
                     Rp
                   </span>
                   <input
@@ -783,17 +1207,26 @@ export default function BillEditPage({ billId, mode, navigateTo }) {
                       padding: '10px 12px 10px 38px',
                       borderRadius: '8px',
                       border: '1px solid var(--border-color, #d1d5db)',
-                      background: formData.status === 'unpaid' || formData.status === 'paid' ? 'var(--bg-secondary, #f3f4f6)' : '#ffffff',
+                      background:
+                        formData.status === 'unpaid' || formData.status === 'paid'
+                          ? 'var(--bg-secondary, #f3f4f6)'
+                          : '#ffffff',
                       fontWeight: 600,
                     }}
                   />
                 </div>
-                <div style={{ fontSize: '11px', color: 'var(--text-muted, #6b7280)', marginTop: '4px' }}>
+                <div
+                  style={{
+                    fontSize: '11px',
+                    color: 'var(--text-muted, #6b7280)',
+                    marginTop: '4px',
+                  }}
+                >
                   {formData.status === 'partial'
                     ? 'Masukkan nominal cicilan yang sudah dibayarkan mahasiswa'
                     : formData.status === 'paid'
-                    ? 'Otomatis bernilai penuh sesuai total tagihan'
-                    : 'Bernilai 0 saat status Belum Lunas'}
+                      ? 'Otomatis bernilai penuh sesuai total tagihan'
+                      : 'Bernilai 0 saat status Belum Lunas'}
                 </div>
               </div>
 
@@ -801,8 +1234,18 @@ export default function BillEditPage({ billId, mode, navigateTo }) {
               <div
                 style={{
                   gridColumn: '1 / -1',
-                  background: formData.status === 'paid' ? '#f0fdf4' : formData.status === 'partial' ? '#fffbeb' : '#f8fafc',
-                  border: formData.status === 'paid' ? '1px solid #bbf7d0' : formData.status === 'partial' ? '1px solid #fde68a' : '1px solid #e2e8f0',
+                  background:
+                    formData.status === 'paid'
+                      ? '#f0fdf4'
+                      : formData.status === 'partial'
+                        ? '#fffbeb'
+                        : '#f8fafc',
+                  border:
+                    formData.status === 'paid'
+                      ? '1px solid #bbf7d0'
+                      : formData.status === 'partial'
+                        ? '1px solid #fde68a'
+                        : '1px solid #e2e8f0',
                   borderRadius: '10px',
                   padding: '14px 18px',
                   display: 'flex',
@@ -813,10 +1256,23 @@ export default function BillEditPage({ billId, mode, navigateTo }) {
                 }}
               >
                 <div>
-                  <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted, #64748b)' }}>
+                  <div
+                    style={{
+                      fontSize: '12px',
+                      fontWeight: 600,
+                      color: 'var(--text-muted, #64748b)',
+                    }}
+                  >
                     Kalkulasi Sisa Tagihan Real-Time
                   </div>
-                  <div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-main, #0f172a)', marginTop: '2px' }}>
+                  <div
+                    style={{
+                      fontSize: '14px',
+                      fontWeight: 700,
+                      color: 'var(--text-main, #0f172a)',
+                      marginTop: '2px',
+                    }}
+                  >
                     {formatRupiah(totalAmountNum)} - {formatRupiah(paidAmountNum)} ={' '}
                     <span style={{ color: remainingAmountNum > 0 ? '#b45309' : '#15803d' }}>
                       {formatRupiah(remainingAmountNum)}
@@ -825,40 +1281,82 @@ export default function BillEditPage({ billId, mode, navigateTo }) {
                 </div>
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <span style={{ fontSize: '12px', color: 'var(--text-muted, #64748b)' }}>Status Akhir:</span>
+                  <span style={{ fontSize: '12px', color: 'var(--text-muted, #64748b)' }}>
+                    Status Akhir:
+                  </span>
                   <span
                     style={{
                       padding: '4px 10px',
                       borderRadius: '6px',
                       fontSize: '12px',
                       fontWeight: 700,
-                      background: formData.status === 'paid' ? '#dcfce7' : formData.status === 'partial' ? '#fef3c7' : '#fee2e2',
-                      color: formData.status === 'paid' ? '#15803d' : formData.status === 'partial' ? '#b45309' : '#b91c1c',
+                      background:
+                        formData.status === 'paid'
+                          ? '#dcfce7'
+                          : formData.status === 'partial'
+                            ? '#fef3c7'
+                            : '#fee2e2',
+                      color:
+                        formData.status === 'paid'
+                          ? '#15803d'
+                          : formData.status === 'partial'
+                            ? '#b45309'
+                            : '#b91c1c',
                     }}
                   >
-                    {formData.status === 'paid' ? 'LUNAS' : formData.status === 'partial' ? 'BAYAR SEBAGIAN' : 'BELUM LUNAS'}
+                    {formData.status === 'paid'
+                      ? 'LUNAS'
+                      : formData.status === 'partial'
+                        ? 'BAYAR SEBAGIAN'
+                        : 'BELUM LUNAS'}
                   </span>
                 </div>
               </div>
 
               {/* Payment Instructions / Notes */}
               <div style={{ gridColumn: '1 / -1' }}>
-                <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: 'var(--text-main, #374151)', marginBottom: '6px' }}>
+                <label
+                  style={{
+                    display: 'block',
+                    fontSize: '13px',
+                    fontWeight: 600,
+                    color: 'var(--text-main, #374151)',
+                    marginBottom: '6px',
+                  }}
+                >
                   Petunjuk Pembayaran / Catatan
                 </label>
                 <textarea
                   className="form-control"
                   rows={3}
                   value={formData.instructions}
-                  onChange={(e) => setFormData((prev) => ({ ...prev, instructions: e.target.value }))}
+                  onChange={(e) =>
+                    setFormData((prev) => ({ ...prev, instructions: e.target.value }))
+                  }
                   placeholder="Petunjuk cara pembayaran untuk mahasiswa..."
-                  style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--border-color, #d1d5db)', boxSizing: 'border-box' }}
+                  style={{
+                    width: '100%',
+                    padding: '10px 12px',
+                    borderRadius: '8px',
+                    border: '1px solid var(--border-color, #d1d5db)',
+                    boxSizing: 'border-box',
+                  }}
                 />
               </div>
             </div>
 
             {/* Action Buttons */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '12px', marginTop: '28px', paddingTop: '20px', borderTop: '1px solid var(--border-color, #e5e7eb)' }}>
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'flex-end',
+                gap: '12px',
+                marginTop: '28px',
+                paddingTop: '20px',
+                borderTop: '1px solid var(--border-color, #e5e7eb)',
+              }}
+            >
               <button
                 type="button"
                 onClick={() => navigateTo('bills')}
@@ -873,7 +1371,14 @@ export default function BillEditPage({ billId, mode, navigateTo }) {
                 type="submit"
                 className="btn btn-primary"
                 disabled={saving || !can('manage_billing')}
-                style={{ padding: '10px 24px', borderRadius: '8px', display: 'inline-flex', alignItems: 'center', gap: '8px', fontWeight: 600 }}
+                style={{
+                  padding: '10px 24px',
+                  borderRadius: '8px',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  fontWeight: 600,
+                }}
               >
                 {saving ? (
                   <>

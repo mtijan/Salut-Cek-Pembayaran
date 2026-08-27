@@ -34,7 +34,14 @@ export default function DashboardPage({ setActiveView }) {
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          marginBottom: 24,
+        }}
+      >
         <div>
           <h2 style={{ fontSize: 20, fontWeight: 800, color: 'var(--brand-strong)' }}>
             Ringkasan Operasional & Keuangan
@@ -64,7 +71,8 @@ export default function DashboardPage({ setActiveView }) {
             {stats ? stats.total_students.toLocaleString('id-ID') : '-'}
           </div>
           <div className="stat-card-subtext">
-            <strong>{stats ? stats.active_students.toLocaleString('id-ID') : '-'}</strong> Mahasiswa Aktif
+            <strong>{stats ? stats.active_students.toLocaleString('id-ID') : '-'}</strong> Mahasiswa
+            Aktif
           </div>
         </div>
 
@@ -77,7 +85,8 @@ export default function DashboardPage({ setActiveView }) {
             {stats ? stats.total_bills.toLocaleString('id-ID') : '-'}
           </div>
           <div className="stat-card-subtext">
-            <span style={{ color: 'var(--success)' }}>{stats ? stats.paid_bills : '-'} Lunas</span> |{' '}
+            <span style={{ color: 'var(--success)' }}>{stats ? stats.paid_bills : '-'} Lunas</span>{' '}
+            |{' '}
             <span style={{ color: 'var(--danger)' }}>{stats ? stats.unpaid_bills : '-'} Belum</span>
           </div>
         </div>
@@ -113,7 +122,9 @@ export default function DashboardPage({ setActiveView }) {
       <div className="progress-card">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
-            <strong style={{ fontSize: 15, color: 'var(--ink)' }}>Persentase Realisasi Pembayaran</strong>
+            <strong style={{ fontSize: 15, color: 'var(--ink)' }}>
+              Persentase Realisasi Pembayaran
+            </strong>
             <p style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>
               Perbandingan tagihan yang telah diselesaikan terhadap total piutang berjalan
             </p>

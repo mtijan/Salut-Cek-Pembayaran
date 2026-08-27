@@ -235,13 +235,21 @@ export default function MasterPage() {
                 <tbody>
                   {prodis.map((p) => (
                     <tr key={p.id}>
-                      <td><strong>{p.code}</strong></td>
-                      <td>{p.name}</td>
-                      <td><span className="badge badge-info">{p.degree}</span></td>
-                      <td>{p.faculty || '-'}</td>
-                      <td style={{ textAlign: 'right' }}><strong>{p.student_count || 0}</strong></td>
                       <td>
-                        <span className={`badge ${p.is_active ? 'badge-success' : 'badge-neutral'}`}>
+                        <strong>{p.code}</strong>
+                      </td>
+                      <td>{p.name}</td>
+                      <td>
+                        <span className="badge badge-info">{p.degree}</span>
+                      </td>
+                      <td>{p.faculty || '-'}</td>
+                      <td style={{ textAlign: 'right' }}>
+                        <strong>{p.student_count || 0}</strong>
+                      </td>
+                      <td>
+                        <span
+                          className={`badge ${p.is_active ? 'badge-success' : 'badge-neutral'}`}
+                        >
                           {p.is_active ? 'Aktif' : 'Non-Aktif'}
                         </span>
                       </td>
@@ -309,17 +317,24 @@ export default function MasterPage() {
                     const semType = p.semester_type || p.period_type || 'ganjil';
                     return (
                       <tr key={p.id}>
-                        <td><strong>{p.code}</strong></td>
+                        <td>
+                          <strong>{p.code}</strong>
+                        </td>
                         <td>{p.name}</td>
                         <td>
-                          <span className={`badge ${semType === 'ganjil' ? 'badge-info' : 'badge-warning'}`}>
+                          <span
+                            className={`badge ${semType === 'ganjil' ? 'badge-info' : 'badge-warning'}`}
+                          >
                             {semType}
                           </span>
                         </td>
                         <td>{p.default_due_date || '-'}</td>
                         <td>
                           {p.is_active ? (
-                            <span className="badge badge-success" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                            <span
+                              className="badge badge-success"
+                              style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}
+                            >
                               <CheckCircle2 size={12} />
                               <span>Semester Aktif</span>
                             </span>
@@ -355,14 +370,27 @@ export default function MasterPage() {
           <div className="modal-dialog" onClick={(e) => e.stopPropagation()} role="dialog">
             <div className="modal-header">
               <h2>{editingProdi ? 'Edit Program Studi' : 'Tambah Program Studi'}</h2>
-              <button type="button" className="modal-close-btn" onClick={() => setProdiModalOpen(false)}>
+              <button
+                type="button"
+                className="modal-close-btn"
+                onClick={() => setProdiModalOpen(false)}
+              >
                 <X size={20} />
               </button>
             </div>
             <form onSubmit={handleSaveProdi}>
               <div className="modal-body">
                 {prodiError && (
-                  <div style={{ padding: '10px 14px', background: 'var(--danger-bg)', color: 'var(--danger)', borderRadius: 8, fontSize: 13, marginBottom: 16 }}>
+                  <div
+                    style={{
+                      padding: '10px 14px',
+                      background: 'var(--danger-bg)',
+                      color: 'var(--danger)',
+                      borderRadius: 8,
+                      fontSize: 13,
+                      marginBottom: 16,
+                    }}
+                  >
                     {prodiError}
                   </div>
                 )}
@@ -411,18 +439,27 @@ export default function MasterPage() {
                   />
                 </div>
                 <div className="form-group">
-                  <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+                  <label
+                    style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}
+                  >
                     <input
                       type="checkbox"
                       checked={Boolean(prodiForm.is_active)}
-                      onChange={(e) => setProdiForm({ ...prodiForm, is_active: e.target.checked ? 1 : 0 })}
+                      onChange={(e) =>
+                        setProdiForm({ ...prodiForm, is_active: e.target.checked ? 1 : 0 })
+                      }
                     />
                     <span>Program Studi Aktif Menerima Mahasiswa</span>
                   </label>
                 </div>
               </div>
               <div className="modal-footer">
-                <button type="button" className="btn btn-secondary" onClick={() => setProdiModalOpen(false)} disabled={prodiSaving}>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => setProdiModalOpen(false)}
+                  disabled={prodiSaving}
+                >
                   Batal
                 </button>
                 <button type="submit" className="btn btn-primary" disabled={prodiSaving}>
@@ -440,14 +477,27 @@ export default function MasterPage() {
           <div className="modal-dialog" onClick={(e) => e.stopPropagation()} role="dialog">
             <div className="modal-header">
               <h2>{editingPeriod ? 'Edit Periode Akademik' : 'Tambah Periode Akademik'}</h2>
-              <button type="button" className="modal-close-btn" onClick={() => setPeriodModalOpen(false)}>
+              <button
+                type="button"
+                className="modal-close-btn"
+                onClick={() => setPeriodModalOpen(false)}
+              >
                 <X size={20} />
               </button>
             </div>
             <form onSubmit={handleSavePeriod}>
               <div className="modal-body">
                 {periodError && (
-                  <div style={{ padding: '10px 14px', background: 'var(--danger-bg)', color: 'var(--danger)', borderRadius: 8, fontSize: 13, marginBottom: 16 }}>
+                  <div
+                    style={{
+                      padding: '10px 14px',
+                      background: 'var(--danger-bg)',
+                      color: 'var(--danger)',
+                      borderRadius: 8,
+                      fontSize: 13,
+                      marginBottom: 16,
+                    }}
+                  >
                     {periodError}
                   </div>
                 )}
@@ -478,7 +528,9 @@ export default function MasterPage() {
                   <select
                     className="form-control"
                     value={periodForm.semester_type}
-                    onChange={(e) => setPeriodForm({ ...periodForm, semester_type: e.target.value })}
+                    onChange={(e) =>
+                      setPeriodForm({ ...periodForm, semester_type: e.target.value })
+                    }
                   >
                     <option value="ganjil">Ganjil</option>
                     <option value="genap">Genap</option>
@@ -491,22 +543,33 @@ export default function MasterPage() {
                     type="date"
                     className="form-control"
                     value={periodForm.default_due_date}
-                    onChange={(e) => setPeriodForm({ ...periodForm, default_due_date: e.target.value })}
+                    onChange={(e) =>
+                      setPeriodForm({ ...periodForm, default_due_date: e.target.value })
+                    }
                   />
                 </div>
                 <div className="form-group">
-                  <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+                  <label
+                    style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}
+                  >
                     <input
                       type="checkbox"
                       checked={Boolean(periodForm.is_active)}
-                      onChange={(e) => setPeriodForm({ ...periodForm, is_active: e.target.checked ? 1 : 0 })}
+                      onChange={(e) =>
+                        setPeriodForm({ ...periodForm, is_active: e.target.checked ? 1 : 0 })
+                      }
                     />
                     <span>Tetapkan sebagai Semester Aktif</span>
                   </label>
                 </div>
               </div>
               <div className="modal-footer">
-                <button type="button" className="btn btn-secondary" onClick={() => setPeriodModalOpen(false)} disabled={periodSaving}>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => setPeriodModalOpen(false)}
+                  disabled={periodSaving}
+                >
                   Batal
                 </button>
                 <button type="submit" className="btn btn-primary" disabled={periodSaving}>
