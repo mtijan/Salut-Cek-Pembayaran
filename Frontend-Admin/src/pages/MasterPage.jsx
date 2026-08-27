@@ -1,177 +1,12 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState } from 'react';
 import { Plus, Edit2, CheckCircle2, X } from 'lucide-react';
-import { masterApi } from '../services/api';
-import { useToast } from '../components/common/Toast';
 import { useAuth } from '../context/AuthContext';
+import { useMasterPage } from '../hooks/useMasterPage';
 
 export default function MasterPage() {
-  const { showToast } = useToast();
   const { can } = useAuth();
-
-  const [activeTab, setActiveTab] = useState('prodi'); // 'prodi' | 'period'
-
-  // Prodi State
-  const [prodis, setProdis] = useState([]);
-  const [prodiLoading, setProdiLoading] = useState(true);
-  const [prodiModalOpen, setProdiModalOpen] = useState(false);
-  const [editingProdi, setEditingProdi] = useState(null);
-  const [prodiForm, setProdiForm] = useState({
-    code: '',
-    name: '',
-    degree: 'S1',
-    faculty: '',
-    is_active: 1,
-  });
-  const [prodiError, setProdiError] = useState('');
-  const [prodiSaving, setProdiSaving] = useState(false);
-
-  // Period State
-  const [periods, setPeriods] = useState([]);
-  const [periodLoading, setPeriodLoading] = useState(true);
-  const [periodModalOpen, setPeriodModalOpen] = useState(false);
-  const [editingPeriod, setEditingPeriod] = useState(null);
-  const [periodForm, setPeriodForm] = useState({
-    code: '',
-    name: '',
-    semester_type: 'ganjil',
-    default_due_date: '',
-    is_active: 1,
-  });
-  const [periodError, setPeriodError] = useState('');
-  const [periodSaving, setPeriodSaving] = useState(false);
-
-  const fetchProdis = useCallback(async () => {
-    setProdiLoading(true);
-    try {
-      const res = await masterApi.listProdi();
-      setProdis(res.study_programs || []);
-    } catch (err) {
-      showToast(err.message || 'Gagal memuat Program Studi.', 'error');
-    } finally {
-      setProdiLoading(false);
-    }
-  }, [showToast]);
-
-  const fetchPeriods = useCallback(async () => {
-    setPeriodLoading(true);
-    try {
-      const res = await masterApi.listPeriods();
-      setPeriods(res.academic_periods || []);
-    } catch (err) {
-      showToast(err.message || 'Gagal memuat Periode Akademik.', 'error');
-    } finally {
-      setPeriodLoading(false);
-    }
-  }, [showToast]);
-
-  useEffect(() => {
-    fetchProdis();
-    fetchPeriods();
-  }, [fetchProdis, fetchPeriods]);
-
-  // Prodi Handlers
-  const handleOpenProdiCreate = () => {
-    setEditingProdi(null);
-    setProdiForm({
-      code: '',
-      name: '',
-      degree: 'S1',
-      faculty: 'Fakultas Hukum, Ilmu Sosial, dan Ilmu Politik',
-      is_active: 1,
-    });
-    setProdiError('');
-    setProdiModalOpen(true);
-  };
-
-  const handleOpenProdiEdit = (p) => {
-    setEditingProdi(p);
-    setProdiForm({
-      code: p.code,
-      name: p.name,
-      degree: p.degree || 'S1',
-      faculty: p.faculty || '',
-      is_active: p.is_active ? 1 : 0,
-    });
-    setProdiError('');
-    setProdiModalOpen(true);
-  };
-
-  const handleSaveProdi = async (e) => {
-    e.preventDefault();
-    if (!prodiForm.code || !prodiForm.name) {
-      setProdiError('Kode dan Nama Program Studi wajib diisi.');
-      return;
-    }
-    setProdiError('');
-    setProdiSaving(true);
-    try {
-      if (editingProdi) {
-        await masterApi.updateProdi(editingProdi.id, prodiForm);
-        showToast('Program Studi berhasil diperbarui.');
-      } else {
-        await masterApi.createProdi(prodiForm);
-        showToast('Program Studi baru berhasil ditambahkan.');
-      }
-      setProdiModalOpen(false);
-      fetchProdis();
-    } catch (err) {
-      setProdiError(err.message || 'Gagal menyimpan Program Studi.');
-    } finally {
-      setProdiSaving(false);
-    }
-  };
-
-  // Period Handlers
-  const handleOpenPeriodCreate = () => {
-    setEditingPeriod(null);
-    setPeriodForm({
-      code: '',
-      name: '',
-      semester_type: 'ganjil',
-      default_due_date: '',
-      is_active: 0,
-    });
-    setPeriodError('');
-    setPeriodModalOpen(true);
-  };
-
-  const handleOpenPeriodEdit = (p) => {
-    setEditingPeriod(p);
-    setPeriodForm({
-      code: p.code,
-      name: p.name,
-      semester_type: p.semester_type || p.period_type || 'ganjil',
-      default_due_date: p.default_due_date || '',
-      is_active: p.is_active ? 1 : 0,
-    });
-    setPeriodError('');
-    setPeriodModalOpen(true);
-  };
-
-  const handleSavePeriod = async (e) => {
-    e.preventDefault();
-    if (!periodForm.code || !periodForm.name) {
-      setPeriodError('Kode dan Nama Periode Akademik wajib diisi.');
-      return;
-    }
-    setPeriodError('');
-    setPeriodSaving(true);
-    try {
-      if (editingPeriod) {
-        await masterApi.updatePeriod(editingPeriod.id, periodForm);
-        showToast('Periode Akademik berhasil diperbarui.');
-      } else {
-        await masterApi.createPeriod(periodForm);
-        showToast('Periode Akademik baru berhasil ditambahkan.');
-      }
-      setPeriodModalOpen(false);
-      fetchPeriods();
-    } catch (err) {
-      setPeriodError(err.message || 'Gagal menyimpan Periode Akademik.');
-    } finally {
-      setPeriodSaving(false);
-    }
-  };
+  const m = useMasterPage();
+  const [activeTab, setActiveTab] = useState('prodi');
 
   return (
     <div>
@@ -182,14 +17,14 @@ export default function MasterPage() {
           className={`tab-btn ${activeTab === 'prodi' ? 'is-active' : ''}`}
           onClick={() => setActiveTab('prodi')}
         >
-          Master Program Studi ({prodis.length})
+          Master Program Studi ({m.prodis.length})
         </button>
         <button
           type="button"
           className={`tab-btn ${activeTab === 'period' ? 'is-active' : ''}`}
           onClick={() => setActiveTab('period')}
         >
-          Master Periode Akademik ({periods.length})
+          Master Periode Akademik ({m.periods.length})
         </button>
       </div>
 
@@ -205,16 +40,15 @@ export default function MasterPage() {
                 Master data program studi untuk relasi mahasiswa dan laporan keuangan
               </p>
             </div>
-
             {can('manage_master_data') && (
-              <button type="button" className="btn btn-primary" onClick={handleOpenProdiCreate}>
+              <button type="button" className="btn btn-primary" onClick={m.handleOpenProdiCreate}>
                 <Plus size={16} />
                 <span>Tambah Program Studi</span>
               </button>
             )}
           </div>
 
-          {prodiLoading ? (
+          {m.prodiLoading ? (
             <div style={{ padding: 40, textAlign: 'center', color: 'var(--muted)' }}>
               <span>Memuat Program Studi...</span>
             </div>
@@ -233,7 +67,7 @@ export default function MasterPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {prodis.map((p) => (
+                  {m.prodis.map((p) => (
                     <tr key={p.id}>
                       <td>
                         <strong>{p.code}</strong>
@@ -258,7 +92,7 @@ export default function MasterPage() {
                           <button
                             type="button"
                             className="btn btn-secondary btn-sm"
-                            onClick={() => handleOpenProdiEdit(p)}
+                            onClick={() => m.handleOpenProdiEdit(p)}
                           >
                             <Edit2 size={14} />
                             <span>Edit</span>
@@ -286,16 +120,15 @@ export default function MasterPage() {
                 Kalender semester akademik untuk penetapan tagihan berjalan
               </p>
             </div>
-
             {can('manage_master_data') && (
-              <button type="button" className="btn btn-primary" onClick={handleOpenPeriodCreate}>
+              <button type="button" className="btn btn-primary" onClick={m.handleOpenPeriodCreate}>
                 <Plus size={16} />
                 <span>Tambah Periode Akademik</span>
               </button>
             )}
           </div>
 
-          {periodLoading ? (
+          {m.periodLoading ? (
             <div style={{ padding: 40, textAlign: 'center', color: 'var(--muted)' }}>
               <span>Memuat Periode Akademik...</span>
             </div>
@@ -313,7 +146,7 @@ export default function MasterPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {periods.map((p) => {
+                  {m.periods.map((p) => {
                     const semType = p.semester_type || p.period_type || 'ganjil';
                     return (
                       <tr key={p.id}>
@@ -347,7 +180,7 @@ export default function MasterPage() {
                             <button
                               type="button"
                               className="btn btn-secondary btn-sm"
-                              onClick={() => handleOpenPeriodEdit(p)}
+                              onClick={() => m.handleOpenPeriodEdit(p)}
                             >
                               <Edit2 size={14} />
                               <span>Edit</span>
@@ -365,22 +198,22 @@ export default function MasterPage() {
       )}
 
       {/* Prodi Modal */}
-      {prodiModalOpen && (
-        <div className="modal-backdrop" onClick={() => setProdiModalOpen(false)}>
+      {m.prodiModalOpen && (
+        <div className="modal-backdrop" onClick={() => m.setProdiModalOpen(false)}>
           <div className="modal-dialog" onClick={(e) => e.stopPropagation()} role="dialog">
             <div className="modal-header">
-              <h2>{editingProdi ? 'Edit Program Studi' : 'Tambah Program Studi'}</h2>
+              <h2>{m.editingProdi ? 'Edit Program Studi' : 'Tambah Program Studi'}</h2>
               <button
                 type="button"
                 className="modal-close-btn"
-                onClick={() => setProdiModalOpen(false)}
+                onClick={() => m.setProdiModalOpen(false)}
               >
                 <X size={20} />
               </button>
             </div>
-            <form onSubmit={handleSaveProdi}>
+            <form onSubmit={m.handleSaveProdi}>
               <div className="modal-body">
-                {prodiError && (
+                {m.prodiError && (
                   <div
                     style={{
                       padding: '10px 14px',
@@ -391,7 +224,7 @@ export default function MasterPage() {
                       marginBottom: 16,
                     }}
                   >
-                    {prodiError}
+                    {m.prodiError}
                   </div>
                 )}
                 <div className="form-group">
@@ -400,8 +233,8 @@ export default function MasterPage() {
                     type="text"
                     className="form-control"
                     placeholder="Contoh: 311 (Ilmu Hukum)"
-                    value={prodiForm.code}
-                    onChange={(e) => setProdiForm({ ...prodiForm, code: e.target.value })}
+                    value={m.prodiForm.code}
+                    onChange={(e) => m.setProdiForm({ ...m.prodiForm, code: e.target.value })}
                     required
                   />
                 </div>
@@ -411,8 +244,8 @@ export default function MasterPage() {
                     type="text"
                     className="form-control"
                     placeholder="Contoh: S1 Ilmu Hukum"
-                    value={prodiForm.name}
-                    onChange={(e) => setProdiForm({ ...prodiForm, name: e.target.value })}
+                    value={m.prodiForm.name}
+                    onChange={(e) => m.setProdiForm({ ...m.prodiForm, name: e.target.value })}
                     required
                   />
                 </div>
@@ -420,8 +253,8 @@ export default function MasterPage() {
                   <label>Jenjang Pendidikan</label>
                   <select
                     className="form-control"
-                    value={prodiForm.degree}
-                    onChange={(e) => setProdiForm({ ...prodiForm, degree: e.target.value })}
+                    value={m.prodiForm.degree}
+                    onChange={(e) => m.setProdiForm({ ...m.prodiForm, degree: e.target.value })}
                   >
                     <option value="D3">Diploma 3 (D3)</option>
                     <option value="D4">Diploma 4 (D4)</option>
@@ -434,19 +267,17 @@ export default function MasterPage() {
                   <input
                     type="text"
                     className="form-control"
-                    value={prodiForm.faculty}
-                    onChange={(e) => setProdiForm({ ...prodiForm, faculty: e.target.value })}
+                    value={m.prodiForm.faculty}
+                    onChange={(e) => m.setProdiForm({ ...m.prodiForm, faculty: e.target.value })}
                   />
                 </div>
                 <div className="form-group">
-                  <label
-                    style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}
-                  >
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
                     <input
                       type="checkbox"
-                      checked={Boolean(prodiForm.is_active)}
+                      checked={Boolean(m.prodiForm.is_active)}
                       onChange={(e) =>
-                        setProdiForm({ ...prodiForm, is_active: e.target.checked ? 1 : 0 })
+                        m.setProdiForm({ ...m.prodiForm, is_active: e.target.checked ? 1 : 0 })
                       }
                     />
                     <span>Program Studi Aktif Menerima Mahasiswa</span>
@@ -457,13 +288,13 @@ export default function MasterPage() {
                 <button
                   type="button"
                   className="btn btn-secondary"
-                  onClick={() => setProdiModalOpen(false)}
-                  disabled={prodiSaving}
+                  onClick={() => m.setProdiModalOpen(false)}
+                  disabled={m.prodiSaving}
                 >
                   Batal
                 </button>
-                <button type="submit" className="btn btn-primary" disabled={prodiSaving}>
-                  {prodiSaving ? 'Menyimpan...' : 'Simpan Program Studi'}
+                <button type="submit" className="btn btn-primary" disabled={m.prodiSaving}>
+                  {m.prodiSaving ? 'Menyimpan...' : 'Simpan Program Studi'}
                 </button>
               </div>
             </form>
@@ -472,22 +303,22 @@ export default function MasterPage() {
       )}
 
       {/* Period Modal */}
-      {periodModalOpen && (
-        <div className="modal-backdrop" onClick={() => setPeriodModalOpen(false)}>
+      {m.periodModalOpen && (
+        <div className="modal-backdrop" onClick={() => m.setPeriodModalOpen(false)}>
           <div className="modal-dialog" onClick={(e) => e.stopPropagation()} role="dialog">
             <div className="modal-header">
-              <h2>{editingPeriod ? 'Edit Periode Akademik' : 'Tambah Periode Akademik'}</h2>
+              <h2>{m.editingPeriod ? 'Edit Periode Akademik' : 'Tambah Periode Akademik'}</h2>
               <button
                 type="button"
                 className="modal-close-btn"
-                onClick={() => setPeriodModalOpen(false)}
+                onClick={() => m.setPeriodModalOpen(false)}
               >
                 <X size={20} />
               </button>
             </div>
-            <form onSubmit={handleSavePeriod}>
+            <form onSubmit={m.handleSavePeriod}>
               <div className="modal-body">
-                {periodError && (
+                {m.periodError && (
                   <div
                     style={{
                       padding: '10px 14px',
@@ -498,7 +329,7 @@ export default function MasterPage() {
                       marginBottom: 16,
                     }}
                   >
-                    {periodError}
+                    {m.periodError}
                   </div>
                 )}
                 <div className="form-group">
@@ -507,8 +338,8 @@ export default function MasterPage() {
                     type="text"
                     className="form-control"
                     placeholder="Contoh: 20251 atau 20252"
-                    value={periodForm.code}
-                    onChange={(e) => setPeriodForm({ ...periodForm, code: e.target.value })}
+                    value={m.periodForm.code}
+                    onChange={(e) => m.setPeriodForm({ ...m.periodForm, code: e.target.value })}
                     required
                   />
                 </div>
@@ -518,8 +349,8 @@ export default function MasterPage() {
                     type="text"
                     className="form-control"
                     placeholder="Contoh: Semester 2025/2026 Ganjil"
-                    value={periodForm.name}
-                    onChange={(e) => setPeriodForm({ ...periodForm, name: e.target.value })}
+                    value={m.periodForm.name}
+                    onChange={(e) => m.setPeriodForm({ ...m.periodForm, name: e.target.value })}
                     required
                   />
                 </div>
@@ -527,9 +358,9 @@ export default function MasterPage() {
                   <label>Tipe Semester</label>
                   <select
                     className="form-control"
-                    value={periodForm.semester_type}
+                    value={m.periodForm.semester_type}
                     onChange={(e) =>
-                      setPeriodForm({ ...periodForm, semester_type: e.target.value })
+                      m.setPeriodForm({ ...m.periodForm, semester_type: e.target.value })
                     }
                   >
                     <option value="ganjil">Ganjil</option>
@@ -542,21 +373,19 @@ export default function MasterPage() {
                   <input
                     type="date"
                     className="form-control"
-                    value={periodForm.default_due_date}
+                    value={m.periodForm.default_due_date}
                     onChange={(e) =>
-                      setPeriodForm({ ...periodForm, default_due_date: e.target.value })
+                      m.setPeriodForm({ ...m.periodForm, default_due_date: e.target.value })
                     }
                   />
                 </div>
                 <div className="form-group">
-                  <label
-                    style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}
-                  >
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
                     <input
                       type="checkbox"
-                      checked={Boolean(periodForm.is_active)}
+                      checked={Boolean(m.periodForm.is_active)}
                       onChange={(e) =>
-                        setPeriodForm({ ...periodForm, is_active: e.target.checked ? 1 : 0 })
+                        m.setPeriodForm({ ...m.periodForm, is_active: e.target.checked ? 1 : 0 })
                       }
                     />
                     <span>Tetapkan sebagai Semester Aktif</span>
@@ -567,13 +396,13 @@ export default function MasterPage() {
                 <button
                   type="button"
                   className="btn btn-secondary"
-                  onClick={() => setPeriodModalOpen(false)}
-                  disabled={periodSaving}
+                  onClick={() => m.setPeriodModalOpen(false)}
+                  disabled={m.periodSaving}
                 >
                   Batal
                 </button>
-                <button type="submit" className="btn btn-primary" disabled={periodSaving}>
-                  {periodSaving ? 'Menyimpan...' : 'Simpan Periode Akademik'}
+                <button type="submit" className="btn btn-primary" disabled={m.periodSaving}>
+                  {m.periodSaving ? 'Menyimpan...' : 'Simpan Periode Akademik'}
                 </button>
               </div>
             </form>
