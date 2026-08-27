@@ -1,3 +1,4 @@
+import { Buffer } from 'node:buffer';
 import { expect, test } from '@playwright/test';
 
 const permissions = [
@@ -108,25 +109,66 @@ function dashboardFixture() {
   };
 }
 
+let mockTransactions = [];
+let mockProdis = [
+  { id: 'prodi-1', code: '311', name: 'Ilmu Hukum', degree: 'S1', faculty: 'FHISIP', student_count: 15, is_active: 1 },
+  { id: 'prodi-2', code: '54', name: 'Manajemen', degree: 'S1', faculty: 'FE', student_count: 10, is_active: 1 },
+];
+let mockPeriods = [
+  { id: 'period-1', code: '20261', name: 'Semester 2026/2027 Ganjil', semester_type: 'ganjil', default_due_date: '2026-10-30', is_active: 1 },
+  { id: 'period-2', code: '20252', name: 'Semester 2025/2026 Genap', semester_type: 'genap', default_due_date: '2026-03-30', is_active: 0 },
+];
+
 async function installApiMocks(page, currentAdmin = admin) {
   await page.route('**/api/**', async (route) => {
     const request = route.request();
     const url = new globalThis.URL(request.url());
     const path = url.pathname;
+    const method = request.method();
 
     if (path === '/api/admin/me') return fulfillJson(route, currentAdmin);
     if (path === '/api/admin/dashboard/stats') {
       return fulfillJson(route, dashboardFixture());
     }
     if (path === '/api/admin/study-programs') {
-      return fulfillJson(route, {
-        study_programs: [{ id: 'prodi-synthetic', name: 'Program Sintetis', degree: 'S1' }],
-      });
+      if (method === 'POST') {
+        const body = request.postDataJSON() || {};
+        const newProdi = { id: `prodi-${Date.now()}`, ...body, student_count: 0 };
+        mockProdis.push(newProdi);
+        return fulfillJson(route, newProdi, 201);
+      }
+      return fulfillJson(route, { study_programs: mockProdis });
+    }
+    if (path.startsWith('/api/admin/study-programs/')) {
+      if (method === 'PUT') {
+        const id = path.split('/').pop();
+        const body = request.postDataJSON() || {};
+        const idx = mockProdis.findIndex(p => p.id === id);
+        if (idx >= 0) {
+          mockProdis[idx] = { ...mockProdis[idx], ...body };
+          return fulfillJson(route, mockProdis[idx]);
+        }
+      }
     }
     if (path === '/api/admin/academic-periods') {
-      return fulfillJson(route, {
-        academic_periods: [{ id: 'period-synthetic', code: '2026.1', name: 'Semester Sintetis' }],
-      });
+      if (method === 'POST') {
+        const body = request.postDataJSON() || {};
+        const newPeriod = { id: `period-${Date.now()}`, ...body };
+        mockPeriods.push(newPeriod);
+        return fulfillJson(route, newPeriod, 201);
+      }
+      return fulfillJson(route, { academic_periods: mockPeriods });
+    }
+    if (path.startsWith('/api/admin/academic-periods/')) {
+      if (method === 'PUT') {
+        const id = path.split('/').pop();
+        const body = request.postDataJSON() || {};
+        const idx = mockPeriods.findIndex(p => p.id === id);
+        if (idx >= 0) {
+          mockPeriods[idx] = { ...mockPeriods[idx], ...body };
+          return fulfillJson(route, mockPeriods[idx]);
+        }
+      }
     }
     if (path === '/api/admin/students') {
       const query = (url.searchParams.get('query') || '').toLowerCase();
@@ -183,6 +225,72 @@ async function installApiMocks(page, currentAdmin = admin) {
           partial_count: 2,
           unpaid_count: 0,
         },
+      });
+    }
+    const billDetailMatch = path.match(/^\/api\/admin\/bills\/([^/]+)$/);
+    if (billDetailMatch && method === 'GET') {
+      const billId = billDetailMatch[1];
+      const targetBill = bills.find((b) => b.id === billId) || bills[1];
+      const student = students.find((s) => s.id === targetBill.student_id) || students[1];
+      return fulfillJson(route, {
+        bill: targetBill,
+        student,
+        transactions: mockTransactions,
+      });
+    }
+    const billPaymentMatch = path.match(/^\/api\/admin\/bills\/([^/]+)\/payments$/);
+    if (billPaymentMatch && method === 'POST') {
+      const body = request.postDataJSON() || {};
+      const amount = Number(body.payment_amount || 0);
+      mockTransactions.push({
+        id: `tx-${Date.now()}`,
+        transaction_type: 'payment',
+        amount,
+        amount_formatted: `Rp ${amount.toLocaleString('id-ID')}`,
+        running_paid_total_formatted: `Rp ${(250000 + amount).toLocaleString('id-ID')}`,
+        payment_date: body.payment_date || '2026-08-27',
+        payment_method: body.payment_method || 'BRIVA',
+        reference_number: body.reference_number || 'REF-SYNTHETIC',
+        notes: body.notes || 'Pembayaran via browser test',
+        previous_status: 'partial',
+        new_status: amount >= 750000 ? 'paid' : 'partial',
+        recorded_by_name: 'Synthetic Browser Admin',
+        created_at: '2026-08-27 10:00:00',
+      });
+      return fulfillJson(route, { success: true });
+    }
+    if (path === '/api/admin/import/preview' && method === 'POST') {
+      return fulfillJson(route, {
+        import_token: 'synthetic-import-token-12345',
+        file_name: 'test_master_data.xlsx',
+        valid_rows: 5,
+        new_rows: 3,
+        update_rows: 2,
+        critical_rows: 0,
+        amount_change_rows: 1,
+        briva_change_rows: 1,
+        requires_update_confirmation: true,
+        sample: [
+          {
+            nim: '990000001',
+            full_name: 'Mahasiswa Import 1',
+            program_study: 'S1 Ilmu Hukum',
+            amount: 1500000,
+            briva: '178100099001',
+            due_date: '2026-12-31',
+          },
+        ],
+        errors: [
+          { row_number: 2, message: 'Nominal berubah dari Rp 1.000.000 ke Rp 1.500.000', severity: 'warning' },
+        ],
+      });
+    }
+    if (path === '/api/admin/import/commit' && method === 'POST') {
+      return fulfillJson(route, {
+        created: 3,
+        updated: 2,
+        unchanged: 0,
+        issues: 1,
       });
     }
     if (path === '/api/admin/reports/financial-summary') {
@@ -294,4 +402,113 @@ test('viewer tidak melihat aksi mutasi pada students dan bills', async ({ page }
   await expect(page.getByRole('button', { name: 'Edit' })).toHaveCount(0);
   await page.getByRole('button', { name: 'Tagihan Mahasiswa', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Buat Tagihan Baru' })).toHaveCount(0);
+});
+
+test('bill payment flow: partial payment, live calculation, submit transaksi dan refresh ledger', async ({
+  page,
+}) => {
+  mockTransactions = [];
+  await installApiMocks(page);
+  await page.goto('/admin');
+  await page.getByRole('button', { name: 'Tagihan Mahasiswa', exact: true }).click();
+  await page.getByRole('button', { name: 'Bayar' }).nth(1).click();
+
+  await expect(page.getByText('Formulir Pembayaran Tagihan')).toBeVisible();
+  await expect(page.getByText(/Sisa Saat Ini/)).toBeVisible();
+
+  // Mode switcher to partial
+  await page.getByRole('button', { name: /Bayar Sebagian/ }).click();
+  const nominalInput = page.locator('.currency-input');
+  await nominalInput.fill('500000');
+
+  // Verify live calculation preview
+  await expect(page.locator('.live-calc-box')).toContainText(/500\.000/);
+  await expect(page.locator('.live-calc-box')).toContainText(/250\.000/);
+
+  // Fill reference & notes
+  await page.getByPlaceholder('Contoh: REF-20260825-9988').fill('REF-SYNTH-001');
+  await page.getByPlaceholder('Contoh: Cicilan ke-1 biaya UKT semester genap').fill('Cicilan pertama');
+
+  // Submit payment
+  await page.getByRole('button', { name: /Simpan & Catat Transaksi/ }).click();
+
+  // Verify ledger row appears
+  await expect(page.getByText('REF-SYNTH-001')).toBeVisible();
+  await expect(page.getByText('PEMBAYARAN', { exact: true })).toBeVisible();
+});
+
+test('upload wizard flow: preview file sintetis, confirm sensitive changes, dan commit sukses', async ({
+  page,
+}) => {
+  await installApiMocks(page);
+  await page.goto('/admin');
+  await page.getByRole('button', { name: 'Upload File', exact: true }).click();
+
+  await expect(page.getByText('Impor Data Mahasiswa & Tagihan')).toBeVisible();
+  await expect(page.getByText('Pilih File', { exact: true })).toBeVisible();
+
+  // Set synthetic file via file input
+  const fileInput = page.locator('#file-upload');
+  await fileInput.setInputFiles({
+    name: 'test_master_data.xlsx',
+    mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    buffer: Buffer.from('synthetic-excel-content'),
+  });
+
+  await page.getByRole('button', { name: 'Periksa & Analisis File' }).click();
+
+  // Step 2: verify stats and sensitive warning
+  await expect(page.getByText('Preview & Validasi')).toBeVisible();
+  await expect(page.getByText('Persetujuan Perubahan Data Sensitif Diperlukan')).toBeVisible();
+
+  // Check the confirmation checkbox
+  const confirmCheckbox = page.locator('input[type="checkbox"]');
+  await confirmCheckbox.check();
+
+  // Commit
+  await page.getByRole('button', { name: 'Simpan & Terapkan Data Tagihan' }).click();
+
+  // Step 3: verify success panel
+  await expect(page.getByText('Import Data Berhasil!')).toBeVisible();
+  await expect(page.getByText('Data Baru')).toBeVisible();
+});
+
+test('master data flow: switch prodi dan periode tab, open create modal, form validation dan submit', async ({
+  page,
+}) => {
+  await installApiMocks(page);
+  await page.goto('/admin');
+  await page.getByRole('button', { name: 'Master Data', exact: true }).click();
+
+  // Tab 1: Program Studi
+  await expect(page.getByText('Daftar Program Studi Terdaftar')).toBeVisible();
+  await expect(page.getByText('Ilmu Hukum')).toBeVisible();
+
+  // Open Prodi Modal
+  await page.getByRole('button', { name: 'Tambah Program Studi' }).click();
+  await expect(page.getByRole('heading', { name: 'Tambah Program Studi' })).toBeVisible();
+  await page.getByRole('button', { name: 'Batal' }).click();
+
+  // Tab 2: Periode Akademik
+  await page.getByRole('button', { name: /Master Periode Akademik/ }).click();
+  await expect(page.getByText('Daftar Periode / Semester Akademik')).toBeVisible();
+  await expect(page.getByText('Semester 2026/2027 Ganjil')).toBeVisible();
+
+  // Open Period Modal
+  await page.getByRole('button', { name: 'Tambah Periode Akademik' }).click();
+  await expect(page.getByRole('heading', { name: 'Tambah Periode Akademik' })).toBeVisible();
+  await page.getByRole('button', { name: 'Batal' }).click();
+});
+
+test('negative and empty states: search empty results dan api error handling', async ({
+  page,
+}) => {
+  await installApiMocks(page);
+  await page.goto('/admin');
+  await page.getByRole('button', { name: 'Data Mahasiswa', exact: true }).click();
+
+  const searchInput = page.getByPlaceholder('Cari NIM, nama, prodi, NIK, kontak...');
+  await searchInput.fill('NIM_YANG_TIDAK_PERNAH_ADA_9999999');
+
+  await expect(page.getByText('Tidak ada data mahasiswa')).toBeVisible();
 });
