@@ -1,0 +1,297 @@
+import { expect, test } from '@playwright/test';
+
+const permissions = [
+  'view_reports',
+  'view_students',
+  'view_billing',
+  'view_master_data',
+  'view_imports',
+  'manage_students',
+  'manage_billing',
+  'manage_master_data',
+  'import',
+];
+
+const admin = {
+  email: 'browser-admin@synthetic.test',
+  full_name: 'Synthetic Browser Admin',
+  role: 'admin',
+  permissions,
+};
+
+const students = Array.from({ length: 30 }, (_, index) => {
+  const number = String(index + 1).padStart(2, '0');
+  return {
+    id: `student-${number}`,
+    nim: `9900000${number}`,
+    full_name: `Synthetic Student ${number}`,
+    no_ktp: `36710000000000${number}`,
+    study_program_id: 'prodi-synthetic',
+    study_program_name: 'Program Sintetis',
+    program_study: 'Program Sintetis',
+    academic_status: index === 1 ? 'cuti' : 'aktif',
+    entry_year: 2026,
+    entry_semester: 'ganjil',
+    entry_period: '2026.1',
+    entry_period_formatted: '2026.1 (Ganjil)',
+    initial_registration: 'UNIVERSITAS TERBUKA 2026.1',
+    phone_number: `0812000000${number}`,
+    email: `student-${number}@synthetic.test`,
+    address: 'Alamat data sintetis',
+    bill_count: 1,
+    total_amount: 1000000,
+    total_amount_formatted: 'Rp 1.000.000',
+    total_paid: index % 2 === 0 ? 1000000 : 250000,
+    total_paid_formatted: index % 2 === 0 ? 'Rp 1.000.000' : 'Rp 250.000',
+    total_outstanding: index % 2 === 0 ? 0 : 750000,
+    total_outstanding_formatted: index % 2 === 0 ? 'Rp 0' : 'Rp 750.000',
+    payment_rate: index % 2 === 0 ? 100 : 25,
+    overall_status: index % 2 === 0 ? 'paid' : 'partial',
+  };
+});
+
+const bills = students.slice(0, 3).map((student, index) => ({
+  id: `bill-${index + 1}`,
+  student_id: student.id,
+  nim: student.nim,
+  student_name: student.full_name,
+  full_name: student.full_name,
+  study_program_name: student.study_program_name,
+  period: '2026.1',
+  entry_period: '2026.1',
+  bill_type: 'Registrasi Sintetis',
+  briva: `BRIVA-0${index + 1}`,
+  amount: 1000000,
+  amount_formatted: 'Rp 1.000.000',
+  paid_amount: index === 0 ? 1000000 : 250000,
+  paid_amount_formatted: index === 0 ? 'Rp 1.000.000' : 'Rp 250.000',
+  remaining_amount: index === 0 ? 0 : 750000,
+  remaining_amount_formatted: index === 0 ? 'Rp 0' : 'Rp 750.000',
+  status: index === 0 ? 'paid' : 'partial',
+  source: 'manual',
+  due_date_formatted: '31 Desember 2026',
+}));
+
+function success(data) {
+  return { success: true, data, request_id: 'synthetic-browser-request' };
+}
+
+async function fulfillJson(route, data, status = 200) {
+  await route.fulfill({
+    status,
+    contentType: 'application/json',
+    body: JSON.stringify(status < 400 ? success(data) : data),
+  });
+}
+
+function reportFixture() {
+  return {
+    by_student: students,
+    total_amount: 30000000,
+    total_paid: 18750000,
+    total_outstanding: 11250000,
+  };
+}
+
+function dashboardFixture() {
+  return {
+    total_students: 30,
+    active_students: 29,
+    total_bills: 3,
+    paid_bills: 1,
+    unpaid_bills: 2,
+    total_billed_amount_formatted: 'Rp 3.000.000',
+    total_paid_amount_formatted: 'Rp 1.500.000',
+    total_outstanding_amount_formatted: 'Rp 1.500.000',
+    payment_rate_percentage: 50,
+    recent_imports: [],
+  };
+}
+
+async function installApiMocks(page, currentAdmin = admin) {
+  await page.route('**/api/**', async (route) => {
+    const request = route.request();
+    const url = new globalThis.URL(request.url());
+    const path = url.pathname;
+
+    if (path === '/api/admin/me') return fulfillJson(route, currentAdmin);
+    if (path === '/api/admin/dashboard/stats') {
+      return fulfillJson(route, dashboardFixture());
+    }
+    if (path === '/api/admin/study-programs') {
+      return fulfillJson(route, {
+        study_programs: [{ id: 'prodi-synthetic', name: 'Program Sintetis', degree: 'S1' }],
+      });
+    }
+    if (path === '/api/admin/academic-periods') {
+      return fulfillJson(route, {
+        academic_periods: [{ id: 'period-synthetic', code: '2026.1', name: 'Semester Sintetis' }],
+      });
+    }
+    if (path === '/api/admin/students') {
+      const query = (url.searchParams.get('query') || '').toLowerCase();
+      const filtered = query
+        ? students.filter((student) =>
+            `${student.nim} ${student.full_name}`.toLowerCase().includes(query),
+          )
+        : students;
+      return fulfillJson(route, { students: filtered });
+    }
+    const detailMatch = path.match(/^\/api\/admin\/students\/([^/]+)\/detail$/);
+    if (detailMatch) {
+      const student = students.find((item) => item.id === detailMatch[1]) || students[0];
+      return fulfillJson(route, {
+        student,
+        bills: bills.filter((bill) => bill.student_id === student.id),
+        payment_history: [],
+        payment_history_pagination: { total: 0, limit: 50, offset: 0 },
+        summary: {
+          total_bills: 1,
+          total_amount: 1000000,
+          total_paid: student.total_paid,
+          total_outstanding: student.total_outstanding,
+          total_amount_formatted: 'Rp 1.000.000',
+          total_paid_formatted: student.total_paid_formatted,
+          total_outstanding_formatted: student.total_outstanding_formatted,
+          overall_status: student.overall_status,
+        },
+      });
+    }
+    if (/^\/api\/admin\/students\/[^/]+\/transactions$/.test(path)) {
+      return fulfillJson(route, {
+        transactions: [],
+        pagination: { total: 0, limit: 50, offset: 0 },
+      });
+    }
+    if (path === '/api/admin/bills') {
+      const query = (url.searchParams.get('query') || '').toLowerCase();
+      const filtered = query
+        ? bills.filter((bill) =>
+            `${bill.briva} ${bill.student_name} ${bill.nim}`.toLowerCase().includes(query),
+          )
+        : bills;
+      return fulfillJson(route, {
+        bills: filtered,
+        pagination: { total: filtered.length, limit: 100, offset: 0, total_pages: 1 },
+        summary: {
+          total_count: filtered.length,
+          student_count: filtered.length,
+          total_amount: filtered.length * 1000000,
+          total_paid: 1500000,
+          total_remaining: 1500000,
+          paid_count: 1,
+          partial_count: 2,
+          unpaid_count: 0,
+        },
+      });
+    }
+    if (path === '/api/admin/reports/financial-summary') {
+      return fulfillJson(route, reportFixture());
+    }
+    return fulfillJson(route, { error: { message: `Mock belum tersedia untuk ${path}` } }, 404);
+  });
+}
+
+test('login flow memakai bundle backend dan CSP tanpa console violation', async ({ page }) => {
+  let authenticated = false;
+  const browserErrors = [];
+  page.on('console', (message) => {
+    if (
+      message.type() === 'error' ||
+      message.text().toLowerCase().includes('content security policy')
+    ) {
+      browserErrors.push(message.text());
+    }
+  });
+  page.on('pageerror', (error) => browserErrors.push(error.message));
+
+  await page.route('**/api/**', async (route) => {
+    const path = new globalThis.URL(route.request().url()).pathname;
+    if (path === '/api/admin/me') {
+      return authenticated ? fulfillJson(route, admin) : fulfillJson(route, null);
+    }
+    if (path === '/api/admin/login') {
+      const payload = route.request().postDataJSON();
+      expect(payload.email).toBe('browser-admin@synthetic.test');
+      expect(payload.password).toBe('Synthetic-Test-Password');
+      authenticated = true;
+      return fulfillJson(route, admin);
+    }
+    if (path === '/api/admin/dashboard/stats') {
+      return fulfillJson(route, dashboardFixture());
+    }
+    return fulfillJson(route, {});
+  });
+
+  const response = await page.goto('/admin');
+  expect(response.headers()['content-security-policy']).toContain("script-src 'self'");
+  await expect(page.getByRole('heading', { name: 'Admin SALUT Awwabin' })).toBeVisible();
+  await page.getByLabel('Email Admin').fill('browser-admin@synthetic.test');
+  await page.locator('#login-password').fill('Synthetic-Test-Password');
+  await page.getByRole('button', { name: 'Masuk ke Panel Admin' }).click();
+  await expect(page.getByRole('button', { name: 'Data Mahasiswa', exact: true })).toBeVisible();
+  expect(browserErrors).toEqual([]);
+});
+
+test('students mempertahankan pagination, filter, validation, dan initial-tab navigation', async ({
+  page,
+}) => {
+  await installApiMocks(page);
+  await page.goto('/admin');
+  await page.getByRole('button', { name: 'Data Mahasiswa', exact: true }).click();
+  await expect(page.getByText('Halaman 1 / 2')).toBeVisible();
+  await page.getByTitle('Halaman Berikutnya').click();
+  await expect(page.getByText('Halaman 2 / 2')).toBeVisible();
+  await expect(page.getByText('Synthetic Student 30')).toBeVisible();
+
+  await page.getByPlaceholder('Cari NIM, nama, prodi, NIK, kontak...').fill('Synthetic Student 01');
+  await expect(page.getByText('Halaman 1 / 1')).toBeVisible();
+  await expect(page.getByText('Synthetic Student 01')).toBeVisible();
+
+  await page.getByRole('button', { name: 'Tambah Mahasiswa' }).click();
+  await page.getByRole('button', { name: 'Simpan Data Mahasiswa' }).click();
+  await expect(page.locator('input[required]:invalid')).toHaveCount(2);
+  await page.getByRole('button', { name: 'Batal' }).click();
+
+  await page.getByRole('button', { name: 'Synthetic Student 01' }).click();
+  await expect(page.getByRole('button', { name: 'Profil Biodata' })).toHaveClass(/is-active/);
+  await page.getByRole('button', { name: /Edit Biodata/ }).click();
+  await expect(page.getByText('Edit Biodata & Informasi Mahasiswa')).toBeVisible();
+});
+
+test('reports filter chip dan CSV memakai data sintetis', async ({ page }) => {
+  await installApiMocks(page);
+  await page.goto('/admin');
+  await page.getByRole('button', { name: 'Rekap Keuangan', exact: true }).click();
+  const search = page.getByPlaceholder('Cari NIM, nama mahasiswa, prodi, angkatan...');
+  await search.fill('Synthetic Student 01');
+  await expect(page.getByRole('button', { name: 'Hapus filter Cari' })).toBeVisible();
+  await expect(page.getByText('Menampilkan 1 dari 1 mahasiswa')).toBeVisible();
+  await page.getByRole('button', { name: 'Hapus filter Cari' }).click();
+  await expect(search).toHaveValue('');
+
+  const downloadPromise = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'Ekspor CSV' }).click();
+  const download = await downloadPromise;
+  expect(download.suggestedFilename()).toMatch(/^Rekap_Keuangan_SALUT_\d{4}-\d{2}-\d{2}\.csv$/);
+});
+
+test('viewer tidak melihat aksi mutasi pada students dan bills', async ({ page }) => {
+  await installApiMocks(page, {
+    ...admin,
+    role: 'viewer',
+    permissions: [
+      'view_reports',
+      'view_students',
+      'view_billing',
+      'view_master_data',
+      'view_imports',
+    ],
+  });
+  await page.goto('/admin');
+  await page.getByRole('button', { name: 'Data Mahasiswa', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Tambah Mahasiswa' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Edit' })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Tagihan Mahasiswa', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Buat Tagihan Baru' })).toHaveCount(0);
+});

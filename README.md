@@ -60,6 +60,13 @@ Project ini menggabungkan portal publik yang sederhana dengan dashboard admin be
 | `Backend/test_core.py` | Unit dan integration test backend. |
 | `Frontend/` | Portal mahasiswa dan bundle admin hasil build. |
 | `Frontend-Admin/` | Source dashboard admin React. |
+| `Frontend-Admin/src/styles/` | Layer CSS token, base, layout, components, profile/payment, responsive, dan data pages. |
+| `Frontend-Admin/src/hooks/` | Hook bersama dan feature hook untuk copy/master/pagination, report, tagihan, mahasiswa, profil, dan Student 360. |
+| `Frontend-Admin/src/components/reports/` | Filter, statistik, dan tabel feature-specific untuk rekap keuangan admin. |
+| `Frontend-Admin/src/components/bills/` | Statistik, filter, tabel, baris, dan riwayat transaksi halaman tagihan. |
+| `Frontend-Admin/src/components/students/` | Statistik, filter, tabel, baris, dan editor data mahasiswa. |
+| `Frontend-Admin/src/components/student-profile/` | Header, sidebar, navigasi, dan lima tab halaman profil mahasiswa. |
+| `Frontend-Admin/src/components/student-360/` | View biodata, keuangan, dan riwayat pada modal Student 360. |
 | `scripts/` | Utility pengembangan dan audit dependency. |
 | `VERSION` | Sumber tunggal versi aplikasi untuk backend dan bundle admin. |
 
@@ -130,8 +137,12 @@ Set-Location Frontend-Admin
 npm ci
 npm run lint
 npm test
+npm run test:browser
+npm run format:check
 npm run build
 ```
+
+Browser gate memakai Google Chrome lokal dan menjalankan bundle admin melalui FastAPI pada port test `8765`. Seluruh API bisnis diintersep dengan fixture sintetis; SQLite, trace, screenshot, dan hasil Playwright disimpan pada `Frontend-Admin/test-results/` yang di-ignore. Gate ini bukan UAT maupun bukti deployment production.
 
 Versi aplikasi diubah hanya melalui file `VERSION`. FastAPI/OpenAPI, health check, metadata package admin, dan bundle Vite divalidasi agar memakai nilai yang sama. `release_id` tetap terpisah sebagai identitas commit/deployment.
 

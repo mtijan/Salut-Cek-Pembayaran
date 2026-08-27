@@ -1,2 +1,4 @@
 node_modules/
 ../Frontend/admin-dist/
+test-results/
+playwright-report/

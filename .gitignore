@@ -3,6 +3,8 @@ node_modules/
 .pnpm-store/
 __pycache__/
 *.py[cod]
+Frontend-Admin/test-results/
+Frontend-Admin/playwright-report/
 .venv/
 .venv-audit/
 
