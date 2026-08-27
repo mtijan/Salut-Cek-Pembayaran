@@ -1,0 +1,262 @@
+import { useState, useEffect, useCallback } from 'react';
+import { billsApi, studentsApi, masterApi } from '../services/api';
+import { useToast } from '../components/common/Toast';
+import { useCopyFeedback } from './useCopyFeedback';
+
+/**
+ * Feature hook untuk BillEditPage.
+ * Mengelola state, fetch, kalkulasi, dan handler form create/edit tagihan.
+ * Container page bertanggung jawab atas navigasi dan layout.
+ */
+export function useBillEditor({ billId, mode, navigateTo }) {
+  const { showToast } = useToast();
+  const isCreate = mode === 'create' || !billId;
+
+  const [loading, setLoading] = useState(!isCreate);
+  const [saving, setSaving] = useState(false);
+  const { copiedKey, copyToClipboard } = useCopyFeedback();
+  const [formError, setFormError] = useState('');
+
+  // Master data options
+  const [periods, setPeriods] = useState([]);
+  const [students, setStudents] = useState([]);
+
+  // Loaded bill & student (edit mode)
+  const [loadedBill, setLoadedBill] = useState(null);
+  const [loadedStudent, setLoadedStudent] = useState(null);
+
+  const [formData, setFormData] = useState({
+    student_id: '',
+    nim: '',
+    full_name: '',
+    period_mode: 'master',
+    period: '20251',
+    custom_period: '',
+    bill_type_mode: 'UKT',
+    custom_bill_type: '',
+    amount: '',
+    paid_amount: '0',
+    briva: '',
+    status: 'unpaid',
+    due_date: '',
+    instructions: 'Bayar melalui BRIVA BRI dengan nomor BRIVA yang tampil.',
+    notes: '',
+  });
+
+  const fetchMasterOptions = useCallback(async () => {
+    try {
+      const [pRes, sRes] = await Promise.all([
+        masterApi.listPeriods(),
+        studentsApi.list({ limit: 1000 }),
+      ]);
+      setPeriods(pRes.academic_periods || []);
+      setStudents(sRes.students || []);
+    } catch {}
+  }, []);
+
+  const fetchBillData = useCallback(async () => {
+    if (isCreate || !billId) return;
+    setLoading(true);
+    try {
+      const res = await billsApi.getDetail(billId);
+      const b = res.bill || {};
+      const s = res.student || {};
+      setLoadedBill(b);
+      setLoadedStudent(s);
+
+      const rawPeriod = b.period || '';
+      const isPeriodInList = periods.some((p) => p.code === rawPeriod || p.name === rawPeriod);
+
+      const rawType = b.bill_type || 'UKT';
+      const isKnownType = ['UKT', 'WISUDA', 'PRAKTIKUM', 'REGISTRASI'].includes(
+        rawType.toUpperCase(),
+      );
+
+      setFormData({
+        student_id: b.student_id || s.id || '',
+        nim: s.nim || b.nim || '',
+        full_name: s.full_name || b.full_name || '',
+        period_mode: isPeriodInList ? 'master' : rawPeriod ? 'custom' : 'master',
+        period: isPeriodInList ? rawPeriod : periods[0]?.code || '20251',
+        custom_period: !isPeriodInList ? rawPeriod : '',
+        bill_type_mode: isKnownType ? rawType.toUpperCase() : 'Custom',
+        custom_bill_type: !isKnownType ? rawType : '',
+        amount: String(b.amount || ''),
+        paid_amount: String(b.paid_amount || '0'),
+        briva: b.briva || '',
+        status: b.status || 'unpaid',
+        due_date: b.due_date ? String(b.due_date).slice(0, 10) : '',
+        instructions: b.instructions || 'Bayar melalui BRIVA BRI dengan nomor BRIVA yang tampil.',
+        notes: '',
+      });
+    } catch (err) {
+      showToast(err.message || 'Gagal memuat data tagihan.', 'error');
+    } finally {
+      setLoading(false);
+    }
+  }, [billId, isCreate, periods, showToast]);
+
+  useEffect(() => {
+    fetchMasterOptions();
+  }, [fetchMasterOptions]);
+
+  useEffect(() => {
+    if (periods.length > 0 || isCreate) {
+      fetchBillData();
+    }
+  }, [periods, fetchBillData, isCreate]);
+
+  const handleCopy = (text, label) => {
+    copyToClipboard(text, label, () => showToast(`${label} disalin ke clipboard!`, 'success'));
+  };
+
+  // Derived calculations
+  const totalAmountNum = Number(formData.amount) || 0;
+  const paidAmountNum = Number(formData.paid_amount) || 0;
+  const remainingAmountNum = Math.max(0, totalAmountNum - paidAmountNum);
+
+  const handleStatusChange = (newStatus) => {
+    let updatedPaid = formData.paid_amount;
+    if (newStatus === 'paid') {
+      updatedPaid = String(totalAmountNum);
+    } else if (newStatus === 'unpaid') {
+      updatedPaid = '0';
+    } else if (newStatus === 'partial') {
+      if (Number(updatedPaid) <= 0 || Number(updatedPaid) >= totalAmountNum) {
+        updatedPaid = String(Math.round(totalAmountNum / 2) || 500000);
+      }
+    }
+    setFormData((prev) => ({ ...prev, status: newStatus, paid_amount: updatedPaid }));
+  };
+
+  const handleAmountChange = (e) => {
+    const val = e.target.value;
+    const num = Number(val) || 0;
+    setFormData((prev) => {
+      let nextPaid = prev.paid_amount;
+      if (prev.status === 'paid') {
+        nextPaid = String(num);
+      } else if (prev.status === 'partial' && Number(nextPaid) > num) {
+        nextPaid = String(Math.round(num / 2));
+      }
+      return { ...prev, amount: val, paid_amount: nextPaid };
+    });
+  };
+
+  const handlePaidAmountChange = (e) => {
+    const val = e.target.value;
+    const num = Number(val) || 0;
+    let nextStatus = formData.status;
+    if (num <= 0) {
+      nextStatus = 'unpaid';
+    } else if (num >= totalAmountNum && totalAmountNum > 0) {
+      nextStatus = 'paid';
+    } else {
+      nextStatus = 'partial';
+    }
+    setFormData((prev) => ({ ...prev, paid_amount: val, status: nextStatus }));
+  };
+
+  const handleStudentSelect = (e) => {
+    const sId = e.target.value;
+    const st = students.find((s) => s.id === sId);
+    if (st) {
+      setFormData((prev) => ({ ...prev, student_id: st.id, nim: st.nim, full_name: st.full_name }));
+    } else {
+      setFormData((prev) => ({ ...prev, student_id: '', nim: '', full_name: '' }));
+    }
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setFormError('');
+
+    if (isCreate && !formData.student_id && !formData.nim) {
+      setFormError('Mahasiswa wajib dipilih.');
+      return;
+    }
+    if (!formData.briva.trim()) {
+      setFormError('Nomor BRIVA wajib diisi.');
+      return;
+    }
+    if (totalAmountNum <= 0) {
+      setFormError('Nominal tagihan harus berupa angka positif lebih dari 0.');
+      return;
+    }
+
+    const finalPeriod =
+      formData.period_mode === 'custom' ? formData.custom_period.trim() : formData.period;
+    if (!finalPeriod) {
+      setFormError('Periode tagihan wajib diisi.');
+      return;
+    }
+
+    const finalBillType =
+      formData.bill_type_mode === 'Custom'
+        ? formData.custom_bill_type.trim()
+        : formData.bill_type_mode;
+    if (!finalBillType) {
+      setFormError('Jenis tagihan wajib diisi.');
+      return;
+    }
+
+    if (paidAmountNum > totalAmountNum) {
+      setFormError('Nominal terbayar tidak boleh melebihi total nominal tagihan.');
+      return;
+    }
+
+    const payload = {
+      student_id: formData.student_id || undefined,
+      nim: formData.nim || undefined,
+      full_name: formData.full_name || undefined,
+      period: finalPeriod,
+      bill_type: finalBillType,
+      amount: totalAmountNum,
+      paid_amount: paidAmountNum,
+      briva: formData.briva.trim(),
+      status: formData.status,
+      due_date: formData.due_date || null,
+      instructions: formData.instructions.trim(),
+    };
+
+    setSaving(true);
+    try {
+      if (isCreate) {
+        await billsApi.create(payload);
+        showToast('Tagihan mahasiswa berhasil dibuat!', 'success');
+      } else {
+        await billsApi.update(billId, payload);
+        showToast('Perubahan tagihan mahasiswa berhasil disimpan!', 'success');
+      }
+      navigateTo('bills');
+    } catch (err) {
+      setFormError(err.message || 'Gagal menyimpan data tagihan.');
+      showToast(err.message || 'Gagal menyimpan data tagihan.', 'error');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return {
+    isCreate,
+    loading,
+    saving,
+    formData,
+    setFormData,
+    formError,
+    periods,
+    students,
+    loadedBill,
+    loadedStudent,
+    copiedKey,
+    totalAmountNum,
+    paidAmountNum,
+    remainingAmountNum,
+    handleCopy,
+    handleStatusChange,
+    handleAmountChange,
+    handlePaidAmountChange,
+    handleStudentSelect,
+    handleSubmit,
+  };
+}
