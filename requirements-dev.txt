@@ -3,3 +3,4 @@
 # Reproducible local/CI quality tooling; not installed in the production image.
 ruff==0.16.3
 mypy==2.3.1
+httpx==0.28.1
