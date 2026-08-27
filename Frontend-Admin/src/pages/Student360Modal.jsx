@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, User, CheckCircle2, AlertCircle, Clock, Copy, CreditCard, BookOpen, Check } from 'lucide-react';
+import { X, User, Clock, Copy, CreditCard, BookOpen, Check } from 'lucide-react';
 import { studentsApi } from '../services/api';
 import { useToast } from '../components/common/Toast';
 

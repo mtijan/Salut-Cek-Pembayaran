@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Layers, Trash2, RefreshCw, FileText, Calendar, Users, Receipt } from 'lucide-react';
+import { Trash2, RefreshCw, FileText, Calendar } from 'lucide-react';
 import { importApi } from '../services/api';
 import { useToast } from '../components/common/Toast';
 import { useAuth } from '../context/AuthContext';

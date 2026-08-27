@@ -4,7 +4,6 @@ import {
   Receipt,
   TrendingUp,
   AlertCircle,
-  ArrowRight,
   UploadCloud,
   FileSpreadsheet,
   RefreshCw,

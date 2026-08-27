@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Database, Plus, Edit2, Trash2, CheckCircle2, X } from 'lucide-react';
+import { Plus, Edit2, CheckCircle2, X } from 'lucide-react';
 import { masterApi } from '../services/api';
 import { useToast } from '../components/common/Toast';
 import { useAuth } from '../context/AuthContext';

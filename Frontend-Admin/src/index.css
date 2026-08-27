@@ -1,6 +1,6 @@
 :root {
-  --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
-  --font-mono: 'JetBrains Mono', monospace;
+  --font-sans: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-mono: "Cascadia Code", "SFMono-Regular", Consolas, "Liberation Mono", monospace;
 
   /* Color Palette - Premium SALUT Emerald Identity */
   --brand: #0f4c3a;
@@ -61,6 +61,35 @@ body {
 button, input, select, textarea {
   font-family: inherit;
   color: inherit;
+}
+
+.auth-check-screen {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg);
+  gap: 12px;
+}
+
+.auth-check-spinner {
+  width: 36px;
+  height: 36px;
+  border: 3px solid var(--line);
+  border-top-color: var(--brand);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+.auth-check-label {
+  font-size: 13px;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+@keyframes spin {
+  100% { transform: rotate(360deg); }
 }
 
 /* ==========================================
@@ -236,6 +265,13 @@ button, input, select, textarea {
   display: flex;
   flex-direction: column;
   gap: 6px;
+}
+
+.sidebar-app-version {
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  letter-spacing: 0.02em;
+  padding: 0 0.4rem;
 }
 
 .app-sidebar.is-collapsed .sidebar-footer {
@@ -2413,6 +2449,4 @@ button, input, select, textarea {
   border-radius: 9999px;
   transition: width 0.3s ease;
 }
-
-
 

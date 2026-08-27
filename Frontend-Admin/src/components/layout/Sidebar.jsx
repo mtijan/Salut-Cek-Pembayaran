@@ -14,6 +14,7 @@ import {
   PanelLeftOpen,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { APP_VERSION } from '../../version';
 
 export const NAV_ITEMS = [
   { id: 'dashboard', label: 'Dashboard', kicker: 'Ringkasan Sistem', icon: LayoutDashboard },
@@ -100,6 +101,7 @@ export default function Sidebar({
         </nav>
 
         <div className="sidebar-footer">
+          {!isCollapsed && <div className="sidebar-app-version">Versi {APP_VERSION}</div>}
           {onToggleCollapse && (
             <button
               type="button"

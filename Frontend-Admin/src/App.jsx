@@ -45,29 +45,9 @@ export default function App() {
 
   if (loading) {
     return (
-      <div
-        style={{
-          minHeight: '100vh',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          background: 'var(--bg)',
-          gap: 12,
-        }}
-      >
-        <div
-          style={{
-            width: 36,
-            height: 36,
-            border: '3px solid var(--line)',
-            borderTopColor: 'var(--brand)',
-            borderRadius: '50%',
-            animation: 'spin 0.8s linear infinite',
-          }}
-        />
-        <style>{`@keyframes spin { 100% { transform: rotate(360deg); } }`}</style>
-        <span style={{ fontSize: 13, color: 'var(--muted)', fontWeight: 600 }}>
+      <div className="auth-check-screen">
+        <div className="auth-check-spinner" />
+        <span className="auth-check-label">
           Memeriksa autentikasi admin...
         </span>
       </div>

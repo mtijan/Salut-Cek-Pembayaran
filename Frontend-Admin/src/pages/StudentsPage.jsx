@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   Search, Plus, UserCheck, Edit2, Trash2, Eye, RefreshCw, X, Copy,
   Users, UserX, CreditCard, BookOpen, ChevronLeft, ChevronRight,
-  ChevronsLeft, ChevronsRight, Check, Phone, Mail, MapPin, Calendar
+  ChevronsLeft, ChevronsRight, Check, Phone
 } from 'lucide-react';
 import { studentsApi, masterApi } from '../services/api';
 import { useToast } from '../components/common/Toast';

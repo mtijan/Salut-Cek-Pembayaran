@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
-  ArrowLeft, CreditCard, User, Clock, Check, Copy, AlertCircle,
-  CheckCircle2, DollarSign, Calendar, FileText, ChevronRight,
-  ExternalLink, RefreshCw, Layers, Save, HelpCircle, UserCheck, BookOpen
+  ArrowLeft, CreditCard, User, Check, Copy, AlertCircle,
+  ChevronRight, RefreshCw, Save
 } from 'lucide-react';
 import { billsApi, studentsApi, masterApi } from '../services/api';
 import { useToast } from '../components/common/Toast';

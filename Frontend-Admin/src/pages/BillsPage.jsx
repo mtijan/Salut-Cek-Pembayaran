@@ -1,9 +1,8 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   Search, Plus, Edit2, Trash2, ChevronLeft, ChevronRight, CheckCircle2,
-  RefreshCw, AlertCircle, Info, DollarSign, UserCheck, Clock, X, CreditCard,
-  Building, Calendar, Filter, ArrowUpDown, Copy, Check, FileText, Sparkles,
-  TrendingUp, AlertTriangle, CheckCheck, Layers, HelpCircle, Eye, Users, UserX
+  RefreshCw, AlertCircle, Clock, X, CreditCard,
+  Calendar, Filter, Copy, Check, FileText
 } from 'lucide-react';
 import { billsApi, masterApi } from '../services/api';
 import { useToast } from '../components/common/Toast';

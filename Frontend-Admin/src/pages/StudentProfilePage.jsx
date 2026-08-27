@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
-  ArrowLeft, User, BookOpen, CreditCard, Clock, Edit3, Copy, Check,
-  Phone, Mail, MapPin, Calendar, Building2, ShieldCheck, AlertCircle,
-  Plus, CheckCircle2, ExternalLink, RefreshCw, Save, X
+  ArrowLeft, User, CreditCard, Clock, Edit3, Copy, Check,
+  Mail, Building2, AlertCircle,
+  Plus, ExternalLink, RefreshCw, Save
 } from 'lucide-react';
 import { studentsApi, masterApi } from '../services/api';
 import { useToast } from '../components/common/Toast';
@@ -173,7 +173,6 @@ export default function StudentProfilePage({ studentId, initialTab = 'profile', 
             margin: '0 auto 16px',
           }}
         />
-        <style>{`@keyframes spin { 100% { transform: rotate(360deg); } }`}</style>
         <p style={{ color: 'var(--muted)', fontSize: 14, fontWeight: 600 }}>
           Memuat data profil mahasiswa...
         </p>

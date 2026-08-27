@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   Search, Download, RefreshCw, FileText, CheckCircle2, Clock,
-  CreditCard, TrendingUp, AlertCircle, Filter, X, Building,
-  Calendar, Layers, Copy, Check, User, ChevronLeft, ChevronRight
+  TrendingUp, Filter, X,
+  Copy, Check, User, ChevronLeft, ChevronRight
 } from 'lucide-react';
 import { reportsApi, masterApi } from '../services/api';
 import { useToast } from '../components/common/Toast';
@@ -573,7 +573,6 @@ export default function ReportsPage({ navigateTo }) {
                 animation: 'spin 0.8s linear infinite',
               }}
             />
-            <style>{`@keyframes spin { 100% { transform: rotate(360deg); } }`}</style>
             <p style={{ fontSize: 13, fontWeight: 600 }}>Memuat data rekapitulasi keuangan...</p>
           </div>
         ) : !filteredAndSortedStudents.length ? (

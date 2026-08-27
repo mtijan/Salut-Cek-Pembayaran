@@ -1,12 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   ArrowLeft, CreditCard, User, Clock, Check, Copy, AlertCircle,
-  CheckCircle2, DollarSign, Calendar, FileText, ChevronRight,
-  ExternalLink, RefreshCw, Layers, Save, HelpCircle
+  CheckCircle2, Calendar, RefreshCw, Layers, Save
 } from 'lucide-react';
 import { billsApi } from '../services/api';
 import { useToast } from '../components/common/Toast';
-import { useAuth } from '../context/AuthContext';
 
 const formatRupiah = (val) => {
   const num = Number(val) || 0;
@@ -20,7 +18,6 @@ const formatRupiah = (val) => {
 
 export default function BillPaymentPage({ billId, navigateTo }) {
   const { showToast } = useToast();
-  const { can } = useAuth();
 
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -98,7 +95,6 @@ export default function BillPaymentPage({ billId, navigateTo }) {
 
   // Real-time calculation
   const numericPayment = Number(paymentAmount) || 0;
-  const newPaidTotal = currentPaid + numericPayment;
   const newRemaining = Math.max(0, remainingAmount - numericPayment);
   const willBePaid = numericPayment >= remainingAmount && remainingAmount > 0;
 
@@ -156,7 +152,6 @@ export default function BillPaymentPage({ billId, navigateTo }) {
             margin: '0 auto 16px',
           }}
         />
-        <style>{`@keyframes spin { 100% { transform: rotate(360deg); } }`}</style>
         <p style={{ color: 'var(--muted)', fontSize: 14, fontWeight: 600 }}>
           Memuat halaman pembayaran tagihan...
         </p>
