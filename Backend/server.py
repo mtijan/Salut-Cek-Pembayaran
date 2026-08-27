@@ -9,10 +9,8 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from Backend.app.config import DB_PATH, PORT
-from Backend.app.main import app
-from Backend.app.rate_limit import RateLimiter
-from Backend.app.services import list_imported_bill_groups, update_bill_status
+from Backend.app.config import DB_PATH, PORT  # noqa: E402 - script mode adjusts sys.path first
+from Backend.app.main import app as app  # noqa: E402 - compatibility export for ASGI/tests
 
 
 def main() -> None:

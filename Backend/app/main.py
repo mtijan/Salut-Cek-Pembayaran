@@ -10,15 +10,15 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 
 from Backend.app import config
-from Backend.app.rate_limit import RATE_LIMITER, RateLimiter
+from Backend.app.rate_limit import RATE_LIMITER
 from Backend.app.responses import error_response, request_id, success_response
 from Backend.app.security import cookie_header
+from Backend.app.version import APP_VERSION
 from Backend.app.services import (
     authenticate_admin,
     bill_row_to_dict,
     cleanup_stale_imports,
     cleanup_operational_data,
-    count_bills,
     create_academic_period,
     create_admin_session,
     create_bill,
@@ -32,7 +32,6 @@ from Backend.app.services import (
     delete_study_program,
     ensure_database,
     find_admin_by_session,
-    format_due_date,
     get_bill_detail,
     get_bills_summary,
     get_dashboard_stats,
@@ -46,13 +45,11 @@ from Backend.app.services import (
     list_payment_transactions,
     list_students,
     list_study_programs,
-    rupiah,
     payment_transaction_target_exists,
     record_bill_payment,
     sanitize_filename,
     store_import_preview,
     student_row_to_dict,
-    summarize_payment_status,
     update_academic_period,
     update_bill,
     update_bill_due_date,
@@ -65,6 +62,7 @@ from Backend.app.services import (
 )
 from Backend.db import connect
 from Backend.import_excel import generate_master_data_template, import_workbook, preview_workbook
+from Backend.app.use_cases.lookup import LookupService
 
 
 logger = logging.getLogger(__name__)
@@ -84,7 +82,21 @@ async def lifespan(_: FastAPI):
     yield
 
 
-app = FastAPI(title="Salut Cek Pembayaran", version="0.2.0", lifespan=lifespan)
+app = FastAPI(title="Salut Cek Pembayaran", version=APP_VERSION, lifespan=lifespan)
+
+DOCS_CONTENT_SECURITY_POLICY = (
+    "default-src 'self'; base-uri 'none'; frame-ancestors 'none'; object-src 'none'; "
+    "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
+    "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
+    "font-src 'self'; img-src 'self' data: https://fastapi.tiangolo.com https://cdn.jsdelivr.net;"
+)
+
+APPLICATION_CONTENT_SECURITY_POLICY = (
+    "default-src 'self'; base-uri 'none'; frame-ancestors 'none'; object-src 'none'; "
+    "script-src 'self'; connect-src 'self'; "
+    "style-src 'self'; style-src-elem 'self'; style-src-attr 'unsafe-inline'; "
+    "font-src 'self'; img-src 'self' data:; form-action 'self'; manifest-src 'self';"
+)
 
 
 @app.middleware("http")
@@ -94,19 +106,9 @@ async def security_headers(request: Request, call_next):
     response.headers["Referrer-Policy"] = "no-referrer"
     response.headers["X-Frame-Options"] = "DENY"
     if request.url.path in {"/docs", "/redoc", "/openapi.json"}:
-        response.headers["Content-Security-Policy"] = (
-            "default-src 'self'; base-uri 'none'; frame-ancestors 'none'; "
-            "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
-            "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://fonts.googleapis.com; "
-            "font-src 'self' https://fonts.gstatic.com; "
-            "img-src 'self' data: https://fastapi.tiangolo.com https://cdn.jsdelivr.net;"
-        )
+        response.headers["Content-Security-Policy"] = DOCS_CONTENT_SECURITY_POLICY
     else:
-        response.headers["Content-Security-Policy"] = (
-            "default-src 'self'; base-uri 'none'; frame-ancestors 'none'; "
-            "script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
-            "font-src 'self' https://fonts.gstatic.com; img-src 'self' data:"
-        )
+        response.headers["Content-Security-Policy"] = APPLICATION_CONTENT_SECURITY_POLICY
     return response
 
 
@@ -184,7 +186,7 @@ def require_admin(permission: str | None = None):
 
 @app.get("/api/health")
 async def health() -> JSONResponse:
-    return success_response({"status": "ok", "version": "0.2.0", "release_id": config.RELEASE_ID})
+    return success_response({"status": "ok", "version": APP_VERSION, "release_id": config.RELEASE_ID})
 
 
 @app.post("/api/lookup")
@@ -213,64 +215,20 @@ async def lookup(request: Request) -> JSONResponse:
         write_lookup_log(nim, "", "invalid")
         return error_response(400, "VALIDATION_ERROR", "NIM wajib diisi.", req_id=req_id)
 
-    conn = connect(config.DB_PATH)
-    student = conn.execute("select id, nim, full_name, program_study from students where nim = ? and deleted_at is null", (nim,)).fetchone()
-    if not student:
-        conn.close()
+    result = LookupService(
+        config.DB_PATH,
+        default_program_study=config.DEFAULT_PROGRAM_STUDY,
+        default_payment_period_label=config.DEFAULT_PAYMENT_PERIOD_LABEL,
+    ).execute(nim)
+    if result is None:
         write_lookup_log(nim, "", "not_found")
         return error_response(404, "NOT_FOUND", "Data tagihan tidak ditemukan. Pastikan NIM sesuai data SALUT.", req_id=req_id)
-
-    bills = conn.execute(
-        """
-        select briva, amount, coalesce(paid_amount, 0) as paid_amount, period, bill_type, status, payment_method, instructions, due_date
-        from bills
-        where student_id = ? and deleted_at is null
-        order by period desc, created_at asc, briva asc
-        """,
-        (student["id"],),
-    ).fetchall()
-    conn.close()
     write_lookup_log(nim, "", "found")
-
-    unpaid_due_dates = [b["due_date"] for b in bills if b["due_date"] and b["status"] != "paid"]
-    all_due_dates = [b["due_date"] for b in bills if b["due_date"]]
-    primary_due_date = unpaid_due_dates[0] if unpaid_due_dates else (all_due_dates[0] if all_due_dates else "")
-    payment_status = summarize_payment_status([bill["status"] for bill in bills])
 
     return JSONResponse(
         {
             "success": True,
-            "data": {
-                "student": {
-                    "nim": student["nim"],
-                    "full_name": student["full_name"],
-                    "program_study": student["program_study"] or config.DEFAULT_PROGRAM_STUDY,
-                    "payment_period": config.DEFAULT_PAYMENT_PERIOD_LABEL or (bills[0]["period"] if bills else ""),
-                    "due_date": primary_due_date,
-                    "due_date_formatted": format_due_date(primary_due_date),
-                },
-                "bills": [
-                    {
-                        "bill_label": f"Tagihan {index}" if len(bills) > 1 else bill["bill_type"],
-                        "period": bill["period"],
-                        "bill_type": bill["bill_type"],
-                        "status": bill["status"],
-                        "amount": bill["amount"],
-                        "amount_formatted": rupiah(int(bill["amount"])),
-                        "paid_amount": int(bill["paid_amount"] or 0) if bill["status"] == "partial" else (int(bill["amount"]) if bill["status"] == "paid" else 0),
-                        "paid_amount_formatted": rupiah(int(bill["paid_amount"] or 0)) if bill["status"] == "partial" else (rupiah(int(bill["amount"])) if bill["status"] == "paid" else rupiah(0)),
-                        "remaining_amount": max(0, int(bill["amount"]) - (int(bill["paid_amount"] or 0) if bill["status"] == "partial" else (int(bill["amount"]) if bill["status"] == "paid" else 0))),
-                        "remaining_amount_formatted": rupiah(max(0, int(bill["amount"]) - (int(bill["paid_amount"] or 0) if bill["status"] == "partial" else (int(bill["amount"]) if bill["status"] == "paid" else 0)))),
-                        "payment_method": bill["payment_method"],
-                        "briva": bill["briva"],
-                        "instructions": bill["instructions"],
-                        "due_date": bill["due_date"] or "",
-                        "due_date_formatted": format_due_date(bill["due_date"]),
-                    }
-                    for index, bill in enumerate(bills, start=1)
-                ],
-                "payment_status": payment_status,
-            },
+            "data": result,
             "request_id": req_id,
         }
     )

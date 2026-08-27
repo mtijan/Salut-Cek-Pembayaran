@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 import sys
 import sqlite3
 import tempfile
@@ -13,6 +12,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import server
 from Backend.app import config as app_config
+from Backend.app.version import APP_VERSION
 from Backend.app.config import ROLE_PERMISSIONS
 from Backend.app.rate_limit import RateLimiter
 from Backend.app.services import (
@@ -401,6 +401,7 @@ class CoreBehaviorTests(unittest.TestCase):
     def test_production_runtime_configuration_rejects_placeholder_values(self) -> None:
         with (
             mock.patch.object(app_config, "APP_ENV", "production"),
+            mock.patch.object(app_config, "PROCESS_WORKERS", 1),
             mock.patch.object(app_config, "LOOKUP_HASH_SECRET", "change-this-to-a-secure-random-secret"),
             mock.patch.object(app_config, "ADMIN_BOOTSTRAP_EMAIL", "admin@example.com"),
             mock.patch.object(app_config, "ADMIN_BOOTSTRAP_PASSWORD", "AdminSecurePassword123!"),
@@ -410,11 +411,25 @@ class CoreBehaviorTests(unittest.TestCase):
 
         with (
             mock.patch.object(app_config, "APP_ENV", "production"),
+            mock.patch.object(app_config, "PROCESS_WORKERS", 1),
             mock.patch.object(app_config, "LOOKUP_HASH_SECRET", "0123456789abcdef0123456789abcdef"),
             mock.patch.object(app_config, "ADMIN_BOOTSTRAP_EMAIL", "operator@salut.id"),
             mock.patch.object(app_config, "ADMIN_BOOTSTRAP_PASSWORD", "SangatKuat-2026!"),
         ):
             validate_runtime_configuration()
+
+    def test_production_runtime_configuration_rejects_in_memory_limiter_scale_out(self) -> None:
+        for worker_count in (0, 2):
+            with self.subTest(worker_count=worker_count):
+                with (
+                    mock.patch.object(app_config, "APP_ENV", "production"),
+                    mock.patch.object(app_config, "PROCESS_WORKERS", worker_count),
+                    mock.patch.object(app_config, "LOOKUP_HASH_SECRET", "0123456789abcdef0123456789abcdef"),
+                    mock.patch.object(app_config, "ADMIN_BOOTSTRAP_EMAIL", "operator@salut.id"),
+                    mock.patch.object(app_config, "ADMIN_BOOTSTRAP_PASSWORD", "SangatKuat-2026!"),
+                ):
+                    with self.assertRaisesRegex(RuntimeError, "hanya aman untuk satu worker"):
+                        validate_runtime_configuration()
 
     def test_imported_groups_exclude_manual_data_and_can_be_deleted(self) -> None:
         from Backend.app.services import create_bill, list_bills
@@ -845,7 +860,7 @@ class CoreBehaviorTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(
             response.json()["data"],
-            {"status": "ok", "version": "0.2.0", "release_id": app_config.RELEASE_ID},
+            {"status": "ok", "version": APP_VERSION, "release_id": app_config.RELEASE_ID},
         )
 
     def test_release_id_auto_follows_git_head(self) -> None:
@@ -955,6 +970,25 @@ class CoreBehaviorTests(unittest.TestCase):
         self.assertEqual(client.get("/api/admin/imported-bills").status_code, 401)
         self.assertEqual(client.request("DELETE", "/api/admin/imported-files", json={"file_name": "x.xlsx", "reason": "test"}).status_code, 401)
 
+    def test_application_csp_blocks_inline_style_elements_and_external_fonts(self) -> None:
+        response = TestClient(server.app).get("/")
+        self.assertEqual(response.status_code, 200)
+        directives = {}
+        for directive in response.headers["content-security-policy"].split(";"):
+            parts = directive.strip().split()
+            if parts:
+                directives[parts[0]] = parts[1:]
+
+        self.assertEqual(directives["script-src"], ["'self'"])
+        self.assertEqual(directives["style-src"], ["'self'"])
+        self.assertEqual(directives["style-src-elem"], ["'self'"])
+        self.assertEqual(directives["font-src"], ["'self'"])
+        self.assertEqual(directives["object-src"], ["'none'"])
+        self.assertEqual(directives["form-action"], ["'self'"])
+        self.assertNotIn("fonts.googleapis.com", response.headers["content-security-policy"])
+        self.assertNotIn("fonts.gstatic.com", response.headers["content-security-policy"])
+        self.assertEqual(directives["style-src-attr"], ["'unsafe-inline'"])
+
     def test_delete_requires_reason(self) -> None:
         from Backend.app.security import hash_password
 
@@ -994,7 +1028,7 @@ class CoreBehaviorTests(unittest.TestCase):
                 app_config.DB_PATH = original_db_path
 
     def test_soft_delete_student_and_bill(self) -> None:
-        from Backend.app.services import create_student, create_bill, delete_student, delete_bill, list_students, list_bills
+        from Backend.app.services import create_student, create_bill, delete_student, delete_bill, list_bills
 
         with tempfile.TemporaryDirectory() as temporary_directory:
             database = Path(temporary_directory) / "salut.sqlite"
@@ -1318,7 +1352,7 @@ class CoreBehaviorTests(unittest.TestCase):
             self.assertEqual(detail["summary"]["overall_status"], "unpaid")
 
     def test_student_filters_by_prodi_and_status(self) -> None:
-        from Backend.app.services import create_student, list_students
+        from Backend.app.services import create_student
 
         with tempfile.TemporaryDirectory() as temporary_directory:
             database = Path(temporary_directory) / "salut.sqlite"
@@ -1556,7 +1590,7 @@ class CoreBehaviorTests(unittest.TestCase):
 
     def test_master_data_template_download_and_api_filters(self) -> None:
         from Backend.app.security import hash_password
-        from Backend.app.services import create_student, list_students, get_student_detail
+        from Backend.app.services import create_student, get_student_detail
         from Backend.import_excel import generate_master_data_template
 
         # Test Template Generator
@@ -1582,7 +1616,7 @@ class CoreBehaviorTests(unittest.TestCase):
                 "initial_registration": "UNIVERSITAS TERBUKA 2024.1",
                 "email": "andi@test.com",
             })
-            s2 = create_student(database, {
+            create_student(database, {
                 "nim": "0302",
                 "full_name": "budi santoso",
                 "no_ktp": "32010102",
@@ -1644,7 +1678,7 @@ class CoreBehaviorTests(unittest.TestCase):
 
 
     def test_study_program_4_char_codes_and_student_filtering(self) -> None:
-        from Backend.app.services import create_student, list_study_programs, list_students
+        from Backend.app.services import create_student, list_study_programs
         from Backend.db import connect, init_db, resolve_study_program_id
 
         with tempfile.TemporaryDirectory() as temporary_directory:
@@ -1669,13 +1703,13 @@ class CoreBehaviorTests(unittest.TestCase):
             conn.close()
 
             # Create students with different prodis
-            s1 = create_student(database, {
+            create_student(database, {
                 "nim": "1001",
                 "full_name": "Mahasiswa Hukum",
                 "program_study": "FHISIP - Ilmu Hukum",
                 "study_program_id": "sp_hkum",
             })
-            s2 = create_student(database, {
+            create_student(database, {
                 "nim": "1002",
                 "full_name": "Mahasiswa Sistem Informasi",
                 "program_study": "FST - Sistem Informasi",
@@ -2075,8 +2109,8 @@ class CoreBehaviorTests(unittest.TestCase):
                 st2 = create_student(database, {"nim": "02002", "full_name": "Mahasiswa Dua", "study_program_id": p2["id"], "entry_period": "2025.2"})
                 
                 # Create bills
-                b1 = create_bill(database, {"student_id": st1["id"], "briva": "1111", "amount": 1000000, "period": "2025.1", "bill_type": "UKT"})
-                b2 = create_bill(database, {"student_id": st2["id"], "briva": "2222", "amount": 2500000, "period": "2025.2", "bill_type": "WISUDA"})
+                create_bill(database, {"student_id": st1["id"], "briva": "1111", "amount": 1000000, "period": "2025.1", "bill_type": "UKT"})
+                create_bill(database, {"student_id": st2["id"], "briva": "2222", "amount": 2500000, "period": "2025.2", "bill_type": "WISUDA"})
                 conn.close()
 
                 fake_admin = {"id": "admin-1", "email": "admin@salut.id", "role": "admin", "full_name": "Admin Test"}

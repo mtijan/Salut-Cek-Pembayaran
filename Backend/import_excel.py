@@ -772,7 +772,6 @@ def import_workbook(
                 continue
             row = action["row"]
             assert isinstance(row, dict)
-            nim = str(row["nim"])
             briva = str(row["briva"])
             amount = int(row["amount"])
             row_number = int(row["row_number"])

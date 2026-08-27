@@ -5,10 +5,23 @@ import secrets
 import sqlite3
 import time
 import uuid
-from datetime import date, datetime, timedelta, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from Backend.app import config
+from Backend.app.domain.billing import (
+    bill_row_to_dict,
+    joined_bill_select,
+    normalize_status_value,
+    summarize_payment_status,
+    validate_amount,
+    validate_due_date_value,
+    validate_paid_amount,
+    validate_payment_metadata,
+)
+from Backend.app.domain.common import format_due_date, rupiah
+from Backend.app.domain.files import sanitize_filename as sanitize_filename
+from Backend.app.domain.students import student_row_to_dict, validate_academic_status, validate_nim_value
 from Backend.app.security import digest, hash_password, token_hash, verify_password
 from Backend.db import (
     connect,
@@ -26,86 +39,14 @@ from Backend.excel_reader import (
 )
 
 
-MONTH_NAMES_ID = [
-    "",
-    "Januari",
-    "Februari",
-    "Maret",
-    "April",
-    "Mei",
-    "Juni",
-    "Juli",
-    "Agustus",
-    "September",
-    "Oktober",
-    "November",
-    "Desember",
-]
-
-ACADEMIC_STATUSES = {"aktif", "cuti", "lulus", "nonaktif", "keluar"}
-
-
-def validate_nim_value(value: object) -> str:
-    raw = str(value or "").strip()
-    if not raw:
-        return ""
-    if any(ch.isalpha() for ch in raw):
-        raise ValueError("NIM hanya boleh berisi angka (pemisah spasi atau tanda hubung diperbolehkan).")
-    normalized = normalize_nim(raw)
-    if not normalized:
-        raise ValueError("NIM hanya boleh berisi angka.")
-    return normalized
-
-
-def validate_academic_status(value: object) -> str:
-    status = normalize_text(value).lower() or "aktif"
-    if status not in ACADEMIC_STATUSES:
-        raise ValueError("Status akademik harus salah satu dari: aktif, cuti, lulus, nonaktif, keluar.")
-    return status
-
-
-def rupiah(value: int) -> str:
-    return "Rp " + f"{value:,}".replace(",", ".")
-
-
-def format_due_date(due_date_str: str | None) -> str:
-    if not due_date_str:
-        return ""
-    cleaned = str(due_date_str).strip()
-    try:
-        parts = cleaned.split("-")
-        if len(parts) == 3:
-            year, month, day = int(parts[0]), int(parts[1]), int(parts[2])
-            if 1 <= month <= 12 and 1 <= day <= 31:
-                return f"{day} {MONTH_NAMES_ID[month]} {year}"
-    except (ValueError, IndexError):
-        pass
-    return cleaned
-
-
-def format_entry_period(entry_period: str | None, entry_semester: str | None = None) -> str:
-    if not entry_period:
-        return ""
-    p = str(entry_period).strip()
-    if "." in p:
-        parts = p.split(".")
-        sem_num = parts[1] if len(parts) > 1 else ""
-        sem_name = "Ganjil" if sem_num == "1" else "Genap" if sem_num == "2" else f"Semester {sem_num}"
-        return f"{p} ({sem_name})"
-    if entry_semester:
-        sem_name = "Ganjil" if str(entry_semester).lower() == "ganjil" else "Genap" if str(entry_semester).lower() == "genap" else str(entry_semester).title()
-        return f"{p} ({sem_name})"
-    return p
-
-
-def sanitize_filename(filename: str) -> str:
-    cleaned = "".join(ch for ch in filename if ch.isalnum() or ch in "._- ")
-    return cleaned.strip() or "import.xlsx"
-
-
 def validate_runtime_configuration() -> None:
     if config.APP_ENV != "production":
         return
+    if config.PROCESS_WORKERS != 1:
+        raise RuntimeError(
+            "Rate limiter in-memory hanya aman untuk satu worker. "
+            "Gunakan WEB_CONCURRENCY=1/UVICORN_WORKERS=1 atau implementasikan shared limiter sebelum scale-out."
+        )
     values = {
         "LOOKUP_HASH_SECRET": config.LOOKUP_HASH_SECRET.strip(),
         "ADMIN_BOOTSTRAP_EMAIL": config.ADMIN_BOOTSTRAP_EMAIL.strip(),
@@ -198,182 +139,6 @@ def ensure_database() -> None:
                     "Admin SALUT",
                 ),
             )
-
-
-def bill_row_to_dict(row: sqlite3.Row) -> dict[str, object]:
-    keys = row.keys()
-    due_date = row["due_date"] if "due_date" in keys and row["due_date"] else ""
-    amount = int(row["amount"]) if "amount" in keys and row["amount"] is not None else 0
-    status = str(row["status"]) if "status" in keys and row["status"] else "unpaid"
-
-    raw_paid = row["paid_amount"] if "paid_amount" in keys and row["paid_amount"] is not None else 0
-    if status == "paid":
-        paid_amount = amount
-    elif status == "unpaid":
-        paid_amount = 0
-    else:
-        paid_amount = int(raw_paid or 0)
-
-    remaining_amount = max(0, amount - paid_amount)
-
-    student_id = row["student_id"] if "student_id" in keys and row["student_id"] else ""
-    student_nim = str(row["nim"]) if "nim" in keys and row["nim"] else ""
-    student_name = str(row["full_name"]) if "full_name" in keys and row["full_name"] else ""
-    study_program_name = str(row["study_program_name"]) if "study_program_name" in keys and row["study_program_name"] else (
-        str(row["program_study"]) if "program_study" in keys and row["program_study"] else ""
-    )
-
-    return {
-        "id": row["id"],
-        "student_id": student_id,
-        "nim": student_nim,
-        "full_name": student_name,
-        "student_nim": student_nim,
-        "student_name": student_name,
-        "study_program_name": study_program_name,
-        "period": row["period"] if "period" in keys else "",
-        "bill_type": row["bill_type"] if "bill_type" in keys else "",
-        "status": status,
-        "amount": amount,
-        "amount_formatted": rupiah(amount),
-        "paid_amount": paid_amount,
-        "paid_amount_formatted": rupiah(paid_amount),
-        "remaining_amount": remaining_amount,
-        "remaining_amount_formatted": rupiah(remaining_amount),
-        "payment_method": row["payment_method"] if "payment_method" in keys else "BRIVA",
-        "briva": row["briva"] if "briva" in keys else "",
-        "instructions": row["instructions"] if "instructions" in keys and row["instructions"] else "",
-        "due_date": due_date,
-        "due_date_formatted": format_due_date(due_date),
-        "source_file": row["source_file"] if "source_file" in keys else "",
-        "source_row_number": row["source_row_number"] if "source_row_number" in keys else None,
-    }
-
-
-def student_row_to_dict(row: sqlite3.Row) -> dict[str, object]:
-    keys = row.keys()
-    entry_period = row["entry_period"] if "entry_period" in keys and row["entry_period"] else ""
-    entry_semester = row["entry_semester"] if "entry_semester" in keys and row["entry_semester"] else ""
-    return {
-        "id": row["id"],
-        "nim": row["nim"],
-        "full_name": row["full_name"],
-        "no_ktp": row["no_ktp"] if "no_ktp" in keys and row["no_ktp"] else "",
-        "tempat_lahir": row["tempat_lahir"] if "tempat_lahir" in keys and row["tempat_lahir"] else "",
-        "tanggal_lahir": row["tanggal_lahir"] if "tanggal_lahir" in keys and row["tanggal_lahir"] else "",
-        "nama_ibu_kandung": row["nama_ibu_kandung"] if "nama_ibu_kandung" in keys and row["nama_ibu_kandung"] else "",
-        "program_study": row["program_study"] if "program_study" in keys and row["program_study"] else "",
-        "study_program_id": row["study_program_id"] if "study_program_id" in keys and row["study_program_id"] else "",
-        "study_program_name": row["study_program_name"] if "study_program_name" in keys and row["study_program_name"] else (row["program_study"] if "program_study" in keys and row["program_study"] else ""),
-        "study_program_code": row["study_program_code"] if "study_program_code" in keys and row["study_program_code"] else "",
-        "academic_status": row["academic_status"] if "academic_status" in keys and row["academic_status"] else "aktif",
-        "entry_year": row["entry_year"] if "entry_year" in keys and row["entry_year"] is not None else None,
-        "entry_semester": entry_semester,
-        "entry_period": entry_period,
-        "entry_period_formatted": format_entry_period(entry_period, entry_semester),
-        "email": row["email"] if "email" in keys and row["email"] else "",
-        "address": row["address"] if "address" in keys and row["address"] else "",
-        "phone_number": row["phone_number"] if "phone_number" in keys and row["phone_number"] else "",
-        "initial_registration": row["initial_registration"] if "initial_registration" in keys and row["initial_registration"] else "",
-        "bill_count": row["bill_count"] if "bill_count" in keys else 0,
-        "total_amount": row["total_amount"] if "total_amount" in keys and row["total_amount"] is not None else 0,
-        "total_amount_formatted": rupiah(int(row["total_amount"] or 0)) if "total_amount" in keys else rupiah(0),
-    }
-
-
-def joined_bill_select() -> str:
-    return """
-        select b.id, b.student_id, b.briva, b.amount, coalesce(b.paid_amount, 0) as paid_amount,
-               b.period, b.bill_type, b.status, b.payment_method, b.instructions, b.due_date, b.created_at,
-               b.source_file, b.source_row_number, s.nim, s.full_name, s.program_study,
-               sp.name as study_program_name
-        from bills b
-        join students s on s.id = b.student_id
-        left join study_programs sp on sp.id = s.study_program_id
-    """
-
-
-def validate_due_date_value(due_date: object) -> str | None:
-    due_date_str = str(due_date or "").strip()
-    if not due_date_str:
-        return None
-    try:
-        parsed = date.fromisoformat(due_date_str)
-    except ValueError:
-        raise ValueError("Format tanggal harus YYYY-MM-DD.")
-    return parsed.isoformat()
-
-
-def validate_payment_metadata(payment_date: object = None, reference_number: object = None, notes: object = None) -> tuple[str | None, str | None, str | None]:
-    normalized_date = validate_due_date_value(payment_date) if payment_date else None
-    reference = normalize_text(reference_number) or None
-    note = normalize_text(notes) or None
-    if reference and len(reference) > 100:
-        raise ValueError("Nomor referensi maksimal 100 karakter.")
-    if note and len(note) > 1000:
-        raise ValueError("Catatan pembayaran maksimal 1000 karakter.")
-    return normalized_date, reference, note
-
-
-def validate_amount(value: object) -> int:
-    text = str(value or "").replace(".", "").replace(",", "").strip()
-    if not text.isdigit():
-        raise ValueError("Nominal tagihan wajib berupa angka.")
-    amount = int(text)
-    if amount <= 0:
-        raise ValueError("Nominal tagihan harus lebih dari 0.")
-    return amount
-
-
-def validate_paid_amount(value: object, total_amount: int, status: str) -> int:
-    if status == "paid":
-        return total_amount
-    if status == "unpaid":
-        return 0
-    # For partial status
-    if value is None or value == "":
-        raise ValueError("Nominal yang dibayarkan wajib diisi untuk status Bayar Sebagian.")
-    text = str(value).replace(".", "").replace(",", "").strip()
-    if not text.isdigit():
-        raise ValueError("Nominal yang dibayarkan wajib berupa angka.")
-    paid = int(text)
-    if paid <= 0:
-        raise ValueError("Nominal bayar sebagian harus lebih dari 0.")
-    if paid >= total_amount:
-        raise ValueError("Nominal bayar sebagian harus lebih kecil dari total tagihan. Jika sudah lunas, silakan pilih status Lunas.")
-    return paid
-
-
-def normalize_status_value(status: object) -> str:
-    value = str(status or "unpaid").strip().lower()
-    if value not in {"paid", "partial", "unpaid"}:
-        raise ValueError("Status hanya boleh paid, partial, atau unpaid.")
-    return value
-
-
-def normalize_payment_status_alias(status: object) -> str:
-    value = str(status or "unpaid").strip().lower()
-    aliases = {
-        "paid": "paid",
-        "lunas": "paid",
-        "partial": "partial",
-        "bayar sebagian": "partial",
-        "lunas sebagian": "partial",
-        "dicicil": "partial",
-        "cicil": "partial",
-        "unpaid": "unpaid",
-        "belum lunas": "unpaid",
-    }
-    return aliases.get(value, "unpaid")
-
-
-def summarize_payment_status(statuses: list[object]) -> str:
-    normalized = [normalize_payment_status_alias(status) for status in statuses]
-    if normalized and all(status == "paid" for status in normalized):
-        return "paid"
-    if "partial" in normalized:
-        return "partial"
-    return "unpaid"
 
 
 def ensure_student(
@@ -1258,7 +1023,7 @@ def delete_bill(db_path: str | Path, bill_id: str, actor_id: str | None = None, 
 def list_imported_bill_groups(db_path: str | Path = config.DB_PATH) -> list[dict[str, object]]:
     with database_connection(db_path) as conn:
         rows = conn.execute(
-            f"""
+            """
             select b.id, b.briva, b.amount, b.period, b.bill_type, b.status, b.payment_method, b.due_date, b.created_at,
                    b.source_file, b.source_row_number, s.nim, s.full_name
             from bills b

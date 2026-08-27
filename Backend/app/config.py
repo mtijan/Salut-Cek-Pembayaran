@@ -12,6 +12,17 @@ FRONTEND_DIR = PROJECT_ROOT / "Frontend"
 
 APP_ENV = os.environ.get("APP_ENV", "development").strip().lower()
 PORT = int(os.environ.get("PORT", "8000"))
+
+
+def _configured_worker_count() -> int:
+    raw_value = os.environ.get("WEB_CONCURRENCY") or os.environ.get("UVICORN_WORKERS") or "1"
+    try:
+        return int(raw_value)
+    except ValueError:
+        return 0
+
+
+PROCESS_WORKERS = _configured_worker_count()
 DB_PATH = resolve_db_path(os.environ.get("DATABASE_URL", DEFAULT_DB_PATH))
 LOOKUP_HASH_SECRET = os.environ.get("LOOKUP_HASH_SECRET", "")
 ADMIN_BOOTSTRAP_EMAIL = os.environ.get("ADMIN_BOOTSTRAP_EMAIL", "").strip().casefold()
