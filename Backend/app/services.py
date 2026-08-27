@@ -23,6 +23,7 @@ from Backend.app.domain.common import format_due_date, rupiah
 from Backend.app.domain.files import sanitize_filename as sanitize_filename
 from Backend.app.domain.students import student_row_to_dict, validate_academic_status, validate_nim_value
 from Backend.app.security import digest, hash_password, token_hash, verify_password
+from Backend.app.use_cases.reporting import ReportingService
 from Backend.db import (
     connect,
     database_connection,
@@ -1763,63 +1764,8 @@ def update_academic_period(db_path: str | Path, period_id: str, payload: dict[st
 # ==========================================
 
 def get_dashboard_stats(db_path: str | Path = config.DB_PATH) -> dict[str, object]:
-    with database_connection(db_path) as conn:
-        # Students count
-        s_row = conn.execute(
-            """
-            select
-              count(*) as total_students,
-              sum(case when academic_status = 'aktif' then 1 else 0 end) as active_students
-            from students
-            where deleted_at is null
-            """
-        ).fetchone()
-
-        # Bills count & sums
-        b_row = conn.execute(
-            """
-            select
-              count(*) as total_bills,
-              sum(case when b.status = 'paid' then 1 else 0 end) as paid_bills,
-              sum(case when b.status = 'partial' then 1 else 0 end) as partial_bills,
-              sum(case when b.status = 'unpaid' then 1 else 0 end) as unpaid_bills,
-              coalesce(sum(b.amount), 0) as total_billed_amount,
-              coalesce(sum(case when b.status = 'paid' then b.amount when b.status = 'partial' then coalesce(b.paid_amount, 0) else 0 end), 0) as total_paid_amount
-            from bills b
-            join students s on s.id = b.student_id
-            where b.deleted_at is null and s.deleted_at is null
-            """
-        ).fetchone()
-
-    total_students = int(s_row["total_students"] or 0) if s_row else 0
-    active_students = int(s_row["active_students"] or 0) if s_row else 0
-
-    total_bills = int(b_row["total_bills"] or 0) if b_row else 0
-    paid_bills = int(b_row["paid_bills"] or 0) if b_row else 0
-    partial_bills = int(b_row["partial_bills"] or 0) if b_row else 0
-    unpaid_bills = int(b_row["unpaid_bills"] or 0) if b_row else 0
-
-    total_billed = int(b_row["total_billed_amount"] or 0) if b_row else 0
-    total_paid = int(b_row["total_paid_amount"] or 0) if b_row else 0
-    total_outstanding = max(0, total_billed - total_paid)
-
-    payment_rate = round((total_paid / total_billed * 100), 2) if total_billed > 0 else 0.0
-
-    return {
-        "total_students": total_students,
-        "active_students": active_students,
-        "total_bills": total_bills,
-        "paid_bills": paid_bills,
-        "partial_bills": partial_bills,
-        "unpaid_bills": unpaid_bills,
-        "total_billed_amount": total_billed,
-        "total_billed_amount_formatted": rupiah(total_billed),
-        "total_paid_amount": total_paid,
-        "total_paid_amount_formatted": rupiah(total_paid),
-        "total_outstanding_amount": total_outstanding,
-        "total_outstanding_amount_formatted": rupiah(total_outstanding),
-        "payment_rate_percentage": payment_rate,
-    }
+    """Compatibility wrapper for callers that still import the legacy service module."""
+    return ReportingService(db_path).dashboard_stats()
 
 
 def get_financial_summary(
@@ -1828,143 +1774,9 @@ def get_financial_summary(
     study_program_id: str = "",
     entry_period: str = "",
 ) -> dict[str, object]:
-    normalized_period = normalize_text(period)
-    normalized_prodi = normalize_text(study_program_id)
-    normalized_entry_period = normalize_text(entry_period)
-
-    where_clauses = ["s.deleted_at is null", "b.deleted_at is null"]
-    params: list[object] = []
-
-    if normalized_period:
-        where_clauses.append("b.period = ?")
-        params.append(normalized_period)
-    if normalized_prodi:
-        where_clauses.append("(s.study_program_id = ? or sp.id = ?)")
-        params.append(normalized_prodi)
-        params.append(normalized_prodi)
-    if normalized_entry_period:
-        where_clauses.append("(s.entry_period = ? or s.initial_registration like ?)")
-        params.extend([normalized_entry_period, f"%{normalized_entry_period}%"])
-
-    filter_sql = "where " + " and ".join(where_clauses)
-
-    with database_connection(db_path) as conn:
-        prodi_rows = conn.execute(
-            f"""
-            select
-              coalesce(sp.name, s.program_study, 'Lainnya') as program_study,
-              count(distinct s.id) as total_students,
-              count(b.id) as total_bills,
-              coalesce(sum(b.amount), 0) as billed_amount,
-              coalesce(sum(case when b.status = 'paid' then b.amount when b.status = 'partial' then coalesce(b.paid_amount, 0) else 0 end), 0) as paid_amount
-            from students s
-            left join study_programs sp on sp.id = s.study_program_id
-            join bills b on b.student_id = s.id
-            {filter_sql}
-            group by coalesce(sp.name, s.program_study, 'Lainnya')
-            order by billed_amount desc
-            """,
-            params,
-        ).fetchall()
-
-        student_rows = conn.execute(
-            f"""
-            select
-              s.id as student_id,
-              s.nim,
-              s.full_name,
-              coalesce(s.phone_number, '-') as phone_number,
-              coalesce(sp.name, s.program_study, 'Lainnya') as program_study,
-              coalesce(nullif(s.entry_period, ''), nullif(s.initial_registration, ''), '-') as entry_period,
-              count(b.id) as total_bills,
-              coalesce(sum(b.amount), 0) as billed_amount,
-              coalesce(sum(case when b.status = 'paid' then b.amount when b.status = 'partial' then coalesce(b.paid_amount, 0) else 0 end), 0) as paid_amount
-            from students s
-            left join study_programs sp on sp.id = s.study_program_id
-            join bills b on b.student_id = s.id
-            {filter_sql}
-            group by s.id, s.nim, s.full_name, coalesce(s.phone_number, '-'), coalesce(sp.name, s.program_study, 'Lainnya'), coalesce(nullif(s.entry_period, ''), nullif(s.initial_registration, ''), '-')
-            order by billed_amount desc, s.full_name asc
-            """,
-            params,
-        ).fetchall()
-
-    by_study_program: list[dict[str, object]] = []
-    for r in prodi_rows:
-        billed = int(r["billed_amount"] or 0)
-        paid = int(r["paid_amount"] or 0)
-        outstanding = max(0, billed - paid)
-        rate = round((paid / billed * 100), 2) if billed > 0 else 0.0
-
-        by_study_program.append({
-            "program_study": r["program_study"],
-            "total_students": int(r["total_students"] or 0),
-            "total_bills": int(r["total_bills"] or 0),
-            "billed_amount": billed,
-            "billed_amount_formatted": rupiah(billed),
-            "paid_amount": paid,
-            "paid_amount_formatted": rupiah(paid),
-            "outstanding_amount": outstanding,
-            "outstanding_amount_formatted": rupiah(outstanding),
-            "percentage_paid": rate,
-        })
-
-    by_student: list[dict[str, object]] = []
-    total_billed = 0
-    total_paid = 0
-    total_bills_count = 0
-
-    for r in student_rows:
-        billed = int(r["billed_amount"] or 0)
-        paid = int(r["paid_amount"] or 0)
-        outstanding = max(0, billed - paid)
-        rate = round((paid / billed * 100), 2) if billed > 0 else 0.0
-        bills_count = int(r["total_bills"] or 0)
-
-        total_billed += billed
-        total_paid += paid
-        total_bills_count += bills_count
-
-        status_code = "paid" if (billed > 0 and paid >= billed) else ("partial" if paid > 0 else "unpaid")
-        status_label = "Lunas" if status_code == "paid" else ("Sebagian" if status_code == "partial" else "Belum Bayar")
-
-        by_student.append({
-            "student_id": r["student_id"],
-            "nim": r["nim"] or "-",
-            "full_name": r["full_name"] or "-",
-            "phone_number": r["phone_number"] or "-",
-            "program_study": r["program_study"],
-            "entry_period": r["entry_period"],
-            "total_bills": bills_count,
-            "billed_amount": billed,
-            "billed_amount_formatted": rupiah(billed),
-            "paid_amount": paid,
-            "paid_amount_formatted": rupiah(paid),
-            "outstanding_amount": outstanding,
-            "outstanding_amount_formatted": rupiah(outstanding),
-            "percentage_paid": rate,
-            "status": status_code,
-            "status_label": status_label,
-        })
-
-    total_outstanding = max(0, total_billed - total_paid)
-    overall_rate = round((total_paid / total_billed * 100), 2) if total_billed > 0 else 0.0
-
-    return {
-        "period": normalized_period or None,
-        "study_program_id": normalized_prodi or None,
-        "entry_period": normalized_entry_period or None,
-        "by_study_program": by_study_program,
-        "by_student": by_student,
-        "totals": {
-            "total_students": len(by_student),
-            "total_bills": total_bills_count,
-            "billed_amount": total_billed,
-            "billed_amount_formatted": rupiah(total_billed),
-            "paid_amount": total_paid,
-            "paid_amount_formatted": rupiah(total_paid),
-            "outstanding_amount": total_outstanding,
-            "outstanding_amount_formatted": rupiah(total_outstanding),
-            "percentage_paid": overall_rate,
-        },
-    }
+    """Compatibility wrapper for callers that still import the legacy service module."""
+    return ReportingService(db_path).financial_summary(
+        period=period,
+        study_program_id=study_program_id,
+        entry_period=entry_period,
+    )

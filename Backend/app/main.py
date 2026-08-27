@@ -34,8 +34,6 @@ from Backend.app.services import (
     find_admin_by_session,
     get_bill_detail,
     get_bills_summary,
-    get_dashboard_stats,
-    get_financial_summary,
     get_import_preview_for_admin,
     get_student_detail,
     list_academic_periods,
@@ -60,9 +58,10 @@ from Backend.app.services import (
     write_audit,
     write_lookup_log,
 )
+from Backend.app.use_cases.lookup import LookupService
+from Backend.app.use_cases.reporting import ReportingService
 from Backend.db import connect
 from Backend.import_excel import generate_master_data_template, import_workbook, preview_workbook
-from Backend.app.use_cases.lookup import LookupService
 
 
 logger = logging.getLogger(__name__)
@@ -357,7 +356,7 @@ async def admin_bill_due_date(request: Request, admin=Depends(require_admin("man
 
 @app.get("/api/admin/dashboard/stats")
 async def admin_dashboard_stats(admin=Depends(require_admin("view_reports"))) -> JSONResponse:
-    return success_response(get_dashboard_stats(config.DB_PATH))
+    return success_response(ReportingService(config.DB_PATH).dashboard_stats())
 
 
 @app.get("/api/admin/reports/financial-summary")
@@ -366,8 +365,7 @@ async def admin_financial_summary(request: Request, admin=Depends(require_admin(
     study_program_id = str(request.query_params.get("study_program_id") or "").strip()
     entry_period = str(request.query_params.get("entry_period") or "").strip()
     return success_response(
-        get_financial_summary(
-            config.DB_PATH,
+        ReportingService(config.DB_PATH).financial_summary(
             period=period,
             study_program_id=study_program_id,
             entry_period=entry_period,

@@ -53,8 +53,8 @@ Project ini menggabungkan portal publik yang sederhana dengan dashboard admin be
 |---|---|
 | `Backend/app/` | Route FastAPI, konfigurasi, keamanan, dan business service. |
 | `Backend/app/domain/` | Validasi dan presenter murni per domain mahasiswa/tagihan. |
-| `Backend/app/repositories/` | Akses data terfokus; saat ini menjadi boundary lookup publik. |
-| `Backend/app/use_cases/` | Orkestrasi business flow di luar route; saat ini memuat lookup publik. |
+| `Backend/app/repositories/` | Akses data terfokus untuk lookup publik dan reporting read-only. |
+| `Backend/app/use_cases/` | Orkestrasi business flow lookup publik serta dashboard/financial reporting. |
 | `Backend/db.py` | Koneksi, skema, dan migrasi SQLite. |
 | `Backend/import_excel.py` | Preview, validasi, dan import workbook. |
 | `Backend/test_core.py` | Unit dan integration test backend. |
