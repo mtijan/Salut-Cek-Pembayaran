@@ -1,8 +1,14 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
+import { readApplicationVersion } from './version.config.js';
+
+const appVersion = readApplicationVersion();
 
 export default defineConfig({
   plugins: [react()],
+  define: {
+    __APP_VERSION__: JSON.stringify(appVersion),
+  },
   base: '/admin/',
   server: {
     port: 5173,

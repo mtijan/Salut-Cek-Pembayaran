@@ -10,6 +10,7 @@ services:
     environment:
       APP_ENV: ${APP_ENV:-production}
       PORT: "8000"
+      WEB_CONCURRENCY: ${WEB_CONCURRENCY:-1}
       DATABASE_URL: /app/Backend/data/salut.sqlite
       IMPORT_DIR: /app/Backend/data/imports
       LOOKUP_HASH_SECRET: ${LOOKUP_HASH_SECRET:?Set LOOKUP_HASH_SECRET in the root .env file}

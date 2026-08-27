@@ -52,19 +52,23 @@ Project ini menggabungkan portal publik yang sederhana dengan dashboard admin be
 | Path | Keterangan |
 |---|---|
 | `Backend/app/` | Route FastAPI, konfigurasi, keamanan, dan business service. |
+| `Backend/app/domain/` | Validasi dan presenter murni per domain mahasiswa/tagihan. |
+| `Backend/app/repositories/` | Akses data terfokus; saat ini menjadi boundary lookup publik. |
+| `Backend/app/use_cases/` | Orkestrasi business flow di luar route; saat ini memuat lookup publik. |
 | `Backend/db.py` | Koneksi, skema, dan migrasi SQLite. |
 | `Backend/import_excel.py` | Preview, validasi, dan import workbook. |
 | `Backend/test_core.py` | Unit dan integration test backend. |
 | `Frontend/` | Portal mahasiswa dan bundle admin hasil build. |
 | `Frontend-Admin/` | Source dashboard admin React. |
 | `scripts/` | Utility pengembangan dan audit dependency. |
+| `VERSION` | Sumber tunggal versi aplikasi untuk backend dan bundle admin. |
 
 ## Menjalankan di Lokal
 
 ### Prasyarat
 
 - Python 3.10 atau lebih baru.
-- Node.js 18 atau lebih baru.
+- Node.js 20.19 atau lebih baru (Node.js 22 direkomendasikan).
 - npm.
 
 ### 1. Siapkan backend
@@ -80,6 +84,7 @@ Siapkan konfigurasi untuk sesi PowerShell lokal. Nilai berikut hanya contoh deve
 
 ```powershell
 $env:APP_ENV = "development"
+$env:WEB_CONCURRENCY = "1"
 $env:ADMIN_BOOTSTRAP_EMAIL = "admin@local.test"
 $env:ADMIN_BOOTSTRAP_PASSWORD = "AdminLocal-123!"
 $env:LOOKUP_HASH_SECRET = "local-development-secret-32-char"
@@ -112,6 +117,24 @@ Buka aplikasi melalui:
 
 Login admin lokal menggunakan email dan password bootstrap yang diatur pada langkah pertama.
 
+### Quality gate lokal
+
+Dependency quality Python dipisahkan dari runtime production:
+
+```powershell
+.\.venv\Scripts\python.exe -m pip install -r requirements-dev.txt
+.\.venv\Scripts\ruff.exe check Backend scripts
+.\.venv\Scripts\mypy.exe
+python -m unittest Backend.test_core Backend.test_database_lifecycle Backend.test_operations Backend.test_version Backend.test_domain Backend.test_lookup
+Set-Location Frontend-Admin
+npm ci
+npm run lint
+npm test
+npm run build
+```
+
+Versi aplikasi diubah hanya melalui file `VERSION`. FastAPI/OpenAPI, health check, metadata package admin, dan bundle Vite divalidasi agar memakai nilai yang sama. `release_id` tetap terpisah sebagai identitas commit/deployment.
+
 ### 4. Development frontend dengan hot reload
 
 Biarkan backend berjalan pada port `8000`, lalu buka PowerShell kedua:
@@ -128,7 +151,7 @@ Dashboard development tersedia di `http://localhost:5173/admin/`. Request `/api`
 Backend:
 
 ```powershell
-.\.venv\Scripts\python.exe -m unittest Backend.test_core
+.\.venv\Scripts\python.exe -m unittest Backend.test_core Backend.test_database_lifecycle Backend.test_operations
 ```
 
 Build frontend:
@@ -145,6 +168,7 @@ npm run build
 - Gunakan data sintetis ketika mendemonstrasikan aplikasi.
 - Ganti kredensial bootstrap bila workspace digunakan bersama.
 - Jangan menggunakan contoh secret dan password development untuk server publik.
+- Pertahankan `WEB_CONCURRENCY=1`/`UVICORN_WORKERS=1` selama rate limiter masih in-memory; konfigurasi production akan fail-fast bila worker lebih dari satu.
 - `docs/` dan `deploy/` adalah artefak internal dan tidak boleh dilacak pada repository publik.
 - Jalankan `python scripts/check_public_repo_boundary.py` sebelum commit atau pull request.
 - Kebijakan pelaporan kerentanan tersedia di [`SECURITY.md`](SECURITY.md).

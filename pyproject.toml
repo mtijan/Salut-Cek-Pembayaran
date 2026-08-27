@@ -1,0 +1,33 @@
+[tool.ruff]
+target-version = "py310"
+line-length = 120
+extend-exclude = [
+  ".venv",
+  ".venv-audit",
+  "Frontend-Admin/node_modules",
+  "Frontend/admin-dist",
+]
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+line-ending = "auto"
+
+[tool.mypy]
+python_version = "3.10"
+warn_unused_configs = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+no_implicit_optional = true
+strict_equality = true
+disallow_untyped_defs = true
+follow_imports = "skip"
+files = [
+  "Backend/app/domain",
+  "Backend/app/repositories",
+  "Backend/app/use_cases",
+  "Backend/app/version.py",
+]
