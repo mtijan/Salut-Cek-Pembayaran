@@ -23,7 +23,10 @@ test('admin entrypoint does not load third-party font stylesheets', () => {
 
 test('admin source has no runtime style element and does not increase inline-style debt', () => {
   const sources = sourceFiles(sourceRoot).map((path) => readFileSync(path, 'utf8'));
-  assert.equal(sources.some((source) => /<style(?:\s|>)/i.test(source)), false);
+  assert.equal(
+    sources.some((source) => /<style(?:\s|>)/i.test(source)),
+    false,
+  );
   const inlineStyleCount = sources.reduce(
     (total, source) => total + (source.match(/\bstyle\s*=/g) || []).length,
     0,

@@ -32,7 +32,13 @@ export function ToastProvider({ children }) {
             <button
               type="button"
               onClick={() => removeToast(toast.id)}
-              style={{ background: 'transparent', border: 'none', color: '#ffffff', cursor: 'pointer', marginLeft: 8 }}
+              style={{
+                background: 'transparent',
+                border: 'none',
+                color: '#ffffff',
+                cursor: 'pointer',
+                marginLeft: 8,
+              }}
             >
               <X size={14} />
             </button>

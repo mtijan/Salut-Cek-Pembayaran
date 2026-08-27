@@ -80,7 +80,9 @@ export const studentsApi = {
       body: JSON.stringify({ reason }),
     }),
   getTransactions: (id, params = {}) =>
-    apiFetch(`/admin/students/${id}/transactions?limit=${params.limit || 50}&offset=${params.offset || 0}`),
+    apiFetch(
+      `/admin/students/${id}/transactions?limit=${params.limit || 50}&offset=${params.offset || 0}`,
+    ),
 };
 
 // Template API
@@ -131,14 +133,18 @@ export const billsApi = {
       body: JSON.stringify(data),
     }),
   getTransactions: (id, params = {}) =>
-    apiFetch(`/admin/bills/${id}/transactions?limit=${params.limit || 50}&offset=${params.offset || 0}`),
+    apiFetch(
+      `/admin/bills/${id}/transactions?limit=${params.limit || 50}&offset=${params.offset || 0}`,
+    ),
 };
 
 // Reports API
 export const reportsApi = {
   getFinancialSummary: (params = {}) => {
     if (typeof params === 'string') {
-      return apiFetch(`/admin/reports/financial-summary${params ? `?period=${encodeURIComponent(params)}` : ''}`);
+      return apiFetch(
+        `/admin/reports/financial-summary${params ? `?period=${encodeURIComponent(params)}` : ''}`,
+      );
     }
     const query = new URLSearchParams();
     if (params.period) query.set('period', params.period);

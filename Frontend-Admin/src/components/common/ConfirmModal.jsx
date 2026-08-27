@@ -80,12 +80,19 @@ export default function ConfirmModal({
                 required
                 autoFocus
               />
-              {error && <p style={{ color: 'var(--danger)', fontSize: 12, marginTop: 4 }}>{error}</p>}
+              {error && (
+                <p style={{ color: 'var(--danger)', fontSize: 12, marginTop: 4 }}>{error}</p>
+              )}
             </div>
           </div>
 
           <div className="modal-footer">
-            <button type="button" className="btn btn-secondary" onClick={onClose} disabled={submitting}>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={onClose}
+              disabled={submitting}
+            >
               Batal
             </button>
             <button type="submit" className="btn btn-danger" disabled={submitting}>

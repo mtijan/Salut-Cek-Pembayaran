@@ -17,5 +17,11 @@ test('csvCell neutralizes formula prefixes hidden by whitespace or control chara
 
 test('csvCell escapes quotes and preserves embedded newlines', () => {
   assert.equal(csvCell('Nama "Contoh"\nBaris 2'), '"Nama ""Contoh""\nBaris 2"');
-  assert.equal(toCsv([['A', 'B'], ['1', '2']]), '"A","B"\r\n"1","2"');
+  assert.equal(
+    toCsv([
+      ['A', 'B'],
+      ['1', '2'],
+    ]),
+    '"A","B"\r\n"1","2"',
+  );
 });

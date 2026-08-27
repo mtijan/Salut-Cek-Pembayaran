@@ -55,7 +55,9 @@ export default function Sidebar({
         />
       )}
 
-      <aside className={`app-sidebar ${isOpen ? 'is-open' : ''} ${isCollapsed ? 'is-collapsed' : ''}`}>
+      <aside
+        className={`app-sidebar ${isOpen ? 'is-open' : ''} ${isCollapsed ? 'is-collapsed' : ''}`}
+      >
         {/* Floating edge toggle on the right border line */}
         {onToggleCollapse && (
           <button

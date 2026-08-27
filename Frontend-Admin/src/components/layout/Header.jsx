@@ -17,9 +17,7 @@ export default function Header({
 }) {
   const { admin } = useAuth();
   const currentNav =
-    VIEW_TITLES[activeView] ||
-    NAV_ITEMS.find((n) => n.id === activeView) ||
-    NAV_ITEMS[0];
+    VIEW_TITLES[activeView] || NAV_ITEMS.find((n) => n.id === activeView) || NAV_ITEMS[0];
 
   const handleToggle = () => {
     if (window.innerWidth <= 768) {
@@ -37,7 +35,9 @@ export default function Header({
           onClick={handleToggle}
           className="header-sidebar-toggle"
           aria-label={isCollapsed ? 'Perbesar Menu Sidebar' : 'Kecilkan Menu Sidebar'}
-          title={isCollapsed ? 'Perbesar Menu Sidebar (Expand)' : 'Kecilkan Menu Sidebar (Collapse)'}
+          title={
+            isCollapsed ? 'Perbesar Menu Sidebar (Expand)' : 'Kecilkan Menu Sidebar (Collapse)'
+          }
         >
           {isCollapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}
         </button>
@@ -53,7 +53,11 @@ export default function Header({
           <User size={16} color="var(--brand)" />
           <span>{admin?.email || 'admin@salut.local'}</span>
           <span className={`role-tag ${admin?.role || 'admin'}`}>
-            {admin?.role === 'super_admin' ? 'Super Admin' : admin?.role === 'viewer' ? 'Viewer' : 'Admin'}
+            {admin?.role === 'super_admin'
+              ? 'Super Admin'
+              : admin?.role === 'viewer'
+                ? 'Viewer'
+                : 'Admin'}
           </span>
         </div>
       </div>

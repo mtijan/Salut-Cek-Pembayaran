@@ -47,9 +47,7 @@ export default function App() {
     return (
       <div className="auth-check-screen">
         <div className="auth-check-spinner" />
-        <span className="auth-check-label">
-          Memeriksa autentikasi admin...
-        </span>
+        <span className="auth-check-label">Memeriksa autentikasi admin...</span>
       </div>
     );
   }
@@ -81,9 +79,7 @@ export default function App() {
           {activeView === 'dashboard' && (
             <DashboardPage setActiveView={(view) => navigateTo(view, {})} />
           )}
-          {activeView === 'students' && (
-            <StudentsPage navigateTo={navigateTo} />
-          )}
+          {activeView === 'students' && <StudentsPage navigateTo={navigateTo} />}
           {activeView === 'student-profile' && (
             <StudentProfilePage
               studentId={viewParams.studentId}
@@ -91,14 +87,9 @@ export default function App() {
               navigateTo={navigateTo}
             />
           )}
-          {activeView === 'bills' && (
-            <BillsPage navigateTo={navigateTo} />
-          )}
+          {activeView === 'bills' && <BillsPage navigateTo={navigateTo} />}
           {activeView === 'bill-payment' && (
-            <BillPaymentPage
-              billId={viewParams.billId}
-              navigateTo={navigateTo}
-            />
+            <BillPaymentPage billId={viewParams.billId} navigateTo={navigateTo} />
           )}
           {activeView === 'bill-edit' && (
             <BillEditPage
@@ -109,9 +100,7 @@ export default function App() {
           )}
           {activeView === 'reports' && <ReportsPage navigateTo={navigateTo} />}
           {activeView === 'files' && <FilesPage />}
-          {activeView === 'upload' && (
-            <UploadPage setActiveView={(view) => navigateTo(view, {})} />
-          )}
+          {activeView === 'upload' && <UploadPage setActiveView={(view) => navigateTo(view, {})} />}
           {activeView === 'master' && <MasterPage />}
         </main>
       </div>
