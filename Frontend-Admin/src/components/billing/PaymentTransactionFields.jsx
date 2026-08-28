@@ -11,10 +11,10 @@ export default function PaymentTransactionFields({
   setNotes,
 }) {
   return (
-    <div className="form-grid-2" style={{ marginTop: 16 }}>
+    <div className="form-grid-2 mt-3">
       <div className="form-group">
         <label>
-          Tanggal Transaksi Pembayaran <span style={{ color: 'var(--danger)' }}>*</span>
+          Tanggal Transaksi Pembayaran <span className="text-danger">*</span>
         </label>
         <input
           type="date"
@@ -66,3 +66,5 @@ export default function PaymentTransactionFields({
     </div>
   );
 }
+
+PaymentTransactionFields.displayName = 'PaymentTransactionFields';

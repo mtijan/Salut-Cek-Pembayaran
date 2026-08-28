@@ -3,7 +3,7 @@ import { AlertCircle, Save } from 'lucide-react';
 
 function FormField({ children, fullWidth = false, label }) {
   return (
-    <div className="form-group" style={fullWidth ? { gridColumn: '1 / -1' } : undefined}>
+    <div className={`form-group ${fullWidth ? 'form-group-full' : ''}`}>
       <label>{label}</label>
       {children}
     </div>
@@ -16,14 +16,14 @@ export function StudentEditTab({ editError, form, onCancel, onChange, onSubmit, 
 
   return (
     <div className="profile-tab-pane">
-      <div style={{ marginBottom: 20 }}>
-        <h3 style={{ fontSize: 16, fontWeight: 700 }}>Edit Biodata & Informasi Mahasiswa</h3>
-        <p style={{ fontSize: 13, color: 'var(--muted)' }}>
+      <div className="mb-4">
+        <h3 className="panel-header-title">Edit Biodata &amp; Informasi Mahasiswa</h3>
+        <p className="panel-header-desc">
           Perbarui data kependudukan, program studi, kontak, dan status akademik mahasiswa
         </p>
       </div>
       {editError && (
-        <div className="alert-box alert-danger" style={{ marginBottom: 20 }}>
+        <div className="alert-box alert-danger mb-4">
           <AlertCircle size={18} />
           <span>{editError}</span>
         </div>
@@ -35,14 +35,13 @@ export function StudentEditTab({ editError, form, onCancel, onChange, onSubmit, 
               type="text"
               value={form.nim}
               disabled
-              className="form-input"
-              style={{ background: '#f1f5f9', cursor: 'not-allowed' }}
+              className="form-input input-disabled-safe"
             />
           </FormField>
           <FormField
             label={
               <>
-                Nama Lengkap Mahasiswa <span style={{ color: 'var(--danger)' }}>*</span>
+                Nama Lengkap Mahasiswa <span className="text-danger">*</span>
               </>
             }
           >
@@ -165,10 +164,7 @@ export function StudentEditTab({ editError, form, onCancel, onChange, onSubmit, 
             />
           </FormField>
         </div>
-        <div
-          className="form-actions-bar"
-          style={{ marginTop: 24, display: 'flex', justifyContent: 'flex-end', gap: 12 }}
-        >
+        <div className="form-actions-end">
           <button type="button" className="btn btn-secondary" onClick={onCancel} disabled={saving}>
             Batal
           </button>
@@ -190,3 +186,5 @@ export function StudentEditTab({ editError, form, onCancel, onChange, onSubmit, 
     </div>
   );
 }
+
+StudentEditTab.displayName = 'StudentEditTab';

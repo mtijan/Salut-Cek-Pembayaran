@@ -1,22 +1,11 @@
 import React from 'react';
 import { Check, Copy, CreditCard } from 'lucide-react';
 
-function FinancialStat({ color, label, value }) {
+function FinancialStat({ textClass, label, value }) {
   return (
-    <div
-      style={{
-        padding: 14,
-        background: '#ffffff',
-        border: '1px solid var(--line)',
-        borderRadius: 'var(--radius-md)',
-      }}
-    >
-      <span
-        style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', color: 'var(--muted)' }}
-      >
-        {label}
-      </span>
-      <div style={{ fontSize: 18, fontWeight: 800, color, marginTop: 4 }}>{value}</div>
+    <div className="bio-stat-item">
+      <span className="bio-stat-label">{label}</span>
+      <div className={`bio-stat-val ${textClass}`}>{value}</div>
     </div>
   );
 }
@@ -24,48 +13,25 @@ function FinancialStat({ color, label, value }) {
 export function Student360Financial({ bills, copiedKey, onCopy, percentPaid, summary }) {
   return (
     <div>
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
-          gap: 12,
-          marginBottom: 18,
-        }}
-      >
+      <div className="fin-360-grid">
         <FinancialStat
-          color="var(--brand-strong)"
+          textClass="text-brand-strong"
           label="Total Tagihan"
           value={summary?.total_amount_formatted || 'Rp 0'}
         />
         <FinancialStat
-          color="var(--success)"
+          textClass="text-success"
           label="Sudah Terbayar"
           value={summary?.total_paid_formatted || 'Rp 0'}
         />
         <FinancialStat
-          color="var(--danger)"
+          textClass="text-danger"
           label="Sisa Tunggakan"
           value={summary?.total_outstanding_formatted || 'Rp 0'}
         />
-        <div
-          style={{
-            padding: 14,
-            background: '#ffffff',
-            border: '1px solid var(--line)',
-            borderRadius: 'var(--radius-md)',
-          }}
-        >
-          <span
-            style={{
-              fontSize: 11,
-              fontWeight: 700,
-              textTransform: 'uppercase',
-              color: 'var(--muted)',
-            }}
-          >
-            Status Pelunasan
-          </span>
-          <div style={{ marginTop: 6 }}>
+        <div className="bio-stat-item">
+          <span className="bio-stat-label">Status Pelunasan</span>
+          <div className="mt-1">
             <span
               className={`badge ${summary?.overall_status === 'paid' ? 'badge-success' : summary?.overall_status === 'partial' ? 'badge-warning' : 'badge-danger'}`}
             >
@@ -78,40 +44,27 @@ export function Student360Financial({ bills, copiedKey, onCopy, percentPaid, sum
           </div>
         </div>
       </div>
-      <div
-        style={{
-          padding: 14,
-          background: '#f8fafc',
-          border: '1px solid var(--line)',
-          borderRadius: 'var(--radius-md)',
-          marginBottom: 20,
-        }}
-      >
-        <div
-          style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            fontSize: 12,
-            fontWeight: 700,
-          }}
-        >
-          <span style={{ color: 'var(--muted)' }}>Progres Pelunasan Mahasiswa</span>
-          <span style={{ color: percentPaid === 100 ? 'var(--success)' : 'var(--brand-strong)' }}>
+      <div className="fin-progress-banner">
+        <div className="fin-progress-title-row">
+          <span className="text-muted">Progres Pelunasan Mahasiswa</span>
+          <span className={percentPaid === 100 ? 'text-success' : 'text-brand-strong'}>
             {percentPaid}% Terbayar
           </span>
         </div>
-        <div className="progress-track" style={{ height: 8, marginTop: 8 }}>
-          <div className="progress-fill" style={{ width: `${percentPaid}%` }} />
+        <div className="fin-progress-bar mt-2">
+          <progress
+            className={`fin-progress-semantic ${percentPaid === 100 ? 'success' : ''}`}
+            value={percentPaid}
+            max={100}
+            aria-label={`Progres pelunasan ${percentPaid}%`}
+          />
         </div>
       </div>
-      <h4 style={{ fontSize: 14, fontWeight: 800, color: 'var(--ink)', marginBottom: 10 }}>
-        Daftar Tagihan & Rekening BRIVA
-      </h4>
+      <h4 className="card-sub-title mb-2">Daftar Tagihan &amp; Rekening BRIVA</h4>
       {!bills.length ? (
-        <div className="empty-state-card" style={{ padding: 24, border: '1px solid var(--line)' }}>
-          <CreditCard size={32} color="var(--muted-light)" style={{ marginBottom: 8 }} />
-          <p style={{ color: 'var(--muted)', fontSize: 13 }}>
+        <div className="empty-state-card empty-state-360">
+          <CreditCard size={32} className="empty-state-icon" />
+          <p className="empty-state-desc">
             Belum ada riwayat tagihan terdaftar untuk mahasiswa ini.
           </p>
         </div>
@@ -139,17 +92,15 @@ export function Student360Financial({ bills, copiedKey, onCopy, percentPaid, sum
                     <td>{bill.bill_type}</td>
                     <td>
                       <div>
-                        <strong style={{ color: 'var(--brand-strong)' }}>
-                          {bill.amount_formatted}
-                        </strong>
+                        <strong className="text-brand-strong">{bill.amount_formatted}</strong>
                       </div>
                       {bill.status === 'partial' && (
-                        <div style={{ fontSize: 11, marginTop: 2 }}>
-                          <span style={{ color: 'var(--success)' }}>
+                        <div className="cell-xs mt-1">
+                          <span className="text-success">
                             Dibayar: {bill.paid_amount_formatted}
                           </span>{' '}
                           &bull;{' '}
-                          <span style={{ color: 'var(--danger)' }}>
+                          <span className="text-danger">
                             Sisa: {bill.remaining_amount_formatted}
                           </span>
                         </div>
@@ -168,16 +119,8 @@ export function Student360Financial({ bills, copiedKey, onCopy, percentPaid, sum
                     </td>
                     <td>{bill.due_date_formatted || '-'}</td>
                     <td>
-                      <div style={{ display: 'flex', alignItems: 'center' }}>
-                        <code
-                          style={{
-                            fontFamily: 'var(--font-mono)',
-                            fontWeight: 700,
-                            color: 'var(--ink)',
-                          }}
-                        >
-                          {bill.briva}
-                        </code>
+                      <div className="flex-row-center">
+                        <code className="font-mono-600 text-ink">{bill.briva}</code>
                         {bill.briva && (
                           <button
                             type="button"
@@ -186,7 +129,7 @@ export function Student360Financial({ bills, copiedKey, onCopy, percentPaid, sum
                             title="Salin BRIVA"
                           >
                             {copiedKey === copyKey ? (
-                              <Check size={13} color="var(--success)" />
+                              <Check size={13} className="text-success" />
                             ) : (
                               <Copy size={13} />
                             )}
@@ -204,3 +147,5 @@ export function Student360Financial({ bills, copiedKey, onCopy, percentPaid, sum
     </div>
   );
 }
+
+Student360Financial.displayName = 'Student360Financial';

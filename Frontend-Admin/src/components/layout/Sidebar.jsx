@@ -43,17 +43,7 @@ export default function Sidebar({
 
   return (
     <>
-      {isOpen && (
-        <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            background: 'rgba(0,0,0,0.45)',
-            zIndex: 35,
-          }}
-          onClick={onClose}
-        />
-      )}
+      {isOpen && <div className="sidebar-backdrop" onClick={onClose} />}
 
       <aside
         className={`app-sidebar ${isOpen ? 'is-open' : ''} ${isCollapsed ? 'is-collapsed' : ''}`}
@@ -77,7 +67,7 @@ export default function Sidebar({
             {!isCollapsed && (
               <div className="sidebar-brand-text">
                 <div className="sidebar-brand-title">SALUT Awwabin</div>
-                <div className="sidebar-brand-subtitle">Sistem Akademik & Tagihan</div>
+                <div className="sidebar-brand-subtitle">Sistem Akademik &amp; Tagihan</div>
               </div>
             )}
           </div>
@@ -136,3 +126,5 @@ export default function Sidebar({
     </>
   );
 }
+
+Sidebar.displayName = 'Sidebar';

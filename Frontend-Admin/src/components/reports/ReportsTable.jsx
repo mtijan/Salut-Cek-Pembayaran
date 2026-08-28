@@ -14,40 +14,19 @@ export default function ReportsTable({
 }) {
   if (loading) {
     return (
-      <div
-        style={{
-          padding: '60px 20px',
-          textAlign: 'center',
-          color: 'var(--muted)',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          gap: 12,
-        }}
-      >
-        <div
-          style={{
-            width: 32,
-            height: 32,
-            border: '3px solid var(--line)',
-            borderTopColor: 'var(--brand)',
-            borderRadius: '50%',
-            animation: 'spin 0.8s linear infinite',
-          }}
-        />
-        <p style={{ fontSize: 13, fontWeight: 600 }}>Memuat data rekapitulasi keuangan...</p>
+      <div className="table-loading-container">
+        <div className="loading-spinner-circle" />
+        <p className="loading-state-text">Memuat data rekapitulasi keuangan...</p>
       </div>
     );
   }
 
   if (pagination.totalCount === 0) {
     return (
-      <div style={{ padding: '60px 20px', textAlign: 'center', color: 'var(--muted)' }}>
-        <FileText size={48} style={{ margin: '0 auto 12px', opacity: 0.3 }} />
-        <p style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)' }}>
-          Tidak ada data rekapitulasi keuangan
-        </p>
-        <p style={{ fontSize: 13, marginTop: 4 }}>
+      <div className="table-empty-container">
+        <FileText size={48} className="empty-state-icon" />
+        <p className="empty-state-title">Tidak ada data rekapitulasi keuangan</p>
+        <p className="empty-state-desc">
           {hasActiveFilter
             ? 'Tidak ditemukan data keuangan yang sesuai dengan kriteria filter.'
             : 'Belum ada data tagihan atau mahasiswa di sistem.'}
@@ -55,9 +34,8 @@ export default function ReportsTable({
         {hasActiveFilter && (
           <button
             type="button"
-            className="btn btn-secondary btn-sm"
+            className="btn btn-secondary btn-sm mt-3"
             onClick={actions.resetFilters}
-            style={{ marginTop: 12 }}
           >
             Reset Semua Filter
           </button>
@@ -72,16 +50,16 @@ export default function ReportsTable({
         <table className="data-table">
           <thead>
             <tr>
-              <th style={{ width: 40, textAlign: 'center' }}>No</th>
+              <th className="th-no">No</th>
               <th>Mahasiswa</th>
               <th>Program Studi</th>
               <th>Angkatan</th>
-              <th style={{ textAlign: 'center' }}>Tagihan</th>
-              <th style={{ textAlign: 'right' }}>Total Terbit</th>
-              <th style={{ textAlign: 'right' }}>Total Terbayar</th>
-              <th style={{ textAlign: 'right' }}>Sisa Piutang</th>
-              <th style={{ textAlign: 'center' }}>Status Realisasi</th>
-              <th style={{ width: 80, textAlign: 'center' }}>Aksi</th>
+              <th className="text-center">Tagihan</th>
+              <th className="text-right">Total Terbit</th>
+              <th className="text-right">Total Terbayar</th>
+              <th className="text-right">Sisa Piutang</th>
+              <th className="text-center">Status Realisasi</th>
+              <th className="th-action">Aksi</th>
             </tr>
           </thead>
           <tbody>
@@ -91,24 +69,10 @@ export default function ReportsTable({
               const isPartial = student.status === 'partial';
               return (
                 <tr key={student.student_id || index}>
-                  <td style={{ textAlign: 'center', fontSize: 12, color: 'var(--muted)' }}>
-                    {rowNumber}
-                  </td>
+                  <td className="cell-row-num">{rowNumber}</td>
                   <td>
-                    <div style={{ fontWeight: 700, color: 'var(--ink)', fontSize: 13.5 }}>
-                      {student.full_name}
-                    </div>
-                    <div
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        flexWrap: 'wrap',
-                        gap: 6,
-                        fontSize: 12,
-                        color: 'var(--muted)',
-                        marginTop: 2,
-                      }}
-                    >
+                    <div className="student-name-cell">{student.full_name}</div>
+                    <div className="student-meta-row">
                       <span>
                         NIM: <strong className="mono-font">{student.nim}</strong>
                       </span>
@@ -151,37 +115,25 @@ export default function ReportsTable({
                     </div>
                   </td>
                   <td>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)' }}>
-                      {student.program_study}
-                    </div>
+                    <div className="cell-prodi">{student.program_study}</div>
                   </td>
                   <td>
-                    <span className="badge badge-neutral" style={{ fontSize: 11.5 }}>
-                      {student.entry_period}
-                    </span>
+                    <span className="badge badge-neutral badge-sm">{student.entry_period}</span>
                   </td>
-                  <td style={{ textAlign: 'center', fontWeight: 600, fontSize: 13 }}>
-                    {student.total_bills}
-                  </td>
-                  <td style={{ textAlign: 'right', fontWeight: 600 }}>
-                    {student.billed_amount_formatted}
-                  </td>
-                  <td style={{ textAlign: 'right', fontWeight: 700, color: 'var(--success)' }}>
+                  <td className="text-center font-semibold">{student.total_bills}</td>
+                  <td className="text-right font-semibold">{student.billed_amount_formatted}</td>
+                  <td className="text-right font-bold text-success">
                     {student.paid_amount_formatted}
                   </td>
                   <td
-                    style={{
-                      textAlign: 'right',
-                      fontWeight: 700,
-                      color: student.outstanding_amount > 0 ? 'var(--danger)' : 'var(--muted)',
-                    }}
+                    className={`text-right font-bold ${student.outstanding_amount > 0 ? 'text-danger' : 'text-muted'}`}
                   >
                     {student.outstanding_amount_formatted}
                   </td>
-                  <td style={{ textAlign: 'center' }}>
+                  <td className="text-center">
                     <StatusBadge
                       tone={isPaid ? 'success' : isPartial ? 'warning' : 'danger'}
-                      style={{ fontSize: 11.5, padding: '3px 8px' }}
+                      className="badge-compact"
                     >
                       {isPaid
                         ? 'LUNAS'
@@ -190,8 +142,8 @@ export default function ReportsTable({
                           : 'BELUM BAYAR'}
                     </StatusBadge>
                   </td>
-                  <td style={{ textAlign: 'center' }}>
-                    <div style={{ display: 'inline-flex', gap: 4 }}>
+                  <td className="text-center">
+                    <div className="table-action-cell">
                       {navigateTo && student.student_id && (
                         <button
                           type="button"
@@ -220,3 +172,5 @@ export default function ReportsTable({
     </>
   );
 }
+
+ReportsTable.displayName = 'ReportsTable';

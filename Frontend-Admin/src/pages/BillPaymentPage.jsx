@@ -3,37 +3,16 @@ import { ArrowLeft, User, RefreshCw, Check, Copy, Calendar } from 'lucide-react'
 import { useBillPayment } from '../hooks/useBillPayment';
 import PaymentForm from '../components/billing/PaymentForm';
 import PaymentHistoryTable from '../components/billing/PaymentHistoryTable';
-
-const formatRupiah = (val) => {
-  const num = Number(val) || 0;
-  return new Intl.NumberFormat('id-ID', {
-    style: 'currency',
-    currency: 'IDR',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(num);
-};
+import { formatRupiah } from '../utils/currency';
 
 export default function BillPaymentPage({ billId, navigateTo }) {
   const p = useBillPayment({ billId });
 
   if (p.loading && !p.data) {
     return (
-      <div style={{ padding: '60px 20px', textAlign: 'center' }}>
-        <div
-          style={{
-            width: 40,
-            height: 40,
-            border: '3px solid var(--line)',
-            borderTopColor: 'var(--brand)',
-            borderRadius: '50%',
-            animation: 'spin 0.8s linear infinite',
-            margin: '0 auto 16px',
-          }}
-        />
-        <p style={{ color: 'var(--muted)', fontSize: 14, fontWeight: 600 }}>
-          Memuat halaman pembayaran tagihan...
-        </p>
+      <div className="table-empty-container">
+        <div className="loading-spinner-circle empty-state-icon" />
+        <p className="loading-state-text">Memuat halaman pembayaran tagihan...</p>
       </div>
     );
   }
@@ -95,25 +74,14 @@ export default function BillPaymentPage({ billId, navigateTo }) {
           {/* Student Identity Card */}
           <div className="panel-card payment-id-card">
             <div className="payment-id-header">
-              <div
-                className="profile-avatar-circle"
-                style={{ width: 48, height: 48, fontSize: 16 }}
-              >
+              <div className="profile-avatar-circle avatar-lg">
                 {(p.student.full_name || p.bill.student_name || 'M').slice(0, 2).toUpperCase()}
               </div>
-              <div style={{ flex: 1, minWidth: 0 }}>
+              <div className="flex-1 min-w-0">
                 <h2 className="payment-student-name text-truncate">
                   {p.student.full_name || p.bill.student_name || 'Mahasiswa'}
                 </h2>
-                <div
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 6,
-                    fontSize: 13,
-                    color: 'var(--muted)',
-                  }}
-                >
+                <div className="student-meta-row">
                   <span>
                     NIM:{' '}
                     <strong className="mono-font">
@@ -155,8 +123,7 @@ export default function BillPaymentPage({ billId, navigateTo }) {
                 <div className="info-row">
                   <span className="label">Status Mahasiswa</span>
                   <span
-                    className={`badge ${p.student.academic_status === 'aktif' ? 'badge-success' : 'badge-warning'}`}
-                    style={{ fontSize: 11 }}
+                    className={`badge badge-sm ${p.student.academic_status === 'aktif' ? 'badge-success' : 'badge-warning'}`}
                   >
                     {p.student.academic_status.toUpperCase()}
                   </span>
@@ -176,10 +143,9 @@ export default function BillPaymentPage({ billId, navigateTo }) {
                 {p.bill.briva && (
                   <button
                     type="button"
-                    className="copy-btn-inline"
+                    className="copy-btn-inline copy-btn-white"
                     onClick={() => p.handleCopy(p.bill.briva, 'BRIVA')}
                     title="Salin BRIVA"
-                    style={{ background: 'rgba(255,255,255,0.2)', color: '#ffffff' }}
                   >
                     {p.copiedKey === 'BRIVA' ? <Check size={14} /> : <Copy size={14} />}
                   </button>
@@ -210,10 +176,9 @@ export default function BillPaymentPage({ billId, navigateTo }) {
             <div className="outstanding-hero-box">
               <span className="out-label">SISA TAGIHAN (OUTSTANDING)</span>
               <span className="out-val">{formatRupiah(p.remainingAmount)}</span>
-              <div style={{ marginTop: 8 }}>
+              <div className="mt-2">
                 <span
-                  className={`badge ${p.bill.status === 'paid' ? 'badge-success' : p.bill.status === 'partial' ? 'badge-warning' : 'badge-danger'}`}
-                  style={{ fontSize: 12, padding: '4px 12px' }}
+                  className={`badge badge-status-lg ${p.bill.status === 'paid' ? 'badge-success' : p.bill.status === 'partial' ? 'badge-warning' : 'badge-danger'}`}
                 >
                   Status Tagihan:{' '}
                   {p.bill.status === 'paid'
@@ -253,18 +218,28 @@ export default function BillPaymentPage({ billId, navigateTo }) {
             setReferenceNumber={p.setReferenceNumber}
             notes={p.notes}
             setNotes={p.setNotes}
-            submitting={p.submitting}
+            confirmFull={p.confirmFull}
+            setConfirmFull={p.setConfirmFull}
             formError={p.formError}
+            formSuccess={p.formSuccess}
+            submitting={p.submitting}
             numericPayment={p.numericPayment}
             newRemaining={p.newRemaining}
-            willBePaid={p.willBePaid}
             handleModeChange={p.handleModeChange}
-            handleQuickAmount={p.handleQuickAmount}
             handleSubmitPayment={p.handleSubmitPayment}
           />
-          <PaymentHistoryTable transactions={p.transactions} />
+
+          <PaymentHistoryTable
+            transactions={p.transactions}
+            historyLoading={p.historyLoading}
+            historyError={p.historyError}
+            canManageBilling={true}
+            onRefresh={() => p.fetchTransactions()}
+          />
         </div>
       </div>
     </div>
   );
 }
+
+BillPaymentPage.displayName = 'BillPaymentPage';

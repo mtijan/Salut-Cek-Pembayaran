@@ -19,20 +19,10 @@ export default function StudentTableRow({
       : actions.setSelected360Id(student.id);
   return (
     <tr>
-      <td
-        style={{
-          width: 44,
-          textAlign: 'center',
-          color: 'var(--muted)',
-          fontWeight: 600,
-          fontSize: 12.5,
-        }}
-      >
-        {rowNumber}
-      </td>
+      <td className="table-cell-row-num">{rowNumber}</td>
       <td>
-        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-          <strong style={{ fontFamily: 'var(--font-mono)' }}>{student.nim}</strong>
+        <div className="flex-row-gap-6">
+          <strong className="font-mono-600">{student.nim}</strong>
           <button
             type="button"
             className="copy-btn-inline"
@@ -40,7 +30,7 @@ export default function StudentTableRow({
             title="Salin NIM"
           >
             {copiedKey === `NIM ${student.nim}` ? (
-              <Check size={12} color="var(--success)" />
+              <Check size={12} className="text-success" />
             ) : (
               <Copy size={12} />
             )}
@@ -57,16 +47,12 @@ export default function StudentTableRow({
           >
             {student.full_name}
           </button>
-          {student.email && (
-            <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>{student.email}</div>
-          )}
+          {student.email && <div className="cell-email">{student.email}</div>}
         </div>
       </td>
       <td>
-        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-          <code style={{ fontSize: 12, color: 'var(--ink)', fontFamily: 'var(--font-mono)' }}>
-            {student.no_ktp || '-'}
-          </code>
+        <div className="flex-row-gap-6">
+          <code className="cell-ktp">{student.no_ktp || '-'}</code>
           {student.no_ktp && (
             <button
               type="button"
@@ -75,7 +61,7 @@ export default function StudentTableRow({
               title="Salin NIK"
             >
               {copiedKey === `NIK ${student.no_ktp}` ? (
-                <Check size={12} color="var(--success)" />
+                <Check size={12} className="text-success" />
               ) : (
                 <Copy size={12} />
               )}
@@ -87,18 +73,16 @@ export default function StudentTableRow({
         <span>{student.study_program_name || student.program_study || '-'}</span>
       </td>
       <td>
-        <StatusBadge tone="neutral" style={{ fontSize: 11, fontWeight: 700 }}>
+        <StatusBadge tone="neutral" className="badge-entry-period">
           {student.entry_period_formatted ||
             student.initial_registration ||
             (student.entry_year ? `Angkatan ${student.entry_year}` : '-')}
         </StatusBadge>
       </td>
       <td>
-        <span style={{ fontSize: 12.5, fontFamily: 'var(--font-mono)' }}>
-          {student.phone_number || '-'}
-        </span>
+        <span className="cell-phone">{student.phone_number || '-'}</span>
       </td>
-      <td style={{ textAlign: 'center' }}>
+      <td className="text-center">
         <StatusBadge
           tone={
             student.academic_status === 'aktif'
@@ -114,42 +98,29 @@ export default function StudentTableRow({
       <td>
         <div>
           <strong
-            style={{
-              color: Number(student.total_amount || 0) > 0 ? 'var(--brand-strong)' : 'var(--muted)',
-            }}
+            className={Number(student.total_amount || 0) > 0 ? 'text-brand-strong' : 'text-muted'}
           >
             {student.total_amount_formatted}
           </strong>
-          <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>
-            {student.bill_count} tagihan
-          </div>
+          <div className="cell-email">{student.bill_count} tagihan</div>
         </div>
       </td>
-      <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
-        <div
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            justifyContent: 'flex-end',
-            gap: 6,
-          }}
-        >
+      <td className="text-right whitespace-nowrap">
+        <div className="table-action-cell">
           <button
             type="button"
-            className="btn btn-secondary btn-sm"
-            style={{ height: 30, padding: '0 8px', gap: 4 }}
+            className="btn btn-secondary btn-sm btn-action-pay"
             onClick={() => openProfile('profile')}
             title="Lihat Profil 360 Mahasiswa"
           >
-            <Eye size={13} color="var(--brand)" />
+            <Eye size={13} className="icon-primary" />
             <span>Profil 360</span>
           </button>
           {canManage && (
             <>
               <button
                 type="button"
-                className="btn btn-secondary btn-sm"
-                style={{ height: 30, padding: '0 8px', gap: 4 }}
+                className="btn btn-secondary btn-sm btn-action-pay"
                 onClick={() =>
                   navigateTo
                     ? navigateTo('student-profile', { studentId: student.id, initialTab: 'edit' })
@@ -162,8 +133,7 @@ export default function StudentTableRow({
               </button>
               <button
                 type="button"
-                className="btn btn-danger btn-sm"
-                style={{ height: 30, width: 30, padding: 0 }}
+                className="btn btn-danger btn-sm btn-action-icon"
                 onClick={() => actions.setDeleteTarget(student)}
                 title="Hapus Mahasiswa"
               >
@@ -176,3 +146,5 @@ export default function StudentTableRow({
     </tr>
   );
 }
+
+StudentTableRow.displayName = 'StudentTableRow';

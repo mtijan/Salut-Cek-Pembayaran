@@ -41,7 +41,7 @@ export default function BillSummaryCard({
           <div className="bill-avatar-badge">
             {(formData.full_name || 'M').charAt(0).toUpperCase()}
           </div>
-          <div style={{ minWidth: 0, flex: 1 }}>
+          <div className="flex-1 min-w-0">
             <h3 className="bill-student-name-heading">
               {formData.full_name || (isCreate ? 'Pilih Mahasiswa' : 'Nama Mahasiswa')}
             </h3>
@@ -55,7 +55,7 @@ export default function BillSummaryCard({
                   title="Salin NIM"
                 >
                   {copiedKey === 'NIM' ? (
-                    <Check size={13} style={{ color: 'var(--brand-primary, #059669)' }} />
+                    <Check size={13} className="icon-primary" />
                   ) : (
                     <Copy size={13} />
                   )}
@@ -92,7 +92,7 @@ export default function BillSummaryCard({
       {/* Financial Summary Card */}
       <div className="bill-calc-summary-card">
         <h4 className="bill-calc-title">
-          <CreditCard size={16} style={{ color: 'var(--brand-primary, #059669)' }} />
+          <CreditCard size={16} className="icon-primary" />
           <span>Ringkasan Saldo Tagihan</span>
         </h4>
 
@@ -120,21 +120,20 @@ export default function BillSummaryCard({
           <div>
             <div className="bill-progress-header">
               <span>Progres Pelunasan</span>
-              <span style={{ fontWeight: 600 }}>{percentPaid}%</span>
+              <span className="font-semibold">{percentPaid}%</span>
             </div>
             <div className="bill-progress-track">
-              <div
-                className="bill-progress-fill"
-                style={{
-                  width: `${clampedPercent}%`,
-                  background: formData.status === 'paid' ? '#10b981' : '#f59e0b',
-                }}
+              <progress
+                className={`bill-progress-semantic ${formData.status === 'paid' ? 'paid' : 'partial'}`}
+                value={clampedPercent}
+                max={100}
+                aria-label={`Progres pelunasan ${percentPaid}%`}
               />
             </div>
           </div>
 
           <div className="bill-status-footer-row">
-            <span style={{ color: 'var(--text-muted, #64748b)' }}>Status Saat Ini</span>
+            <span className="text-muted">Status Saat Ini</span>
             <span
               className={`bill-status-pill ${
                 formData.status === 'paid'

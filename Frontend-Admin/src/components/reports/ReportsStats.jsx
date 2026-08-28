@@ -13,15 +13,11 @@ export default function ReportsStats({ stats, selectedStatus, actions }) {
   return (
     <div className="student-stats-row">
       <div
-        className={`student-stat-card ${!selectedStatus ? 'is-active' : ''}`}
+        className={`student-stat-card clickable-card ${!selectedStatus ? 'is-active' : ''}`}
         onClick={actions.selectAllStatus}
-        style={{ cursor: 'pointer' }}
         title="Klik untuk menampilkan seluruh data"
       >
-        <div
-          className="student-stat-icon"
-          style={{ background: 'var(--brand-surface)', color: 'var(--brand)' }}
-        >
+        <div className="student-stat-icon stat-icon-brand">
           <FileText size={22} />
         </div>
         <div className="student-stat-meta">
@@ -31,42 +27,33 @@ export default function ReportsStats({ stats, selectedStatus, actions }) {
       </div>
 
       <div
-        className={`student-stat-card ${selectedStatus === 'paid' ? 'is-active' : ''}`}
+        className={`student-stat-card clickable-card ${selectedStatus === 'paid' ? 'is-active' : ''}`}
         onClick={actions.togglePaidStatus}
-        style={{ cursor: 'pointer' }}
         title="Klik untuk memfilter status Lunas"
       >
-        <div
-          className="student-stat-icon"
-          style={{ background: 'var(--success-bg)', color: 'var(--success)' }}
-        >
+        <div className="student-stat-icon stat-icon-success">
           <CheckCircle2 size={22} />
         </div>
         <div className="student-stat-meta">
           <span className="student-stat-title">Total Terbayar (Lunas)</span>
-          <strong className="student-stat-number" style={{ color: 'var(--success)' }}>
+          <strong className="student-stat-number text-success">
             {formatRupiah(stats.totalPaid)}
           </strong>
         </div>
       </div>
 
       <div
-        className={`student-stat-card ${selectedStatus === 'partial' || selectedStatus === 'unpaid' ? 'is-active' : ''}`}
+        className={`student-stat-card clickable-card ${selectedStatus === 'partial' || selectedStatus === 'unpaid' ? 'is-active' : ''}`}
         onClick={actions.cycleOutstandingStatus}
-        style={{ cursor: 'pointer' }}
         title="Klik untuk beralih filter Belum Lunas / Sebagian"
       >
-        <div
-          className="student-stat-icon"
-          style={{ background: 'var(--warning-bg)', color: 'var(--warning)' }}
-        >
+        <div className="student-stat-icon stat-icon-warning">
           <Clock size={22} />
         </div>
         <div className="student-stat-meta">
           <span className="student-stat-title">Sisa Piutang / Tunggakan</span>
           <strong
-            className="student-stat-number"
-            style={{ color: stats.totalOutstanding > 0 ? 'var(--danger)' : 'var(--success)' }}
+            className={`student-stat-number ${stats.totalOutstanding > 0 ? 'text-danger' : 'text-success'}`}
           >
             {formatRupiah(stats.totalOutstanding)}
           </strong>
@@ -74,19 +61,16 @@ export default function ReportsStats({ stats, selectedStatus, actions }) {
       </div>
 
       <div className="student-stat-card">
-        <div
-          className="student-stat-icon"
-          style={{ background: 'var(--info-bg)', color: 'var(--info)' }}
-        >
+        <div className="student-stat-icon stat-icon-info">
           <TrendingUp size={22} />
         </div>
         <div className="student-stat-meta">
           <span className="student-stat-title">Tingkat Realisasi</span>
-          <strong className="student-stat-number" style={{ color: 'var(--info)' }}>
-            {stats.percentagePaid}%
-          </strong>
+          <strong className="student-stat-number text-info">{stats.percentagePaid}%</strong>
         </div>
       </div>
     </div>
   );
 }
+
+ReportsStats.displayName = 'ReportsStats';

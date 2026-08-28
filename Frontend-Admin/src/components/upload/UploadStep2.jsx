@@ -25,25 +25,19 @@ export default function UploadStep2({
       <div className="stats-grid">
         <div className="stat-card">
           <span className="stat-card-title">Baris Valid</span>
-          <div className="stat-card-value" style={{ color: 'var(--success)' }}>
-            {s.valid_rows || 0}
-          </div>
+          <div className="stat-card-value text-success">{s.valid_rows || 0}</div>
           <span className="stat-card-subtext">Dari file {s.file_name}</span>
         </div>
 
         <div className="stat-card">
           <span className="stat-card-title">Tagihan Baru</span>
-          <div className="stat-card-value" style={{ color: 'var(--brand)' }}>
-            {s.new_rows ?? 0}
-          </div>
+          <div className="stat-card-value text-brand">{s.new_rows ?? 0}</div>
           <span className="stat-card-subtext">Akan ditambahkan ke sistem</span>
         </div>
 
         <div className="stat-card">
           <span className="stat-card-title">Tagihan Diperbarui</span>
-          <div className="stat-card-value" style={{ color: 'var(--accent)' }}>
-            {s.update_rows ?? 0}
-          </div>
+          <div className="stat-card-value text-accent">{s.update_rows ?? 0}</div>
           <span className="stat-card-subtext">
             {s.amount_change_rows || 0} nominal / {s.briva_change_rows || 0} BRIVA berubah
           </span>
@@ -51,10 +45,7 @@ export default function UploadStep2({
 
         <div className="stat-card">
           <span className="stat-card-title">Baris Kritis</span>
-          <div
-            className="stat-card-value"
-            style={{ color: critical ? 'var(--danger)' : 'var(--muted)' }}
-          >
+          <div className={`stat-card-value ${critical ? 'text-danger' : 'text-muted'}`}>
             {s.critical_rows || 0}
           </div>
           <span className="stat-card-subtext">
@@ -66,7 +57,7 @@ export default function UploadStep2({
       {/* Critical Error Alert */}
       {critical && (
         <div className="upload-critical-box">
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div className="flex-row-gap-8">
             <AlertCircle size={20} />
             <strong>
               File memiliki error kritis. Mohon perbaiki file Excel Anda sebelum melanjutkan.
@@ -78,32 +69,15 @@ export default function UploadStep2({
       {/* Sensitive Confirmation Warning */}
       {hasSensitive && !critical && (
         <div className="upload-warning-box">
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 8,
-              color: '#92400e',
-              marginBottom: 8,
-            }}
-          >
+          <div className="upload-warning-title">
             <AlertTriangle size={20} />
             <strong>Persetujuan Perubahan Data Sensitif Diperlukan</strong>
           </div>
-          <p style={{ fontSize: 13, color: '#78350f', marginBottom: 12 }}>
+          <p className="upload-warning-text">
             Ditemukan {s.amount_change_rows || 0} perubahan nominal dan {s.briva_change_rows || 0}{' '}
             perubahan nomor BRIVA dari data sebelumnya.
           </p>
-          <label
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 8,
-              fontSize: 13,
-              fontWeight: 700,
-              cursor: 'pointer',
-            }}
-          >
+          <label className="upload-confirm-label">
             <input type="checkbox" checked={confirmSensitive} onChange={onConfirmChange} />
             <span>Saya menyetujui pembaruan nominal / nomor BRIVA tagihan di atas.</span>
           </label>
@@ -112,17 +86,8 @@ export default function UploadStep2({
 
       {/* Sample Data Table */}
       {s.sample && s.sample.length > 0 && (
-        <div className="panel-card" style={{ marginBottom: 20 }}>
-          <h4
-            style={{
-              fontSize: 14,
-              fontWeight: 800,
-              color: 'var(--brand-strong)',
-              marginBottom: 12,
-            }}
-          >
-            Sampel Data Terbaca (5 Baris Pertama)
-          </h4>
+        <div className="panel-card mb-4">
+          <h4 className="card-sub-title mb-3">Sampel Data Terbaca (5 Baris Pertama)</h4>
           <div className="table-responsive">
             <table className="data-table">
               <thead>
@@ -147,7 +112,7 @@ export default function UploadStep2({
                       <strong>Rp {Number(row.amount || 0).toLocaleString('id-ID')}</strong>
                     </td>
                     <td>
-                      <code style={{ fontFamily: 'var(--font-mono)' }}>{row.briva}</code>
+                      <code className="font-mono">{row.briva}</code>
                     </td>
                     <td>{row.due_date || '-'}</td>
                   </tr>
@@ -160,8 +125,8 @@ export default function UploadStep2({
 
       {/* Issue / Warning List */}
       {s.errors && s.errors.length > 0 && (
-        <div className="panel-card" style={{ marginBottom: 20 }}>
-          <h4 style={{ fontSize: 14, fontWeight: 800, color: 'var(--ink)', marginBottom: 12 }}>
+        <div className="panel-card mb-4">
+          <h4 className="card-sub-title mb-3">
             Pemberitahuan &amp; Catatan Validasi ({s.errors.length})
           </h4>
           <div className="upload-issues-list">
@@ -174,12 +139,7 @@ export default function UploadStep2({
                   <strong>Baris {err.row_number}:</strong> {err.message}
                 </span>
                 <span
-                  style={{
-                    fontWeight: 700,
-                    textTransform: 'uppercase',
-                    fontSize: 10,
-                    color: err.severity === 'critical' ? 'var(--danger)' : '#854d0e',
-                  }}
+                  className={`issue-severity-tag ${err.severity === 'critical' ? 'text-danger' : 'text-amber'}`}
                 >
                   {err.severity}
                 </span>
@@ -190,16 +150,13 @@ export default function UploadStep2({
       )}
 
       {/* Action Bar */}
-      <div
-        className="panel-card"
-        style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
-      >
+      <div className="panel-card upload-actions-bar">
         <button type="button" className="btn btn-secondary" onClick={onBack} disabled={committing}>
           Batal &amp; Ganti File
         </button>
 
         <button
-          type="button"
+          type="submit"
           className="btn btn-primary"
           onClick={onCommit}
           disabled={!canCommit || committing}

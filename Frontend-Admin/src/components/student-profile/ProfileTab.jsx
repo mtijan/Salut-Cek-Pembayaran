@@ -10,7 +10,11 @@ function CopyButton({ copiedKey, copyKey, onCopy, title, value, size = 13 }) {
       onClick={() => onCopy(value, copyKey)}
       title={title}
     >
-      {copiedKey === copyKey ? <Check size={size} color="var(--success)" /> : <Copy size={size} />}
+      {copiedKey === copyKey ? (
+        <Check size={size} className="text-success" />
+      ) : (
+        <Copy size={size} />
+      )}
     </button>
   );
 }
@@ -27,7 +31,7 @@ export function ProfileTab({ bills, canManageBilling, copiedKey, navigateTo, onC
     <div className="profile-tab-pane">
       <div className="profile-section-block">
         <div className="profile-section-heading">
-          <User size={17} color="var(--brand)" />
+          <User size={17} className="text-brand" />
           <span>Informasi Data Utama Mahasiswa</span>
         </div>
         <div className="profile-kv-grid">
@@ -70,7 +74,7 @@ export function ProfileTab({ bills, canManageBilling, copiedKey, navigateTo, onC
             </div>
           </div>
           <div className="kv-item">
-            <span className="kv-label">Tempat & Tanggal Lahir</span>
+            <span className="kv-label">Tempat &amp; Tanggal Lahir</span>
             <span className="kv-value">
               {student.tempat_lahir || '-'}, {student.tanggal_lahir || '-'}
             </span>
@@ -81,7 +85,7 @@ export function ProfileTab({ bills, canManageBilling, copiedKey, navigateTo, onC
           </div>
           <div className="kv-item">
             <span className="kv-label">Program Studi</span>
-            <strong className="kv-value" style={{ color: 'var(--brand)' }}>
+            <strong className="kv-value text-brand">
               {student.study_program_name || student.program_study || '-'}
             </strong>
           </div>
@@ -120,12 +124,12 @@ export function ProfileTab({ bills, canManageBilling, copiedKey, navigateTo, onC
               </span>
             </span>
           </div>
-          <div className="kv-item" style={{ gridColumn: '1 / -1' }}>
+          <div className="kv-item form-group-full">
             <span className="kv-label">Alamat Lengkap</span>
             <span className="kv-value">{student.address || '-'}</span>
           </div>
           {student.initial_registration && (
-            <div className="kv-item" style={{ gridColumn: '1 / -1' }}>
+            <div className="kv-item form-group-full">
               <span className="kv-label">Registrasi Awal</span>
               <span className="kv-value mono-font">{student.initial_registration}</span>
             </div>
@@ -133,13 +137,13 @@ export function ProfileTab({ bills, canManageBilling, copiedKey, navigateTo, onC
         </div>
       </div>
 
-      <div className="profile-section-block" style={{ marginTop: 24 }}>
+      <div className="profile-section-block mt-3">
         <div className="profile-section-heading">
-          <CreditCard size={17} color="var(--brand)" />
-          <span>Grup & BRIVA Terdaftar</span>
+          <CreditCard size={17} className="text-brand" />
+          <span>Grup &amp; BRIVA Terdaftar</span>
         </div>
         {bills.length === 0 ? (
-          <p style={{ color: 'var(--muted)', fontSize: 13, fontStyle: 'italic', padding: 12 }}>
+          <p className="empty-state-desc">
             Belum ada nomor BRIVA yang terdaftar untuk mahasiswa ini.
           </p>
         ) : (
@@ -203,3 +207,5 @@ export function ProfileTab({ bills, canManageBilling, copiedKey, navigateTo, onC
     </div>
   );
 }
+
+ProfileTab.displayName = 'ProfileTab';

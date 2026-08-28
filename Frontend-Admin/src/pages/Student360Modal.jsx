@@ -31,11 +31,10 @@ export default function Student360Modal({ studentId, isOpen, onClose }) {
   return (
     <div className="modal-backdrop" onClick={onClose}>
       <div
-        className="modal-dialog large"
+        className="modal-dialog large modal-dialog-clean"
         onClick={(event) => event.stopPropagation()}
         role="dialog"
         aria-modal="true"
-        style={{ overflow: 'hidden', padding: 0 }}
       >
         <div className="modal-hero-banner">
           <div className="modal-hero-left">
@@ -48,32 +47,29 @@ export default function Student360Modal({ studentId, isOpen, onClose }) {
                 {student?.nim && (
                   <button
                     type="button"
-                    className="copy-btn-inline"
+                    className="copy-btn-inline copy-btn-white-trans"
                     onClick={() => modal.handleCopy(student.nim, 'NIM')}
                     title="Salin NIM"
-                    style={{ color: '#dcfce7' }}
                   >
                     {modal.copiedKey === 'NIM' ? <Check size={13} /> : <Copy size={13} />}
                   </button>
                 )}
-                <span style={{ opacity: 0.5 }}>&bull;</span>
+                <span className="opacity-50">&bull;</span>
                 <span>{student?.study_program_name || student?.program_study || '-'}</span>
               </p>
             </div>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div className="flex-row-gap-8">
             <span
-              className={`badge ${student?.academic_status === 'aktif' ? 'badge-success' : student?.academic_status === 'cuti' ? 'badge-warning' : 'badge-danger'}`}
-              style={{ fontSize: 12, padding: '4px 10px' }}
+              className={`badge badge-hero-status ${student?.academic_status === 'aktif' ? 'badge-success' : student?.academic_status === 'cuti' ? 'badge-warning' : 'badge-danger'}`}
             >
               {student?.academic_status || 'aktif'}
             </span>
             <button
               type="button"
-              className="modal-close-btn"
+              className="modal-close-btn modal-close-white"
               onClick={onClose}
               aria-label="Tutup"
-              style={{ color: '#ffffff', background: 'rgba(255,255,255,0.15)' }}
             >
               <X size={20} />
             </button>
@@ -105,18 +101,12 @@ export default function Student360Modal({ studentId, isOpen, onClose }) {
           })}
         </div>
 
-        <div className="modal-body" style={{ maxHeight: 'calc(80vh - 170px)', overflowY: 'auto' }}>
+        <div className="modal-body modal-body-360">
           {modal.loading ? (
-            <div style={{ padding: 40, textAlign: 'center' }}>
-              <div
-                className="skeleton-box skeleton-row"
-                style={{ width: '100%', marginBottom: 12 }}
-              />
-              <div
-                className="skeleton-box skeleton-row"
-                style={{ width: '80%', marginBottom: 12 }}
-              />
-              <div className="skeleton-box skeleton-row" style={{ width: '60%' }} />
+            <div className="skeleton-360-container">
+              <div className="skeleton-box skeleton-row w-full mb-3" />
+              <div className="skeleton-box skeleton-row w-80 mb-3" />
+              <div className="skeleton-box skeleton-row w-60" />
             </div>
           ) : (
             <>
@@ -148,7 +138,7 @@ export default function Student360Modal({ studentId, isOpen, onClose }) {
           )}
         </div>
 
-        <div className="modal-footer" style={{ background: '#f8fafc' }}>
+        <div className="modal-footer modal-footer-bg">
           <button type="button" className="btn btn-secondary btn-sm" onClick={copySummary}>
             <Copy size={14} />
             <span>Salin Profil Singkat</span>
@@ -161,3 +151,5 @@ export default function Student360Modal({ studentId, isOpen, onClose }) {
     </div>
   );
 }
+
+Student360Modal.displayName = 'Student360Modal';

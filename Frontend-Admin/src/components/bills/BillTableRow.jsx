@@ -10,128 +10,72 @@ export default function BillTableRow({ bill, copiedKey, canManage, actions, navi
   return (
     <tr className="table-row-modern">
       <td>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div
-            style={{
-              width: 36,
-              height: 36,
-              borderRadius: 'var(--radius-md)',
-              background: 'var(--brand-surface)',
-              color: 'var(--brand)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: 14,
-              fontWeight: 700,
-              flexShrink: 0,
-            }}
-          >
+        <div className="flex-row-gap-8">
+          <div className="table-avatar-badge">
             {(bill.student_name || bill.full_name || 'M').charAt(0).toUpperCase()}
           </div>
-          <div style={{ minWidth: 0 }}>
+          <div className="min-w-0">
             {bill.student_id && navigateTo ? (
               <button
                 type="button"
                 onClick={() => navigateTo('student-profile', { studentId: bill.student_id })}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  padding: 0,
-                  fontWeight: 700,
-                  fontSize: 13.5,
-                  color: 'var(--brand-strong)',
-                  cursor: 'pointer',
-                  textAlign: 'left',
-                  display: 'block',
-                  whiteSpace: 'nowrap',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                }}
+                className="student-name-link"
                 title="Buka Profil 360 Mahasiswa"
               >
                 {bill.student_name || bill.full_name}
               </button>
             ) : (
-              <strong style={{ fontSize: 13.5, color: 'var(--ink)' }}>
-                {bill.student_name || bill.full_name}
-              </strong>
+              <strong className="student-name-cell">{bill.student_name || bill.full_name}</strong>
             )}
-            <div
-              style={{
-                fontSize: 11.5,
-                color: 'var(--muted)',
-                marginTop: 2,
-                display: 'flex',
-                alignItems: 'center',
-                gap: 6,
-              }}
-            >
-              <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 600 }}>
-                {bill.student_nim || bill.nim}
-              </span>
+            <div className="student-meta-row">
+              <span className="font-mono-600">{bill.student_nim || bill.nim}</span>
               {bill.study_program_name && <span>&bull; {bill.study_program_name}</span>}
             </div>
           </div>
         </div>
       </td>
       <td>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-          <span
-            style={{
-              display: 'inline-block',
-              width: 'fit-content',
-              padding: '1px 6px',
-              borderRadius: 4,
-              fontSize: 11,
-              fontWeight: 700,
-              background: '#f1f5f9',
-              color: '#334155',
-              border: '1px solid #e2e8f0',
-            }}
-          >
-            {bill.period}
-          </span>
-          <span style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--ink)' }}>
-            {bill.bill_type || 'UKT'}
-          </span>
+        <div className="flex-column-gap-3">
+          <span className="period-badge">{bill.period}</span>
+          <span className="cell-prodi">{bill.bill_type || 'UKT'}</span>
         </div>
       </td>
       <td>
-        <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--ink)' }}>
+        <div className="font-bold text-ink">
           {bill.amount_formatted || formatRupiah(bill.amount)}
         </div>
         {bill.status === 'partial' && (
-          <div style={{ fontSize: 11, marginTop: 3 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 6 }}>
-              <span style={{ color: 'var(--success)', fontWeight: 600 }}>
+          <div className="cell-xs mt-1">
+            <div className="flex-between-gap-6">
+              <span className="text-success font-semibold">
                 Terbayar: {bill.paid_amount_formatted || formatRupiah(bill.paid_amount)}
               </span>
-              <span style={{ color: 'var(--warning)', fontWeight: 600 }}>
+              <span className="text-warning font-semibold">
                 Sisa: {bill.remaining_amount_formatted || formatRupiah(bill.remaining_amount)}
               </span>
             </div>
             <div className="micro-progress-wrap">
-              <div
-                className="micro-progress-bar"
-                style={{ width: `${percentage}%`, background: 'var(--warning)' }}
+              <progress
+                className="micro-progress-bar-semantic"
+                value={percentage}
+                max={100}
+                aria-label={`Progres pelunasan ${percentage}%`}
               />
             </div>
           </div>
         )}
         {bill.status === 'paid' && (
-          <div style={{ fontSize: 11, color: 'var(--success)', fontWeight: 600, marginTop: 2 }}>
-            Lunas Penuh (100%)
-          </div>
+          <div className="cell-xs text-success font-semibold mt-1">Lunas Penuh (100%)</div>
         )}
       </td>
-      <td style={{ textAlign: 'center' }}>
+      <td className="text-center">
         <StatusBadge
           tone={
             bill.status === 'paid' ? 'success' : bill.status === 'partial' ? 'warning' : 'danger'
           }
-          style={{
-            cursor: canManage && bill.status !== 'paid' && navigateTo ? 'pointer' : 'default',
-          }}
+          className={
+            canManage && bill.status !== 'paid' && navigateTo ? 'cursor-pointer' : 'cursor-default'
+          }
           onClick={() =>
             canManage && bill.status !== 'paid' && navigateTo?.('bill-payment', { billId: bill.id })
           }
@@ -144,32 +88,26 @@ export default function BillTableRow({ bill, copiedKey, canManage, actions, navi
               : 'Belum Lunas'}
         </StatusBadge>
       </td>
-      <td style={{ fontSize: 12.5, color: 'var(--muted)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-          <Calendar size={13} style={{ color: 'var(--muted-light)' }} />
+      <td className="cell-notes text-muted">
+        <div className="flex-row-gap-6">
+          <Calendar size={13} className="text-muted" />
           <span>
             {bill.due_date_formatted || (bill.due_date ? String(bill.due_date).slice(0, 10) : '-')}
           </span>
         </div>
       </td>
       <td>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+        <div className="flex-row-gap-6">
           <span className="mono-tag">{bill.briva}</span>
           {bill.briva && (
             <button
               type="button"
               onClick={() => actions.copy(bill.briva, `BRIVA ${bill.briva}`)}
-              style={{
-                background: 'none',
-                border: 'none',
-                padding: 3,
-                cursor: 'pointer',
-                color: 'var(--muted)',
-              }}
+              className="copy-btn-inline"
               title="Salin BRIVA"
             >
               {copiedKey === `BRIVA ${bill.briva}` ? (
-                <Check size={14} style={{ color: 'var(--success)' }} />
+                <Check size={14} className="text-success" />
               ) : (
                 <Copy size={14} />
               )}
@@ -177,20 +115,12 @@ export default function BillTableRow({ bill, copiedKey, canManage, actions, navi
           )}
         </div>
       </td>
-      <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
-        <div
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            justifyContent: 'flex-end',
-            gap: 6,
-          }}
-        >
+      <td className="text-right whitespace-nowrap">
+        <div className="table-action-cell">
           {canManage && (
             <button
               type="button"
-              className="btn btn-primary btn-sm"
-              style={{ height: 30, padding: '0 8px', gap: 4 }}
+              className="btn btn-primary btn-sm btn-action-pay"
               onClick={() => navigateTo?.('bill-payment', { billId: bill.id })}
               title="Buka Kasir Pembayaran Tagihan"
             >
@@ -200,8 +130,7 @@ export default function BillTableRow({ bill, copiedKey, canManage, actions, navi
           )}
           <button
             type="button"
-            className="btn btn-secondary btn-sm"
-            style={{ height: 30, width: 30, padding: 0 }}
+            className="btn btn-secondary btn-sm btn-action-icon"
             onClick={() => actions.openHistory(bill)}
             title="Lihat Riwayat Transaksi"
           >
@@ -211,8 +140,7 @@ export default function BillTableRow({ bill, copiedKey, canManage, actions, navi
             <>
               <button
                 type="button"
-                className="btn btn-secondary btn-sm"
-                style={{ height: 30, width: 30, padding: 0 }}
+                className="btn btn-secondary btn-sm btn-action-icon"
                 onClick={() => navigateTo?.('bill-edit', { billId: bill.id })}
                 title="Edit Data Pokok Tagihan (Halaman Penuh)"
               >
@@ -220,8 +148,7 @@ export default function BillTableRow({ bill, copiedKey, canManage, actions, navi
               </button>
               <button
                 type="button"
-                className="btn btn-danger btn-sm"
-                style={{ height: 30, width: 30, padding: 0 }}
+                className="btn btn-danger btn-sm btn-action-icon"
                 onClick={() => actions.setDeleteTarget(bill)}
                 title="Hapus Tagihan"
               >
@@ -234,3 +161,5 @@ export default function BillTableRow({ bill, copiedKey, canManage, actions, navi
     </tr>
   );
 }
+
+BillTableRow.displayName = 'BillTableRow';

@@ -29,7 +29,7 @@ export default function Header({
 
   return (
     <header className="app-header">
-      <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+      <div className="header-left-group">
         <button
           type="button"
           onClick={handleToggle}
@@ -50,7 +50,7 @@ export default function Header({
 
       <div className="header-user-area">
         <div className="user-badge">
-          <User size={16} color="var(--brand)" />
+          <User size={16} className="text-brand" />
           <span>{admin?.email || 'admin@salut.local'}</span>
           <span className={`role-tag ${admin?.role || 'admin'}`}>
             {admin?.role === 'super_admin'
@@ -64,3 +64,5 @@ export default function Header({
     </header>
   );
 }
+
+Header.displayName = 'Header';

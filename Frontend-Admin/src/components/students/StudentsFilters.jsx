@@ -3,11 +3,9 @@ import { Plus, RefreshCw, Search, X } from 'lucide-react';
 
 export default function StudentsFilters({ filters, prodis, canManage, actions }) {
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 20 }}>
-      <div
-        style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}
-      >
-        <div className="search-input-wrap" style={{ flex: 1, maxWidth: 440 }}>
+    <div className="reports-filter-container">
+      <div className="reports-top-bar">
+        <div className="search-input-wrap search-wrap-reports">
           <Search size={16} />
           <input
             type="text"
@@ -19,17 +17,7 @@ export default function StudentsFilters({ filters, prodis, canManage, actions })
             <button
               type="button"
               onClick={() => actions.setQuery('')}
-              style={{
-                position: 'absolute',
-                right: 10,
-                top: '50%',
-                transform: 'translateY(-50%)',
-                background: 'transparent',
-                border: 'none',
-                color: 'var(--muted)',
-                cursor: 'pointer',
-                padding: 4,
-              }}
+              className="search-clear-btn"
               title="Hapus pencarian"
             >
               <X size={14} />
@@ -39,8 +27,7 @@ export default function StudentsFilters({ filters, prodis, canManage, actions })
         {canManage && (
           <button
             type="button"
-            className="btn btn-primary"
-            style={{ height: 38 }}
+            className="btn btn-primary btn-fixed-h"
             onClick={actions.openCreate}
           >
             <Plus size={16} />
@@ -48,33 +35,10 @@ export default function StudentsFilters({ filters, prodis, canManage, actions })
           </button>
         )}
       </div>
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          flexWrap: 'wrap',
-          gap: 10,
-          padding: '10px 14px',
-          background: '#f8fafc',
-          border: '1px solid var(--line)',
-          borderRadius: 'var(--radius-md)',
-        }}
-      >
-        <span
-          style={{
-            fontSize: 12,
-            fontWeight: 700,
-            textTransform: 'uppercase',
-            letterSpacing: '0.04em',
-            color: 'var(--muted)',
-            marginRight: 4,
-          }}
-        >
-          Filter:
-        </span>
+      <div className="reports-filter-bar">
+        <span className="filter-bar-label">Filter:</span>
         <select
-          className="select-filter"
-          style={{ minWidth: 190, flex: '1 1 190px' }}
+          className="select-filter select-prodi"
           value={filters.selectedProdi}
           onChange={(event) => actions.setSelectedProdi(event.target.value)}
         >
@@ -86,8 +50,7 @@ export default function StudentsFilters({ filters, prodis, canManage, actions })
           ))}
         </select>
         <select
-          className="select-filter"
-          style={{ minWidth: 160, flex: '1 1 160px' }}
+          className="select-filter select-period"
           value={filters.selectedPeriod}
           onChange={(event) => actions.setSelectedPeriod(event.target.value)}
         >
@@ -101,8 +64,7 @@ export default function StudentsFilters({ filters, prodis, canManage, actions })
           <option value="2023.1">2023.1 (Ganjil)</option>
         </select>
         <select
-          className="select-filter"
-          style={{ minWidth: 130, flex: '1 1 130px' }}
+          className="select-filter select-status"
           value={filters.selectedStatus}
           onChange={(event) => actions.setSelectedStatus(event.target.value)}
         >
@@ -114,8 +76,7 @@ export default function StudentsFilters({ filters, prodis, canManage, actions })
           <option value="keluar">Keluar</option>
         </select>
         <select
-          className="select-filter"
-          style={{ minWidth: 160, flex: '1 1 160px' }}
+          className="select-filter select-sort"
           value={filters.sortBy}
           onChange={(event) => actions.setSortBy(event.target.value)}
           title="Urutan Data"
@@ -127,8 +88,7 @@ export default function StudentsFilters({ filters, prodis, canManage, actions })
         </select>
         <button
           type="button"
-          className="btn btn-secondary"
-          style={{ height: 38, padding: '0 12px' }}
+          className="btn btn-secondary btn-fixed-h"
           onClick={actions.resetFilters}
           title="Reset Filter"
         >
@@ -139,3 +99,5 @@ export default function StudentsFilters({ filters, prodis, canManage, actions })
     </div>
   );
 }
+
+StudentsFilters.displayName = 'StudentsFilters';

@@ -11,10 +11,8 @@ export default function UploadStep1({ file, analyzing, onFileChange, onAnalyze }
     <div className="panel-card">
       <div className="upload-header-row">
         <div>
-          <h3 style={{ fontSize: 16, fontWeight: 800, color: 'var(--brand-strong)', margin: 0 }}>
-            Impor Data Mahasiswa &amp; Tagihan
-          </h3>
-          <p style={{ fontSize: 13, color: 'var(--muted)', margin: '4px 0 0' }}>
+          <h3 className="card-sub-title mb-0">Impor Data Mahasiswa &amp; Tagihan</h3>
+          <p className="panel-header-desc">
             Upload file Master Data 13 kolom resmi atau data tagihan Excel (.xlsx).
           </p>
         </div>
@@ -29,10 +27,8 @@ export default function UploadStep1({ file, analyzing, onFileChange, onAnalyze }
       </div>
 
       <div className="upload-dropzone-box">
-        <UploadCloud size={48} color="var(--brand)" style={{ margin: '0 auto 16px' }} />
-        <h4 style={{ fontSize: 16, fontWeight: 800, color: 'var(--brand-strong)' }}>
-          Tarik atau Pilih File Excel (.xlsx)
-        </h4>
+        <UploadCloud size={48} className="text-brand upload-success-icon" />
+        <h4 className="upload-title text-brand-strong">Tarik atau Pilih File Excel (.xlsx)</h4>
         <p className="upload-dropzone-desc">
           Mendukung Master Data 13 kolom (<code>NIM</code>, <code>Nama</code>, <code>NO KTP</code>,{' '}
           <code>Tempat/Tgl Lahir</code>, <code>Nama Ibu Kandung</code>, <code>e-Mail</code>,{' '}
@@ -44,24 +40,23 @@ export default function UploadStep1({ file, analyzing, onFileChange, onAnalyze }
           type="file"
           id="file-upload"
           accept=".xlsx"
-          style={{ display: 'none' }}
+          className="hidden-file-input"
           onChange={onFileChange}
         />
 
-        <label htmlFor="file-upload" className="btn btn-primary" style={{ cursor: 'pointer' }}>
+        <label htmlFor="file-upload" className="btn btn-primary cursor-pointer">
           <FileSpreadsheet size={16} />
           <span>{file ? file.name : 'Pilih File Excel'}</span>
         </label>
 
         {file && (
           <div className="upload-selected-file-info">
-            <p style={{ fontSize: 13, color: 'var(--ink)', fontWeight: 600 }}>
+            <p className="selected-file-name">
               File Terpilih: <strong>{file.name}</strong> ({(file.size / 1024).toFixed(1)} KB)
             </p>
             <button
               type="button"
-              className="btn btn-primary"
-              style={{ marginTop: 12 }}
+              className="btn btn-primary mt-3"
               onClick={onAnalyze}
               disabled={analyzing}
             >

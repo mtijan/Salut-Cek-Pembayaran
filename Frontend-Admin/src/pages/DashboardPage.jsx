@@ -34,21 +34,10 @@ export default function DashboardPage({ setActiveView }) {
 
   return (
     <div>
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          marginBottom: 24,
-        }}
-      >
+      <div className="dashboard-header-row">
         <div>
-          <h2 style={{ fontSize: 20, fontWeight: 800, color: 'var(--brand-strong)' }}>
-            Ringkasan Operasional & Keuangan
-          </h2>
-          <p style={{ fontSize: 13, color: 'var(--muted)' }}>
-            Metrik agregat semester aktif SALUT Awwabin
-          </p>
+          <h2 className="dashboard-title">Ringkasan Operasional &amp; Keuangan</h2>
+          <p className="dashboard-subtitle">Metrik agregat semester aktif SALUT Awwabin</p>
         </div>
         <button
           type="button"
@@ -65,7 +54,7 @@ export default function DashboardPage({ setActiveView }) {
         <div className="stat-card">
           <div className="stat-card-header">
             <span className="stat-card-title">Total Mahasiswa</span>
-            <Users size={20} color="var(--brand)" />
+            <Users size={20} className="text-brand" />
           </div>
           <div className="stat-card-value">
             {stats ? stats.total_students.toLocaleString('id-ID') : '-'}
@@ -79,24 +68,23 @@ export default function DashboardPage({ setActiveView }) {
         <div className="stat-card">
           <div className="stat-card-header">
             <span className="stat-card-title">Total Tagihan</span>
-            <Receipt size={20} color="var(--accent)" />
+            <Receipt size={20} className="text-accent" />
           </div>
           <div className="stat-card-value">
             {stats ? stats.total_bills.toLocaleString('id-ID') : '-'}
           </div>
           <div className="stat-card-subtext">
-            <span style={{ color: 'var(--success)' }}>{stats ? stats.paid_bills : '-'} Lunas</span>{' '}
-            |{' '}
-            <span style={{ color: 'var(--danger)' }}>{stats ? stats.unpaid_bills : '-'} Belum</span>
+            <span className="text-success">{stats ? stats.paid_bills : '-'} Lunas</span> |{' '}
+            <span className="text-danger">{stats ? stats.unpaid_bills : '-'} Belum</span>
           </div>
         </div>
 
         <div className="stat-card">
           <div className="stat-card-header">
             <span className="stat-card-title">Realisasi Penerimaan</span>
-            <TrendingUp size={20} color="var(--success)" />
+            <TrendingUp size={20} className="text-success" />
           </div>
-          <div className="stat-card-value" style={{ color: 'var(--success)' }}>
+          <div className="stat-card-value text-success">
             {stats ? stats.total_paid_amount_formatted : '-'}
           </div>
           <div className="stat-card-subtext">
@@ -107,9 +95,9 @@ export default function DashboardPage({ setActiveView }) {
         <div className="stat-card">
           <div className="stat-card-header">
             <span className="stat-card-title">Sisa Piutang / Tunggakan</span>
-            <AlertCircle size={20} color="var(--danger)" />
+            <AlertCircle size={20} className="text-danger" />
           </div>
-          <div className="stat-card-value" style={{ color: 'var(--danger)' }}>
+          <div className="stat-card-value text-danger">
             {stats ? stats.total_outstanding_amount_formatted : '-'}
           </div>
           <div className="stat-card-subtext">
@@ -120,41 +108,39 @@ export default function DashboardPage({ setActiveView }) {
 
       {/* Progress Bar Section */}
       <div className="progress-card">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div className="progress-header-row">
           <div>
-            <strong style={{ fontSize: 15, color: 'var(--ink)' }}>
-              Persentase Realisasi Pembayaran
-            </strong>
-            <p style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>
+            <strong className="progress-title">Persentase Realisasi Pembayaran</strong>
+            <p className="progress-desc">
               Perbandingan tagihan yang telah diselesaikan terhadap total piutang berjalan
             </p>
           </div>
-          <span style={{ fontSize: 18, fontWeight: 800, color: 'var(--brand-strong)' }}>
+          <span className="progress-percent-label">
             {stats ? `${stats.payment_rate_percentage}%` : '0%'}
           </span>
         </div>
         <div className="progress-track">
-          <div
-            className="progress-fill"
-            style={{ width: `${Math.min(100, Math.max(0, stats?.payment_rate_percentage || 0))}%` }}
+          <progress
+            className="fin-progress-semantic-lg"
+            value={Math.min(100, Math.max(0, stats?.payment_rate_percentage || 0))}
+            max={100}
+            aria-label={`Realisasi pembayaran ${stats?.payment_rate_percentage || 0}%`}
           />
         </div>
       </div>
 
       {/* Quick Action Shortcuts */}
-      <div className="panel-card" style={{ marginTop: 24 }}>
-        <h3 style={{ fontSize: 16, fontWeight: 800, color: 'var(--ink)', marginBottom: 16 }}>
-          Tindakan & Navigasi Cepat
-        </h3>
+      <div className="panel-card mt-4">
+        <h3 className="panel-header-title mb-3">Tindakan &amp; Navigasi Cepat</h3>
         <div className="quick-action-grid">
           <button
             type="button"
             className="quick-action-button"
             onClick={() => setActiveView('students')}
           >
-            <Users size={22} color="var(--brand)" />
+            <Users size={22} className="text-brand" />
             <strong>Kelola Data Mahasiswa</strong>
-            <span>Profil 360, status akademik & angkatan</span>
+            <span>Profil 360, status akademik &amp; angkatan</span>
           </button>
 
           <button
@@ -162,9 +148,9 @@ export default function DashboardPage({ setActiveView }) {
             className="quick-action-button"
             onClick={() => setActiveView('bills')}
           >
-            <Receipt size={22} color="var(--accent)" />
+            <Receipt size={22} className="text-accent" />
             <strong>Kelola Tagihan</strong>
-            <span>Status pembayaran, batas aktif & BRIVA</span>
+            <span>Status pembayaran, batas aktif &amp; BRIVA</span>
           </button>
 
           <button
@@ -172,7 +158,7 @@ export default function DashboardPage({ setActiveView }) {
             className="quick-action-button"
             onClick={() => setActiveView('reports')}
           >
-            <FileSpreadsheet size={22} color="var(--success)" />
+            <FileSpreadsheet size={22} className="text-success" />
             <strong>Rekap Keuangan</strong>
             <span>Evaluasi penerimaan per Program Studi</span>
           </button>
@@ -182,7 +168,7 @@ export default function DashboardPage({ setActiveView }) {
             className="quick-action-button"
             onClick={() => setActiveView('upload')}
           >
-            <UploadCloud size={22} color="var(--info)" />
+            <UploadCloud size={22} className="text-info" />
             <strong>Upload Tagihan Baru</strong>
             <span>Import file XLSX dengan validasi otomatis</span>
           </button>
@@ -191,3 +177,5 @@ export default function DashboardPage({ setActiveView }) {
     </div>
   );
 }
+
+DashboardPage.displayName = 'DashboardPage';

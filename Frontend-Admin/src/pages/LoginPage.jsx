@@ -33,45 +33,20 @@ export default function LoginPage() {
         <div className="login-brand">
           <img src="/Logo%20Salut.jpeg" alt="Logo SALUT Awwabin" />
           <h1>Admin SALUT Awwabin</h1>
-          <p>Sistem Informasi Akademik & Cek Pembayaran</p>
+          <p>Sistem Informasi Akademik &amp; Cek Pembayaran</p>
         </div>
 
-        {error && (
-          <div
-            style={{
-              padding: '12px 16px',
-              background: 'var(--danger-bg)',
-              color: 'var(--danger)',
-              borderRadius: 'var(--radius-md)',
-              fontSize: 13.5,
-              fontWeight: 600,
-              marginBottom: 20,
-              border: '1px solid #fca5a5',
-            }}
-          >
-            {error}
-          </div>
-        )}
+        {error && <div className="login-error-box">{error}</div>}
 
         <form onSubmit={handleSubmit}>
           <div className="form-group">
             <label htmlFor="login-email">Email Admin</label>
-            <div style={{ position: 'relative' }}>
-              <Mail
-                size={18}
-                style={{
-                  position: 'absolute',
-                  left: 12,
-                  top: '50%',
-                  transform: 'translateY(-50%)',
-                  color: 'var(--muted-light)',
-                }}
-              />
+            <div className="input-icon-wrap">
+              <Mail size={18} className="input-icon-left" />
               <input
                 id="login-email"
                 type="email"
-                className="form-control"
-                style={{ paddingLeft: 38 }}
+                className="form-control input-pl-38"
                 placeholder="admin@salut.local"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -81,24 +56,14 @@ export default function LoginPage() {
             </div>
           </div>
 
-          <div className="form-group" style={{ marginBottom: 24 }}>
+          <div className="form-group mb-4">
             <label htmlFor="login-password">Password</label>
-            <div style={{ position: 'relative' }}>
-              <Lock
-                size={18}
-                style={{
-                  position: 'absolute',
-                  left: 12,
-                  top: '50%',
-                  transform: 'translateY(-50%)',
-                  color: 'var(--muted-light)',
-                }}
-              />
+            <div className="input-icon-wrap">
+              <Lock size={18} className="input-icon-left" />
               <input
                 id="login-password"
                 type={showPassword ? 'text' : 'password'}
-                className="form-control"
-                style={{ paddingLeft: 38, paddingRight: 38 }}
+                className="form-control input-px-38"
                 placeholder="••••••••"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
@@ -107,16 +72,7 @@ export default function LoginPage() {
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                style={{
-                  position: 'absolute',
-                  right: 12,
-                  top: '50%',
-                  transform: 'translateY(-50%)',
-                  background: 'transparent',
-                  border: 'none',
-                  color: 'var(--muted)',
-                  cursor: 'pointer',
-                }}
+                className="input-icon-btn-right"
                 aria-label={showPassword ? 'Sembunyikan password' : 'Lihat password'}
               >
                 {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
@@ -124,12 +80,7 @@ export default function LoginPage() {
             </div>
           </div>
 
-          <button
-            type="submit"
-            className="btn btn-primary"
-            style={{ width: '100%', padding: '12px 18px', fontSize: 14 }}
-            disabled={loading}
-          >
+          <button type="submit" className="btn btn-primary btn-login-submit" disabled={loading}>
             <span>{loading ? 'Memverifikasi...' : 'Masuk ke Panel Admin'}</span>
             {!loading && <ArrowRight size={16} />}
           </button>
@@ -138,3 +89,5 @@ export default function LoginPage() {
     </div>
   );
 }
+
+LoginPage.displayName = 'LoginPage';

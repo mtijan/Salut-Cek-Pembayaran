@@ -39,24 +39,8 @@ export default function StudentEditorModal({ modal, editor, prodis, actions }) {
           </button>
         </div>
         <form onSubmit={actions.saveStudent}>
-          <div
-            className="modal-body"
-            style={{ maxHeight: 'calc(85vh - 130px)', overflowY: 'auto' }}
-          >
-            {editor.formError && (
-              <div
-                style={{
-                  padding: '10px 14px',
-                  background: 'var(--danger-bg)',
-                  color: 'var(--danger)',
-                  borderRadius: 8,
-                  fontSize: 13,
-                  marginBottom: 16,
-                }}
-              >
-                {editor.formError}
-              </div>
-            )}
+          <div className="modal-body modal-body-scroll">
+            {editor.formError && <div className="modal-alert-error">{editor.formError}</div>}
             <div className="form-section-card">
               <div className="form-section-title">
                 <UserCheck size={16} />
@@ -118,7 +102,7 @@ export default function StudentEditorModal({ modal, editor, prodis, actions }) {
             <div className="form-section-card">
               <div className="form-section-title">
                 <BookOpen size={16} />
-                <span>2. Akademik & Program Studi</span>
+                <span>2. Akademik &amp; Program Studi</span>
               </div>
               <div className="form-grid-2">
                 <div className="form-group">
@@ -170,10 +154,10 @@ export default function StudentEditorModal({ modal, editor, prodis, actions }) {
                 />
               </div>
             </div>
-            <div className="form-section-card" style={{ marginBottom: 0 }}>
+            <div className="form-section-card form-section-card-last">
               <div className="form-section-title">
                 <Phone size={16} />
-                <span>3. Kontak & Domisili</span>
+                <span>3. Kontak &amp; Domisili</span>
               </div>
               <div className="form-grid-2">
                 <InputField
@@ -192,7 +176,7 @@ export default function StudentEditorModal({ modal, editor, prodis, actions }) {
                   type="email"
                   placeholder="mahasiswa@ecampus.ut.ac.id"
                 />
-                <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+                <div className="form-group form-group-full">
                   <label>Alamat Tinggal Lengkap</label>
                   <textarea
                     className="form-control"
@@ -223,3 +207,5 @@ export default function StudentEditorModal({ modal, editor, prodis, actions }) {
     </div>
   );
 }
+
+StudentEditorModal.displayName = 'StudentEditorModal';

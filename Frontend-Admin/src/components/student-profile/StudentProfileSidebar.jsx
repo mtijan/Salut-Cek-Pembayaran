@@ -57,7 +57,7 @@ export function StudentProfileSidebar({ copiedKey, onCopy, student, summary }) {
                   title="Salin NIM"
                 >
                   {copiedKey === 'NIM' ? (
-                    <Check size={13} color="var(--success)" />
+                    <Check size={13} className="text-success" />
                   ) : (
                     <Copy size={13} />
                   )}
@@ -74,9 +74,8 @@ export function StudentProfileSidebar({ copiedKey, onCopy, student, summary }) {
                   href={`https://wa.me/${waPhone}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="copy-btn-inline"
+                  className="copy-btn-inline text-success"
                   title="Chat via WhatsApp"
-                  style={{ color: '#16a34a' }}
                 >
                   <ExternalLink size={13} />
                 </a>
@@ -92,9 +91,8 @@ export function StudentProfileSidebar({ copiedKey, onCopy, student, summary }) {
               {student.email && (
                 <a
                   href={`mailto:${student.email}`}
-                  className="copy-btn-inline"
+                  className="copy-btn-inline text-brand"
                   title="Kirim Email"
-                  style={{ color: 'var(--brand)' }}
                 >
                   <Mail size={13} />
                 </a>
@@ -103,9 +101,7 @@ export function StudentProfileSidebar({ copiedKey, onCopy, student, summary }) {
           </div>
           <div className="quick-item">
             <span className="quick-label">Alamat</span>
-            <span className="quick-val" style={{ fontSize: 12.5, lineHeight: 1.4 }}>
-              {student.address || '-'}
-            </span>
+            <span className="quick-val profile-address-val">{student.address || '-'}</span>
           </div>
         </div>
       </div>
@@ -118,17 +114,13 @@ export function StudentProfileSidebar({ copiedKey, onCopy, student, summary }) {
             <span className="val">{formatRupiah(totalAmount)}</span>
           </div>
           <div className="fin-progress-bar">
-            <div
-              className="fin-progress-fill"
-              style={{
-                width: `${percentPaid}%`,
-                background:
-                  percentPaid === 100
-                    ? 'var(--success)'
-                    : percentPaid > 0
-                      ? 'var(--warning)'
-                      : 'var(--danger)',
-              }}
+            <progress
+              className={`fin-progress-semantic ${
+                percentPaid === 100 ? 'success' : percentPaid > 0 ? 'warning' : 'danger'
+              }`}
+              value={percentPaid}
+              max={100}
+              aria-label={`Progres bayar ${percentPaid}%`}
             />
           </div>
           <div className="fin-stat-row">
@@ -138,7 +130,7 @@ export function StudentProfileSidebar({ copiedKey, onCopy, student, summary }) {
                 {formatRupiah(totalPaid)} ({percentPaid}%)
               </span>
             </div>
-            <div style={{ textAlign: 'right' }}>
+            <div className="text-right">
               <span className="label">Sisa Tunggakan</span>
               <span className="val-out">{formatRupiah(totalOutstanding)}</span>
             </div>
@@ -148,3 +140,5 @@ export function StudentProfileSidebar({ copiedKey, onCopy, student, summary }) {
     </div>
   );
 }
+
+StudentProfileSidebar.displayName = 'StudentProfileSidebar';

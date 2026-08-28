@@ -42,10 +42,8 @@ export default function FilesPage() {
       <div className="panel-card">
         <div className="toolbar-row">
           <div>
-            <h3 style={{ fontSize: 16, fontWeight: 800, color: 'var(--ink)' }}>
-              Riwayat Kumpulan File Import Tagihan
-            </h3>
-            <p style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>
+            <h3 className="panel-header-title">Riwayat Kumpulan File Import Tagihan</h3>
+            <p className="panel-header-desc">
               Daftar file Excel yang telah diimpor ke sistem beserta ringkasan status tagihannya
             </p>
           </div>
@@ -62,75 +60,26 @@ export default function FilesPage() {
         </div>
 
         {loading ? (
-          <div style={{ padding: 40, textAlign: 'center', color: 'var(--muted)' }}>
+          <div className="panel-loading-state">
             <span>Memuat data file import...</span>
           </div>
         ) : !files.length ? (
-          <div style={{ padding: 40, textAlign: 'center', color: 'var(--muted)' }}>
+          <div className="panel-loading-state">
             <p>Belum ada file Excel yang diimpor ke dalam sistem.</p>
           </div>
         ) : (
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
-              gap: 16,
-            }}
-          >
+          <div className="files-grid">
             {files.map((f, idx) => (
-              <div
-                key={f.file_name || idx}
-                style={{
-                  background: '#ffffff',
-                  border: '1px solid var(--line)',
-                  borderRadius: 'var(--radius-lg)',
-                  padding: 20,
-                  display: 'flex',
-                  flexDirection: 'column',
-                  justifyContent: 'space-between',
-                  boxShadow: 'var(--shadow-sm)',
-                }}
-              >
+              <div key={f.file_name || idx} className="file-card">
                 <div>
-                  <div
-                    style={{
-                      display: 'flex',
-                      alignItems: 'flex-start',
-                      justifyContent: 'space-between',
-                      marginBottom: 12,
-                    }}
-                  >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                      <div
-                        style={{
-                          padding: 8,
-                          background: '#f1f5f9',
-                          borderRadius: 'var(--radius-md)',
-                          color: 'var(--brand)',
-                        }}
-                      >
+                  <div className="file-card-top">
+                    <div className="flex-row-gap-8">
+                      <div className="file-icon-box">
                         <FileText size={20} />
                       </div>
                       <div>
-                        <strong
-                          style={{
-                            fontSize: 14,
-                            color: 'var(--brand-strong)',
-                            wordBreak: 'break-all',
-                          }}
-                        >
-                          {f.file_name}
-                        </strong>
-                        <div
-                          style={{
-                            fontSize: 11,
-                            color: 'var(--muted)',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: 4,
-                            marginTop: 2,
-                          }}
-                        >
+                        <strong className="file-name-title">{f.file_name}</strong>
+                        <div className="file-meta-row">
                           <Calendar size={12} />
                           <span>Diimpor: {f.imported_at || '-'}</span>
                         </div>
@@ -138,50 +87,24 @@ export default function FilesPage() {
                     </div>
                   </div>
 
-                  <div
-                    style={{
-                      display: 'grid',
-                      gridTemplateColumns: '1fr 1fr',
-                      gap: 10,
-                      margin: '16px 0',
-                      padding: 12,
-                      background: '#f8fafc',
-                      borderRadius: 'var(--radius-md)',
-                    }}
-                  >
+                  <div className="file-stats-grid">
                     <div>
-                      <span
-                        style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase' }}
-                      >
-                        Mahasiswa
-                      </span>
-                      <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--ink)' }}>
-                        {f.student_count}
-                      </div>
+                      <span className="file-stat-label">Mahasiswa</span>
+                      <div className="file-stat-val">{f.student_count}</div>
                     </div>
                     <div>
-                      <span
-                        style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase' }}
-                      >
-                        Total Tagihan
-                      </span>
-                      <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--ink)' }}>
-                        {f.bill_count}
-                      </div>
+                      <span className="file-stat-label">Total Tagihan</span>
+                      <div className="file-stat-val">{f.bill_count}</div>
                     </div>
-                    <div style={{ gridColumn: '1 / -1' }}>
-                      <span
-                        style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase' }}
-                      >
-                        Total Nominal
-                      </span>
-                      <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--brand-strong)' }}>
+                    <div className="form-group-full">
+                      <span className="file-stat-label">Total Nominal</span>
+                      <div className="stat-value-lg text-brand-strong">
                         {f.total_amount_formatted}
                       </div>
                     </div>
                   </div>
 
-                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 16 }}>
+                  <div className="file-badges-row">
                     <span className="badge badge-success">{f.paid_bills || 0} Lunas</span>
                     <span className="badge badge-warning">{f.partial_bills || 0} Cicilan</span>
                     <span className="badge badge-danger">{f.unpaid_bills || 0} Belum</span>
@@ -189,14 +112,7 @@ export default function FilesPage() {
                 </div>
 
                 {can('import') && (
-                  <div
-                    style={{
-                      borderTop: '1px solid var(--line)',
-                      paddingTop: 12,
-                      display: 'flex',
-                      justifyContent: 'flex-end',
-                    }}
-                  >
+                  <div className="file-card-footer">
                     <button
                       type="button"
                       className="btn btn-danger btn-sm"
@@ -224,3 +140,5 @@ export default function FilesPage() {
     </div>
   );
 }
+
+FilesPage.displayName = 'FilesPage';

@@ -51,8 +51,8 @@ export default function ConfirmModal({
         aria-labelledby="confirm-modal-title"
       >
         <div className="modal-header">
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <div style={{ padding: 6, background: '#fee2e2', borderRadius: 8, color: '#dc2626' }}>
+          <div className="confirm-modal-header-left">
+            <div className="confirm-modal-header-icon">
               <AlertTriangle size={20} />
             </div>
             <h2 id="confirm-modal-title">{title}</h2>
@@ -64,11 +64,11 @@ export default function ConfirmModal({
 
         <form onSubmit={handleSubmit}>
           <div className="modal-body">
-            <p style={{ fontSize: 14, color: 'var(--ink)', marginBottom: 16 }}>{description}</p>
+            <p className="confirm-modal-desc">{description}</p>
 
-            <div className="form-group" style={{ marginBottom: 0 }}>
+            <div className="form-group form-group-no-mb">
               <label htmlFor="confirm-reason">
-                Alasan Penghapusan <span style={{ color: 'var(--danger)' }}>*</span>
+                Alasan Penghapusan <span className="text-danger">*</span>
               </label>
               <textarea
                 id="confirm-reason"
@@ -80,9 +80,7 @@ export default function ConfirmModal({
                 required
                 autoFocus
               />
-              {error && (
-                <p style={{ color: 'var(--danger)', fontSize: 12, marginTop: 4 }}>{error}</p>
-              )}
+              {error && <p className="field-error-text">{error}</p>}
             </div>
           </div>
 
@@ -104,3 +102,5 @@ export default function ConfirmModal({
     </div>
   );
 }
+
+ConfirmModal.displayName = 'ConfirmModal';

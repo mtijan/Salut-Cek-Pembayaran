@@ -6,15 +6,11 @@ export default function BillsStats({ stats, selectedStatus, hasActiveFilter, act
   return (
     <div className="student-stats-row">
       <div
-        className={`student-stat-card ${!selectedStatus ? 'is-active' : ''}`}
+        className={`student-stat-card clickable-card ${!selectedStatus ? 'is-active' : ''}`}
         onClick={actions.selectAllStatus}
-        style={{ cursor: 'pointer' }}
         title="Klik untuk menampilkan seluruh tagihan"
       >
-        <div
-          className="student-stat-icon"
-          style={{ background: 'var(--brand-surface)', color: 'var(--brand)' }}
-        >
+        <div className="student-stat-icon stat-icon-brand">
           <FileText size={22} />
         </div>
         <div className="student-stat-meta">
@@ -22,7 +18,7 @@ export default function BillsStats({ stats, selectedStatus, hasActiveFilter, act
           <strong className="student-stat-number">
             {stats.totalCount.toLocaleString('id-ID')}
           </strong>
-          <span style={{ fontSize: 11.5, color: 'var(--muted)', marginTop: 2 }}>
+          <span className="stat-subtext">
             {stats.studentCount > 0
               ? `Dari ${stats.studentCount.toLocaleString('id-ID')} mahasiswa`
               : 'Tidak ada data'}
@@ -30,65 +26,53 @@ export default function BillsStats({ stats, selectedStatus, hasActiveFilter, act
         </div>
       </div>
       <div
-        className={`student-stat-card ${selectedStatus === 'paid' ? 'is-active' : ''}`}
+        className={`student-stat-card clickable-card ${selectedStatus === 'paid' ? 'is-active' : ''}`}
         onClick={actions.togglePaidStatus}
-        style={{ cursor: 'pointer' }}
         title="Klik untuk filter tagihan lunas"
       >
-        <div
-          className="student-stat-icon"
-          style={{ background: 'var(--success-bg)', color: 'var(--success)' }}
-        >
+        <div className="student-stat-icon stat-icon-success">
           <CheckCircle2 size={22} />
         </div>
         <div className="student-stat-meta">
           <span className="student-stat-title">Total Terbayar</span>
-          <strong className="student-stat-number" style={{ color: 'var(--success)' }}>
+          <strong className="student-stat-number text-success">
             {formatRupiah(stats.totalPaid)}
           </strong>
-          <span style={{ fontSize: 11.5, color: 'var(--muted)', marginTop: 2 }}>
+          <span className="stat-subtext">
             {stats.paidCount.toLocaleString('id-ID')} tagihan lunas
           </span>
         </div>
       </div>
       <div
-        className={`student-stat-card ${selectedStatus === 'partial' || selectedStatus === 'unpaid' ? 'is-active' : ''}`}
+        className={`student-stat-card clickable-card ${selectedStatus === 'partial' || selectedStatus === 'unpaid' ? 'is-active' : ''}`}
         onClick={actions.cycleOutstandingStatus}
-        style={{ cursor: 'pointer' }}
         title="Klik untuk beralih filter Cicilan / Belum Lunas"
       >
-        <div
-          className="student-stat-icon"
-          style={{ background: 'var(--warning-bg)', color: 'var(--warning)' }}
-        >
+        <div className="student-stat-icon stat-icon-warning">
           <Clock size={22} />
         </div>
         <div className="student-stat-meta">
           <span className="student-stat-title">Sisa Tunggakan</span>
           <strong
-            className="student-stat-number"
-            style={{ color: stats.totalRemaining > 0 ? 'var(--warning)' : 'var(--success)' }}
+            className={`student-stat-number ${stats.totalRemaining > 0 ? 'text-warning' : 'text-success'}`}
           >
             {formatRupiah(stats.totalRemaining)}
           </strong>
-          <span style={{ fontSize: 11.5, color: 'var(--muted)', marginTop: 2 }}>
+          <span className="stat-subtext">
             {(stats.unpaidCount + stats.partialCount).toLocaleString('id-ID')} tagihan belum lunas
           </span>
         </div>
       </div>
       <div className="student-stat-card">
-        <div
-          className="student-stat-icon"
-          style={{ background: 'var(--info-bg)', color: 'var(--info)' }}
-        >
+        <div className="student-stat-icon stat-icon-info">
           <CreditCard size={22} />
         </div>
         <div className="student-stat-meta">
           <span className="student-stat-title">Total Nominal Piutang</span>
-          <strong className="student-stat-number" style={{ color: 'var(--info)' }}>
+          <strong className="student-stat-number text-info">
             {formatRupiah(stats.totalNominal)}
           </strong>
-          <span style={{ fontSize: 11.5, color: 'var(--muted)', marginTop: 2 }}>
+          <span className="stat-subtext">
             {hasActiveFilter ? 'Akumulasi sesuai filter aktif' : 'Akumulasi seluruh tagihan'}
           </span>
         </div>
@@ -96,3 +80,5 @@ export default function BillsStats({ stats, selectedStatus, hasActiveFilter, act
     </div>
   );
 }
+
+BillsStats.displayName = 'BillsStats';

@@ -36,15 +36,13 @@ export default function PaymentForm({
   return (
     <div className="panel-card payment-form-card">
       <div className="payment-form-header">
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <div className="flex-row-gap-8">
           <div className="icon-badge-brand">
             <CreditCard size={18} />
           </div>
           <div>
-            <h3 style={{ fontSize: 16, fontWeight: 800, color: 'var(--ink)' }}>
-              Formulir Pembayaran Tagihan
-            </h3>
-            <p style={{ fontSize: 12.5, color: 'var(--muted)' }}>
+            <h3 className="payment-header-title">Formulir Pembayaran Tagihan</h3>
+            <p className="payment-header-desc">
               Catat transaksi pembayaran baru secara bertahap (cicilan) atau pelunasan penuh
             </p>
           </div>
@@ -56,7 +54,7 @@ export default function PaymentForm({
       ) : (
         <form onSubmit={handleSubmitPayment} className="payment-form-body">
           {formError && (
-            <div className="alert-box alert-danger" style={{ marginBottom: 16 }}>
+            <div className="alert-box alert-danger modal-alert-danger">
               <AlertCircle size={17} />
               <span>{formError}</span>
             </div>
@@ -90,20 +88,12 @@ export default function PaymentForm({
           </div>
 
           {/* Nominal Input */}
-          <div className="form-group" style={{ marginTop: 18 }}>
-            <label
-              style={{
-                fontSize: 13,
-                fontWeight: 700,
-                display: 'flex',
-                justifyContent: 'space-between',
-              }}
-            >
+          <div className="form-group mt-3">
+            <label className="payment-nominal-label">
               <span>
-                Nominal Pembayaran Transaksi Ini (Rp){' '}
-                <span style={{ color: 'var(--danger)' }}>*</span>
+                Nominal Pembayaran Transaksi Ini (Rp) <span className="text-danger">*</span>
               </span>
-              <span style={{ color: 'var(--brand)', fontWeight: 600 }}>
+              <span className="text-emerald font-semibold">
                 Sisa Saat Ini: {formatRupiah(remainingAmount)}
               </span>
             </label>
@@ -173,7 +163,7 @@ export default function PaymentForm({
             <div className="calc-sep">-</div>
             <div className="calc-item">
               <span className="calc-label">Bayar Sekarang:</span>
-              <span className="calc-val" style={{ color: 'var(--brand)', fontWeight: 800 }}>
+              <span className="calc-val text-emerald font-bold">
                 {formatRupiah(numericPayment)}
               </span>
             </div>
@@ -181,11 +171,7 @@ export default function PaymentForm({
             <div className="calc-item">
               <span className="calc-label">Sisa Tagihan Baru:</span>
               <span
-                className="calc-val"
-                style={{
-                  color: newRemaining > 0 ? 'var(--danger)' : 'var(--success)',
-                  fontWeight: 800,
-                }}
+                className={`calc-val font-bold ${newRemaining > 0 ? 'text-danger' : 'text-success'}`}
               >
                 {formatRupiah(newRemaining)}
               </span>
@@ -208,17 +194,11 @@ export default function PaymentForm({
             setNotes={setNotes}
           />
 
-          <div className="form-actions-bar" style={{ marginTop: 24 }}>
+          <div className="form-actions-bar mt-3">
             <button
               type="submit"
-              className="btn btn-primary btn-large"
+              className="btn btn-primary btn-large btn-submit-payment"
               disabled={submitting || numericPayment <= 0 || numericPayment > remainingAmount}
-              style={{
-                width: '100%',
-                justifyContent: 'center',
-                fontSize: 14.5,
-                padding: '12px 20px',
-              }}
             >
               {submitting ? (
                 <>

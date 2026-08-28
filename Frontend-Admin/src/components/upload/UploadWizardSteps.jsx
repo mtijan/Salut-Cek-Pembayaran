@@ -22,7 +22,7 @@ export default function UploadWizardSteps({ step }) {
             <span className={`upload-step-num ${step >= s.num ? 'active' : 'inactive'}`}>
               {s.num}
             </span>
-            <strong style={{ fontSize: 13 }}>{s.label}</strong>
+            <strong className="cell-sm">{s.label}</strong>
           </div>
         </React.Fragment>
       ))}

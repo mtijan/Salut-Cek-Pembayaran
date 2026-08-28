@@ -31,5 +31,5 @@ test('admin source has no runtime style element and does not increase inline-sty
     (total, source) => total + (source.match(/\bstyle\s*=/g) || []).length,
     0,
   );
-  assert.ok(inlineStyleCount <= 659, `inline style debt increased to ${inlineStyleCount}`);
+  assert.equal(inlineStyleCount, 0, `inline style count must be zero, found ${inlineStyleCount}`);
 });

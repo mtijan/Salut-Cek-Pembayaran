@@ -12,21 +12,9 @@ import { useStudentProfile } from '../hooks/useStudentProfile';
 
 function ProfileLoadingState() {
   return (
-    <div style={{ padding: '60px 20px', textAlign: 'center' }}>
-      <div
-        style={{
-          width: 40,
-          height: 40,
-          border: '3px solid var(--line)',
-          borderTopColor: 'var(--brand)',
-          borderRadius: '50%',
-          animation: 'spin 0.8s linear infinite',
-          margin: '0 auto 16px',
-        }}
-      />
-      <p style={{ color: 'var(--muted)', fontSize: 14, fontWeight: 600 }}>
-        Memuat data profil mahasiswa...
-      </p>
+    <div className="table-empty-container">
+      <div className="loading-spinner-circle empty-state-icon" />
+      <p className="loading-state-text">Memuat data profil mahasiswa...</p>
     </div>
   );
 }
@@ -128,3 +116,5 @@ export default function StudentProfilePage({ studentId, initialTab = 'profile', 
     </div>
   );
 }
+
+StudentProfilePage.displayName = 'StudentProfilePage';

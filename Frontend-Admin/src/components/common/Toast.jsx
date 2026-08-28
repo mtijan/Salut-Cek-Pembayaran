@@ -29,17 +29,7 @@ export function ToastProvider({ children }) {
             {toast.type === 'error' && <AlertCircle size={18} />}
             {toast.type === 'info' && <Info size={18} />}
             <span>{toast.message}</span>
-            <button
-              type="button"
-              onClick={() => removeToast(toast.id)}
-              style={{
-                background: 'transparent',
-                border: 'none',
-                color: '#ffffff',
-                cursor: 'pointer',
-                marginLeft: 8,
-              }}
-            >
+            <button type="button" onClick={() => removeToast(toast.id)} className="toast-close-btn">
               <X size={14} />
             </button>
           </div>

@@ -6,17 +6,8 @@ export default function FilterChips({ items }) {
   if (visibleItems.length === 0) return null;
 
   return (
-    <div className="filter-chips-container" style={{ paddingTop: 0 }}>
-      <span
-        style={{
-          fontSize: 12,
-          fontWeight: 600,
-          color: 'var(--muted)',
-          display: 'flex',
-          alignItems: 'center',
-          gap: 4,
-        }}
-      >
+    <div className="filter-chips-container filter-chips-no-pt">
+      <span className="filter-chips-title">
         <Filter size={13} /> Filter Aktif:
       </span>
 
@@ -36,3 +27,5 @@ export default function FilterChips({ items }) {
     </div>
   );
 }
+
+FilterChips.displayName = 'FilterChips';

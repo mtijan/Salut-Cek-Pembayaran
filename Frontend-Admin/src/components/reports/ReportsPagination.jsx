@@ -5,23 +5,12 @@ export default function ReportsPagination({ pagination }) {
   if (pagination.totalPages <= 1) return null;
 
   return (
-    <div
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        flexWrap: 'wrap',
-        gap: 12,
-        marginTop: 18,
-        paddingTop: 14,
-        borderTop: '1px solid var(--line)',
-      }}
-    >
-      <div style={{ fontSize: 13, color: 'var(--muted)' }}>
+    <div className="pagination-container-reports">
+      <div className="pagination-text">
         Halaman <strong>{pagination.page}</strong> dari <strong>{pagination.totalPages}</strong> (
         {pagination.totalCount} Total Mahasiswa)
       </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+      <div className="pagination-btn-group">
         <button
           type="button"
           className="btn btn-secondary btn-sm"
@@ -46,3 +35,5 @@ export default function ReportsPagination({ pagination }) {
     </div>
   );
 }
+
+ReportsPagination.displayName = 'ReportsPagination';

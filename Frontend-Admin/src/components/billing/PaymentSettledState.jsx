@@ -5,14 +5,14 @@ import { formatRupiah } from '../../utils/currency';
 export default function PaymentSettledState({ totalAmount }) {
   return (
     <div className="paid-celebration-box">
-      <CheckCircle2 size={42} color="var(--success)" style={{ margin: '0 auto 12px' }} />
-      <h4 style={{ fontSize: 17, fontWeight: 800, color: 'var(--success)' }}>
-        Tagihan Ini Sudah Lunas Sepenuhnya
-      </h4>
-      <p style={{ fontSize: 13, color: 'var(--muted)', marginTop: 4 }}>
+      <CheckCircle2 size={42} className="celebration-icon text-success" />
+      <h4 className="celebration-title">Tagihan Ini Sudah Lunas Sepenuhnya</h4>
+      <p className="empty-state-desc">
         Total tagihan sebesar {formatRupiah(totalAmount)} telah terbayar lunas. Tidak ada sisa
         tunggakan yang perlu dibayarkan.
       </p>
     </div>
   );
 }
+
+PaymentSettledState.displayName = 'PaymentSettledState';

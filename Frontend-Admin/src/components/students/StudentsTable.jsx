@@ -21,9 +21,9 @@ export default function StudentsTable({
 }) {
   if (loading)
     return (
-      <div style={{ padding: '24px 12px' }}>
+      <div className="skeleton-list-container">
         {[1, 2, 3, 4, 5, 6].map((item) => (
-          <div key={item} className="skeleton-box skeleton-row" style={{ width: '100%' }} />
+          <div key={item} className="skeleton-box skeleton-row w-full" />
         ))}
       </div>
     );
@@ -53,16 +53,16 @@ export default function StudentsTable({
         <table className="data-table">
           <thead>
             <tr>
-              <th style={{ width: 44, textAlign: 'center' }}>No.</th>
-              <th style={{ width: 130 }}>NIM</th>
+              <th className="col-w-44-center">No.</th>
+              <th className="col-w-130">NIM</th>
               <th>Nama Mahasiswa</th>
-              <th style={{ width: 170 }}>No KTP / NIK</th>
+              <th className="col-w-170">No KTP / NIK</th>
               <th>Program Studi</th>
-              <th style={{ width: 130 }}>Periode Masuk</th>
-              <th style={{ width: 130 }}>Kontak</th>
-              <th style={{ width: 100, textAlign: 'center' }}>Status</th>
-              <th style={{ width: 140 }}>Tagihan</th>
-              <th style={{ width: 150, textAlign: 'right' }}>Aksi</th>
+              <th className="col-w-130">Periode Masuk</th>
+              <th className="col-w-130">Kontak</th>
+              <th className="col-w-100-center">Status</th>
+              <th className="col-w-140">Tagihan</th>
+              <th className="col-w-150-right">Aksi</th>
             </tr>
           </thead>
           <tbody>
@@ -86,16 +86,8 @@ export default function StudentsTable({
           <strong>{Math.min(pagination.currentPage * pagination.pageSize, students.length)}</strong>{' '}
           dari <strong>{students.length}</strong> data mahasiswa
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 8,
-              fontSize: 13,
-              color: 'var(--muted)',
-            }}
-          >
+        <div className="flex-row-gap-8">
+          <div className="pagination-page-size-wrap">
             <span>Tampilkan:</span>
             <select
               className="pagination-select"
@@ -127,7 +119,7 @@ export default function StudentsTable({
             >
               <ChevronLeft size={16} />
             </button>
-            <span style={{ fontSize: 13, fontWeight: 700, padding: '0 8px', color: 'var(--ink)' }}>
+            <span className="pagination-page-label">
               Halaman {pagination.currentPage} / {pagination.totalPages}
             </span>
             <button
@@ -156,3 +148,5 @@ export default function StudentsTable({
     </>
   );
 }
+
+StudentsTable.displayName = 'StudentsTable';

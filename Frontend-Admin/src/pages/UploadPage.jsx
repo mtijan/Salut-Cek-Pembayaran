@@ -13,10 +13,10 @@ export default function UploadPage({ setActiveView }) {
 
   if (!can('import')) {
     return (
-      <div className="panel-card" style={{ textAlign: 'center', padding: 40 }}>
-        <AlertCircle size={32} color="var(--muted)" style={{ margin: '0 auto 12px' }} />
-        <h3 style={{ fontSize: 16, color: 'var(--ink)' }}>Akses Terbatas</h3>
-        <p style={{ color: 'var(--muted)', fontSize: 13, marginTop: 4 }}>
+      <div className="panel-card panel-loading-state">
+        <AlertCircle size={32} className="empty-state-icon text-muted" />
+        <h3 className="empty-state-title">Akses Terbatas</h3>
+        <p className="empty-state-desc">
           Role Viewer hanya memiliki hak baca dan tidak diizinkan mengimpor file data.
         </p>
       </div>
@@ -60,3 +60,5 @@ export default function UploadPage({ setActiveView }) {
     </div>
   );
 }
+
+UploadPage.displayName = 'UploadPage';

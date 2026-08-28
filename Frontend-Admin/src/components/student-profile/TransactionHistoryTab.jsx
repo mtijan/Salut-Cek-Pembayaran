@@ -4,17 +4,10 @@ import { Clock, RefreshCw } from 'lucide-react';
 export function TransactionHistoryTab({ historyList, loading, onFetch, pagination, studentName }) {
   return (
     <div className="profile-tab-pane">
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          marginBottom: 16,
-        }}
-      >
+      <div className="reports-top-bar mb-3">
         <div>
-          <h3 style={{ fontSize: 16, fontWeight: 700 }}>Riwayat Mutasi & Transaksi Pembayaran</h3>
-          <p style={{ fontSize: 13, color: 'var(--muted)' }}>
+          <h3 className="panel-header-title">Riwayat Mutasi &amp; Transaksi Pembayaran</h3>
+          <p className="panel-header-desc">
             Ledger mutasi pembayaran yang tercatat secara kronologis untuk {studentName} (
             {pagination.total} transaksi)
           </p>
@@ -31,9 +24,9 @@ export function TransactionHistoryTab({ historyList, loading, onFetch, paginatio
         </button>
       </div>
       {historyList.length === 0 ? (
-        <div style={{ padding: 40, textAlign: 'center', color: 'var(--muted)' }}>
-          <Clock size={36} style={{ margin: '0 auto 12px', opacity: 0.4 }} />
-          <p style={{ fontWeight: 600 }}>Belum ada riwayat transaksi pembayaran tercatat.</p>
+        <div className="table-empty-container">
+          <Clock size={36} className="empty-state-icon" />
+          <p className="empty-state-title">Belum ada riwayat transaksi pembayaran tercatat.</p>
         </div>
       ) : (
         <>
@@ -41,12 +34,12 @@ export function TransactionHistoryTab({ historyList, loading, onFetch, paginatio
             <table className="data-table">
               <thead>
                 <tr>
-                  <th>Waktu & Tanggal</th>
+                  <th>Waktu &amp; Tanggal</th>
                   <th>Tipe Mutasi</th>
-                  <th style={{ textAlign: 'right' }}>Nominal Transaksi</th>
-                  <th style={{ textAlign: 'right' }}>Running Total</th>
+                  <th className="text-right">Nominal Transaksi</th>
+                  <th className="text-right">Running Total</th>
                   <th>Status Tagihan</th>
-                  <th>Metode & Referensi</th>
+                  <th>Metode &amp; Referensi</th>
                   <th>Catatan</th>
                   <th>Operator</th>
                 </tr>
@@ -55,10 +48,8 @@ export function TransactionHistoryTab({ historyList, loading, onFetch, paginatio
                 {historyList.map((transaction) => (
                   <tr key={transaction.id}>
                     <td>
-                      <div style={{ fontWeight: 600 }}>{transaction.payment_date || '-'}</div>
-                      <div style={{ fontSize: 11, color: 'var(--muted)' }}>
-                        {transaction.created_at || ''}
-                      </div>
+                      <div className="font-semibold">{transaction.payment_date || '-'}</div>
+                      <div className="cell-xs text-muted">{transaction.created_at || ''}</div>
                     </td>
                     <td>
                       <span
@@ -72,56 +63,43 @@ export function TransactionHistoryTab({ historyList, loading, onFetch, paginatio
                       </span>
                     </td>
                     <td
-                      style={{
-                        textAlign: 'right',
-                        fontWeight: 700,
-                        color: transaction.amount >= 0 ? 'var(--success)' : 'var(--danger)',
-                      }}
+                      className={`text-right font-bold ${transaction.amount >= 0 ? 'text-success' : 'text-danger'}`}
                     >
                       {transaction.amount >= 0
                         ? `+ ${transaction.amount_formatted}`
                         : `- ${transaction.amount_formatted}`}
                     </td>
-                    <td style={{ textAlign: 'right', fontWeight: 600 }}>
+                    <td className="text-right font-semibold">
                       {transaction.running_paid_total_formatted}
                     </td>
-                    <td style={{ fontSize: 12 }}>
-                      <span>{transaction.previous_status || 'unpaid'}</span>
-                      <span style={{ margin: '0 4px' }}>&rarr;</span>
-                      <strong>{transaction.new_status}</strong>
+                    <td>
+                      <div className="cell-sm">
+                        <span>{transaction.previous_status || 'unpaid'}</span>
+                        <span className="crumb-sep">&rarr;</span>
+                        <strong>{transaction.new_status}</strong>
+                      </div>
                     </td>
                     <td>
-                      <div style={{ fontWeight: 600 }}>{transaction.payment_method || 'BRIVA'}</div>
+                      <div className="font-semibold">{transaction.payment_method || 'BRIVA'}</div>
                       {transaction.reference_number && (
-                        <div className="mono-font" style={{ fontSize: 11, color: 'var(--muted)' }}>
+                        <div className="mono-font cell-xs text-muted">
                           Ref: {transaction.reference_number}
                         </div>
                       )}
                     </td>
-                    <td style={{ fontSize: 12.5, maxWidth: 200 }}>{transaction.notes || '-'}</td>
-                    <td style={{ fontSize: 12 }}>
-                      {transaction.recorded_by_name || 'Admin SALUT'}
-                    </td>
+                    <td className="cell-notes">{transaction.notes || '-'}</td>
+                    <td className="cell-sm">{transaction.recorded_by_name || 'Admin SALUT'}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
           {pagination.total > pagination.limit && (
-            <div
-              style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                marginTop: 14,
-                paddingTop: 12,
-                borderTop: '1px solid var(--line)',
-              }}
-            >
-              <span style={{ fontSize: 12, color: 'var(--muted)' }}>
+            <div className="history-pagination-row">
+              <span className="cell-sm text-muted">
                 Menampilkan {historyList.length} dari {pagination.total} transaksi
               </span>
-              <div style={{ display: 'flex', gap: 8 }}>
+              <div className="flex-row-gap-8">
                 <button
                   type="button"
                   className="btn btn-secondary btn-sm"
@@ -146,3 +124,5 @@ export function TransactionHistoryTab({ historyList, loading, onFetch, paginatio
     </div>
   );
 }
+
+TransactionHistoryTab.displayName = 'TransactionHistoryTab';
