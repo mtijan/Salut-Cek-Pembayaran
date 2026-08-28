@@ -41,22 +41,16 @@ def student_row_to_dict(row: sqlite3.Row) -> dict[str, object]:
         "no_ktp": row["no_ktp"] if "no_ktp" in keys and row["no_ktp"] else "",
         "tempat_lahir": row["tempat_lahir"] if "tempat_lahir" in keys and row["tempat_lahir"] else "",
         "tanggal_lahir": row["tanggal_lahir"] if "tanggal_lahir" in keys and row["tanggal_lahir"] else "",
-        "nama_ibu_kandung": row["nama_ibu_kandung"]
-        if "nama_ibu_kandung" in keys and row["nama_ibu_kandung"]
-        else "",
+        "nama_ibu_kandung": row["nama_ibu_kandung"] if "nama_ibu_kandung" in keys and row["nama_ibu_kandung"] else "",
         "program_study": program_study,
-        "study_program_id": row["study_program_id"]
-        if "study_program_id" in keys and row["study_program_id"]
-        else "",
+        "study_program_id": row["study_program_id"] if "study_program_id" in keys and row["study_program_id"] else "",
         "study_program_name": row["study_program_name"]
         if "study_program_name" in keys and row["study_program_name"]
         else program_study,
         "study_program_code": row["study_program_code"]
         if "study_program_code" in keys and row["study_program_code"]
         else "",
-        "academic_status": row["academic_status"]
-        if "academic_status" in keys and row["academic_status"]
-        else "aktif",
+        "academic_status": row["academic_status"] if "academic_status" in keys and row["academic_status"] else "aktif",
         "entry_year": row["entry_year"] if "entry_year" in keys and row["entry_year"] is not None else None,
         "entry_semester": entry_semester,
         "entry_period": entry_period,

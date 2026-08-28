@@ -47,4 +47,3 @@ def cookie_header(token: str, max_age: int) -> str:
     if config.APP_ENV == "production":
         parts.append("Secure")
     return "; ".join(parts)
-

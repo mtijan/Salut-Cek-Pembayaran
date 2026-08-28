@@ -65,11 +65,7 @@ def validate_runtime_configuration() -> None:
         "password123",
         "your-",
     )
-    weak = [
-        name
-        for name, value in values.items()
-        if any(marker in value.casefold() for marker in placeholder_markers)
-    ]
+    weak = [name for name, value in values.items() if any(marker in value.casefold() for marker in placeholder_markers)]
     if len(values["LOOKUP_HASH_SECRET"]) < 32:
         weak.append("LOOKUP_HASH_SECRET")
     if len(values["ADMIN_BOOTSTRAP_PASSWORD"]) < 12:
@@ -78,8 +74,7 @@ def validate_runtime_configuration() -> None:
         weak.append("ADMIN_BOOTSTRAP_EMAIL")
     if weak:
         raise RuntimeError(
-            "Konfigurasi production memakai nilai placeholder atau lemah: "
-            + ", ".join(sorted(set(weak)))
+            "Konfigurasi production memakai nilai placeholder atau lemah: " + ", ".join(sorted(set(weak)))
         )
 
 
@@ -171,11 +166,14 @@ def ensure_student(
     norm_prodi = clean_demographic_value(program_study)
     norm_prodi_id = normalize_text(study_program_id) or None
     if norm_prodi_id:
-        sp_row = conn.execute("select name from study_programs where id = ? or upper(code) = ?", (norm_prodi_id, norm_prodi_id.upper())).fetchone()
+        sp_row = conn.execute(
+            "select name from study_programs where id = ? or upper(code) = ?", (norm_prodi_id, norm_prodi_id.upper())
+        ).fetchone()
         if sp_row and not norm_prodi:
             norm_prodi = str(sp_row["name"])
     elif norm_prodi:
         from Backend.db import resolve_study_program_id
+
         norm_prodi_id = resolve_study_program_id(conn, norm_prodi)
 
     norm_status = validate_academic_status(academic_status) if academic_status is not None else None
@@ -190,7 +188,11 @@ def ensure_student(
 
     parsed_year, parsed_sem, parsed_period = parse_entry_registration(norm_reg)
     try:
-        norm_year = int(str(entry_year).strip()) if entry_year is not None and str(entry_year).strip().isdigit() else parsed_year
+        norm_year = (
+            int(str(entry_year).strip())
+            if entry_year is not None and str(entry_year).strip().isdigit()
+            else parsed_year
+        )
     except (ValueError, TypeError):
         norm_year = parsed_year
     norm_sem = clean_demographic_value(entry_semester) or parsed_sem
@@ -200,7 +202,9 @@ def ensure_student(
     # soft-deleted student is imported/created again, restore that same record
     # instead of attempting a second INSERT (which would violate the unique
     # constraint and leaves operators with no recovery path).
-    row = conn.execute("select id, nim, full_name, deleted_at from students where nim = ?", (normalized_nim,)).fetchone()
+    row = conn.execute(
+        "select id, nim, full_name, deleted_at from students where nim = ?", (normalized_nim,)
+    ).fetchone()
     if row:
         updates = ["full_name = ?", "name_norm = ?", "updated_at = datetime('now')"]
         params: list[object] = [normalized_name, normalize_name(normalized_name)]
@@ -264,10 +268,24 @@ def ensure_student(
         values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
-            student_id, normalized_nim, normalized_name, normalize_name(normalized_name),
-            norm_ktp, norm_tempat, norm_tgl, norm_ibu,
-            norm_prodi, norm_prodi_id, norm_status or "aktif", norm_year, norm_sem, norm_period,
-            norm_email, norm_address, norm_phone, norm_reg,
+            student_id,
+            normalized_nim,
+            normalized_name,
+            normalize_name(normalized_name),
+            norm_ktp,
+            norm_tempat,
+            norm_tgl,
+            norm_ibu,
+            norm_prodi,
+            norm_prodi_id,
+            norm_status or "aktif",
+            norm_year,
+            norm_sem,
+            norm_period,
+            norm_email,
+            norm_address,
+            norm_phone,
+            norm_reg,
         ),
     )
     return conn.execute("select id, nim, full_name from students where id = ?", (student_id,)).fetchone()
@@ -291,10 +309,25 @@ def list_students(
         where_clauses.append(
             "(s.nim like ? or s.full_name like ? or s.program_study like ? or sp.name like ? or sp.code like ? or s.no_ktp like ? or s.email like ? or s.phone_number like ?)"
         )
-        params.extend([f"%{search}%", f"%{search}%", f"%{search}%", f"%{search}%", f"%{search}%", f"%{search}%", f"%{search}%", f"%{search}%"])
+        params.extend(
+            [
+                f"%{search}%",
+                f"%{search}%",
+                f"%{search}%",
+                f"%{search}%",
+                f"%{search}%",
+                f"%{search}%",
+                f"%{search}%",
+                f"%{search}%",
+            ]
+        )
     if study_program_id:
-        where_clauses.append("(s.study_program_id = ? or sp.code = ? or lower(s.program_study) = lower(?) or lower(sp.name) = lower(?))")
-        params.extend([study_program_id.strip(), study_program_id.strip(), study_program_id.strip(), study_program_id.strip()])
+        where_clauses.append(
+            "(s.study_program_id = ? or sp.code = ? or lower(s.program_study) = lower(?) or lower(sp.name) = lower(?))"
+        )
+        params.extend(
+            [study_program_id.strip(), study_program_id.strip(), study_program_id.strip(), study_program_id.strip()]
+        )
     if academic_status:
         where_clauses.append("s.academic_status = ?")
         params.append(academic_status.lower().strip())
@@ -369,7 +402,10 @@ def get_student_detail(db_path: str | Path, student_id: str) -> dict[str, object
 
     bill_list = [bill_row_to_dict(b) for b in bills]
     total_amount = sum(int(b["amount"]) for b in bill_list)
-    total_paid = sum(int(b["amount"]) if b["status"] == "paid" else (int(b.get("paid_amount", 0)) if b["status"] == "partial" else 0) for b in bill_list)
+    total_paid = sum(
+        int(b["amount"]) if b["status"] == "paid" else (int(b.get("paid_amount", 0)) if b["status"] == "partial" else 0)
+        for b in bill_list
+    )
     total_outstanding = max(0, total_amount - total_paid)
     overall_status = summarize_payment_status([b["status"] for b in bill_list])
 
@@ -443,7 +479,9 @@ def require_delete_reason(reason: str) -> str:
     return cleaned
 
 
-def update_student(db_path: str | Path, student_id: str, payload: dict[str, object], actor_id: str | None = None) -> sqlite3.Row | None:
+def update_student(
+    db_path: str | Path, student_id: str, payload: dict[str, object], actor_id: str | None = None
+) -> sqlite3.Row | None:
     normalized_nim = validate_nim_value(payload.get("nim"))
     normalized_name = normalize_imported_name(payload.get("full_name"))
     if not normalized_nim:
@@ -456,7 +494,11 @@ def update_student(db_path: str | Path, student_id: str, payload: dict[str, obje
     status = validate_academic_status(payload.get("academic_status"))
     email = clean_demographic_value(payload.get("email"))
     address = clean_demographic_value(payload.get("address"))
-    phone = normalize_nim(payload.get("phone_number")) if payload.get("phone_number") and clean_demographic_value(payload.get("phone_number")) else None
+    phone = (
+        normalize_nim(payload.get("phone_number"))
+        if payload.get("phone_number") and clean_demographic_value(payload.get("phone_number"))
+        else None
+    )
     no_ktp = clean_demographic_value(payload.get("no_ktp"))
     tempat = clean_demographic_value(payload.get("tempat_lahir"))
     tgl = clean_demographic_value(payload.get("tanggal_lahir"))
@@ -465,7 +507,11 @@ def update_student(db_path: str | Path, student_id: str, payload: dict[str, obje
 
     parsed_year, parsed_sem, parsed_period = parse_entry_registration(reg)
     try:
-        year = int(str(payload.get("entry_year")).strip()) if payload.get("entry_year") is not None and str(payload.get("entry_year")).strip().isdigit() else parsed_year
+        year = (
+            int(str(payload.get("entry_year")).strip())
+            if payload.get("entry_year") is not None and str(payload.get("entry_year")).strip().isdigit()
+            else parsed_year
+        )
     except (ValueError, TypeError):
         year = parsed_year
     sem = clean_demographic_value(payload.get("entry_semester")) or parsed_sem
@@ -477,7 +523,9 @@ def update_student(db_path: str | Path, student_id: str, payload: dict[str, obje
             existing = conn.execute("select id from students where id = ?", (student_id,)).fetchone()
             if not existing:
                 return None
-            duplicate = conn.execute("select id from students where nim = ? and id <> ?", (normalized_nim, student_id)).fetchone()
+            duplicate = conn.execute(
+                "select id from students where nim = ? and id <> ?", (normalized_nim, student_id)
+            ).fetchone()
             if duplicate:
                 raise ValueError("NIM sudah digunakan mahasiswa lain.")
             conn.execute(
@@ -490,10 +538,24 @@ def update_student(db_path: str | Path, student_id: str, payload: dict[str, obje
                 where id = ?
                 """,
                 (
-                    normalized_nim, normalized_name, normalize_name(normalized_name),
-                    no_ktp, tempat, tgl, ibu,
-                    prodi, prodi_id, status, year, sem, period,
-                    email, address, phone, reg, student_id,
+                    normalized_nim,
+                    normalized_name,
+                    normalize_name(normalized_name),
+                    no_ktp,
+                    tempat,
+                    tgl,
+                    ibu,
+                    prodi,
+                    prodi_id,
+                    status,
+                    year,
+                    sem,
+                    period,
+                    email,
+                    address,
+                    phone,
+                    reg,
+                    student_id,
                 ),
             )
             student = conn.execute("select * from students where id = ?", (student_id,)).fetchone()
@@ -504,12 +566,16 @@ def update_student(db_path: str | Path, student_id: str, payload: dict[str, obje
         conn.close()
 
 
-def delete_student(db_path: str | Path, student_id: str, actor_id: str | None = None, reason: str = "") -> sqlite3.Row | None:
+def delete_student(
+    db_path: str | Path, student_id: str, actor_id: str | None = None, reason: str = ""
+) -> sqlite3.Row | None:
     reason = require_delete_reason(reason)
     conn = connect(db_path)
     try:
         with conn:
-            row = conn.execute("select id, nim, full_name from students where id = ? and deleted_at is null", (student_id,)).fetchone()
+            row = conn.execute(
+                "select id, nim, full_name from students where id = ? and deleted_at is null", (student_id,)
+            ).fetchone()
             if row:
                 conn.execute(
                     """
@@ -520,7 +586,9 @@ def delete_student(db_path: str | Path, student_id: str, actor_id: str | None = 
                     (actor_id, reason, student_id),
                 )
                 if actor_id:
-                    write_audit(conn, actor_id, "student.delete", "student", student_id, {"nim": row["nim"], "reason": reason})
+                    write_audit(
+                        conn, actor_id, "student.delete", "student", student_id, {"nim": row["nim"], "reason": reason}
+                    )
                 conn.execute(
                     """
                     update bills
@@ -553,7 +621,9 @@ def bill_filter_clause(
     params: list[object] = []
     where_clauses = ["b.deleted_at is null", "s.deleted_at is null"]
     if search:
-        where_clauses.append("(s.nim like ? or s.full_name like ? or b.briva like ? or b.period like ? or b.bill_type like ?)")
+        where_clauses.append(
+            "(s.nim like ? or s.full_name like ? or b.briva like ? or b.period like ? or b.bill_type like ?)"
+        )
         params.extend([f"%{search}%", f"%{search}%", f"%{search}%", f"%{search}%", f"%{search}%"])
     if normalized_status:
         where_clauses.append("b.status = ?")
@@ -752,7 +822,9 @@ def create_bill(db_path: str | Path, payload: dict[str, object], actor_id: str |
     status = normalize_status_value(payload.get("status"))
     paid_amount = validate_paid_amount(payload.get("paid_amount"), amount, status)
     due_date = validate_due_date_value(payload.get("due_date"))
-    instructions = normalize_text(payload.get("instructions")) or "Bayar melalui BRIVA BRI dengan nomor BRIVA yang tampil."
+    instructions = (
+        normalize_text(payload.get("instructions")) or "Bayar melalui BRIVA BRI dengan nomor BRIVA yang tampil."
+    )
     payment_date, reference_number, notes = validate_payment_metadata(
         payload.get("payment_date"), payload.get("reference_number"), payload.get("notes")
     )
@@ -761,11 +833,14 @@ def create_bill(db_path: str | Path, payload: dict[str, object], actor_id: str |
     try:
         with conn:
             from Backend.db import ensure_academic_period
+
             period = ensure_academic_period(conn, raw_period) or raw_period
 
             student_id = normalize_text(payload.get("student_id"))
             if student_id:
-                student = conn.execute("select id, nim, full_name from students where id = ? and deleted_at is null", (student_id,)).fetchone()
+                student = conn.execute(
+                    "select id, nim, full_name from students where id = ? and deleted_at is null", (student_id,)
+                ).fetchone()
                 if not student:
                     raise ValueError("Mahasiswa yang dipilih tidak ditemukan.")
             else:
@@ -778,17 +853,42 @@ def create_bill(db_path: str | Path, payload: dict[str, object], actor_id: str |
                   (id, student_id, briva, amount, paid_amount, period, bill_type, status, payment_method, instructions, due_date, source_file)
                 values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
-                (bill_id, student["id"], briva, amount, paid_amount, period, bill_type, status, payment_method, instructions, due_date, "Manual Admin"),
+                (
+                    bill_id,
+                    student["id"],
+                    briva,
+                    amount,
+                    paid_amount,
+                    period,
+                    bill_type,
+                    status,
+                    payment_method,
+                    instructions,
+                    due_date,
+                    "Manual Admin",
+                ),
             )
             if status != "unpaid":
                 record_payment_transaction(
-                    conn, bill_id, student["id"], "unpaid", status, 0, paid_amount,
-                    recorded_by=actor_id, payment_method=payment_method, payment_date=payment_date,
-                    reference_number=reference_number, notes=notes, source="manual",
+                    conn,
+                    bill_id,
+                    student["id"],
+                    "unpaid",
+                    status,
+                    0,
+                    paid_amount,
+                    recorded_by=actor_id,
+                    payment_method=payment_method,
+                    payment_date=payment_date,
+                    reference_number=reference_number,
+                    notes=notes,
+                    source="manual",
                 )
             bill = conn.execute(f"{joined_bill_select()} where b.id = ?", (bill_id,)).fetchone()
             if actor_id:
-                write_audit(conn, actor_id, "bill.create", "bill", bill_id, {"nim": bill["nim"], "briva": bill["briva"]})
+                write_audit(
+                    conn, actor_id, "bill.create", "bill", bill_id, {"nim": bill["nim"], "briva": bill["briva"]}
+                )
             return bill
     finally:
         conn.close()
@@ -809,7 +909,9 @@ def update_bill(
     status = normalize_status_value(payload.get("status"))
     paid_amount = validate_paid_amount(payload.get("paid_amount"), amount, status)
     due_date = validate_due_date_value(payload.get("due_date"))
-    instructions = normalize_text(payload.get("instructions")) or "Bayar melalui BRIVA BRI dengan nomor BRIVA yang tampil."
+    instructions = (
+        normalize_text(payload.get("instructions")) or "Bayar melalui BRIVA BRI dengan nomor BRIVA yang tampil."
+    )
     payment_date, reference_number, notes = validate_payment_metadata(
         payload.get("payment_date"), payload.get("reference_number"), payload.get("notes")
     )
@@ -829,6 +931,7 @@ def update_bill(
             student_id = str(current["student_id"])
 
             from Backend.db import ensure_academic_period
+
             period = ensure_academic_period(conn, raw_period) or raw_period
 
             conn.execute(
@@ -838,7 +941,18 @@ def update_bill(
                     payment_method = ?, instructions = ?, due_date = ?, updated_at = datetime('now')
                 where id = ?
                 """,
-                (briva, amount, paid_amount, period, bill_type, status, payment_method, instructions, due_date, bill_id),
+                (
+                    briva,
+                    amount,
+                    paid_amount,
+                    period,
+                    bill_type,
+                    status,
+                    payment_method,
+                    instructions,
+                    due_date,
+                    bill_id,
+                ),
             )
 
             record_payment_transaction(
@@ -859,7 +973,9 @@ def update_bill(
 
             bill = conn.execute(f"{joined_bill_select()} where b.id = ?", (bill_id,)).fetchone()
             if actor_id:
-                write_audit(conn, actor_id, "bill.update", "bill", bill_id, {"nim": bill["nim"], "briva": bill["briva"]})
+                write_audit(
+                    conn, actor_id, "bill.update", "bill", bill_id, {"nim": bill["nim"], "briva": bill["briva"]}
+                )
             return bill
     finally:
         conn.close()
@@ -1015,7 +1131,14 @@ def delete_bill(db_path: str | Path, bill_id: str, actor_id: str | None = None, 
                     (actor_id, reason, bill_id),
                 )
                 if actor_id:
-                    write_audit(conn, actor_id, "bill.delete", "bill", bill_id, {"nim": row["nim"], "briva": row["briva"], "reason": reason})
+                    write_audit(
+                        conn,
+                        actor_id,
+                        "bill.delete",
+                        "bill",
+                        bill_id,
+                        {"nim": row["nim"], "briva": row["briva"], "reason": reason},
+                    )
         return row
     finally:
         conn.close()
@@ -1117,15 +1240,28 @@ def delete_imported_bill_group(
             )
             conn.execute("delete from import_issues where source_file = ?", (file_name,))
             if actor_id:
-                write_audit(conn, actor_id, "import_file.delete", "import_file", file_name, {"reason": delete_reason, "deleted_bills": len(rows)})
+                write_audit(
+                    conn,
+                    actor_id,
+                    "import_file.delete",
+                    "import_file",
+                    file_name,
+                    {"reason": delete_reason, "deleted_bills": len(rows)},
+                )
         return {"file_name": file_name, "deleted_bills": len(rows)}
     finally:
         conn.close()
 
 
 def update_bill_status(
-    db_path: str | Path, bill_id: str, status: str, paid_amount: object = None, recorded_by: str | None = None,
-    payment_date: object = None, reference_number: object = None, notes: object = None,
+    db_path: str | Path,
+    bill_id: str,
+    status: str,
+    paid_amount: object = None,
+    recorded_by: str | None = None,
+    payment_date: object = None,
+    reference_number: object = None,
+    notes: object = None,
 ) -> sqlite3.Row | None:
     if status not in {"paid", "partial", "unpaid"}:
         raise ValueError("Status hanya boleh paid, partial, atau unpaid.")
@@ -1179,15 +1315,26 @@ def update_bill_status(
                 ).fetchone()
                 if recorded_by:
                     write_audit(
-                        conn, recorded_by, "bill.status_update", "bill", bill_id,
-                        {"status": status, "paid_amount": updated["paid_amount"], "briva": updated["briva"], "nim": updated["nim"]},
+                        conn,
+                        recorded_by,
+                        "bill.status_update",
+                        "bill",
+                        bill_id,
+                        {
+                            "status": status,
+                            "paid_amount": updated["paid_amount"],
+                            "briva": updated["briva"],
+                            "nim": updated["nim"],
+                        },
                     )
     finally:
         conn.close()
     return updated
 
 
-def update_bill_due_date(db_path: str | Path, bill_ids: list[str], due_date: str | None, actor_id: str | None = None) -> list[sqlite3.Row]:
+def update_bill_due_date(
+    db_path: str | Path, bill_ids: list[str], due_date: str | None, actor_id: str | None = None
+) -> list[sqlite3.Row]:
     if not bill_ids:
         return []
     due_date_str = str(due_date or "").strip()
@@ -1214,7 +1361,14 @@ def update_bill_due_date(db_path: str | Path, bill_ids: list[str], due_date: str
         ).fetchall()
         if actor_id:
             for row in updated:
-                write_audit(conn, actor_id, "bill.due_date_update", "bill", row["id"], {"due_date": row["due_date"], "briva": row["briva"], "nim": row["nim"]})
+                write_audit(
+                    conn,
+                    actor_id,
+                    "bill.due_date_update",
+                    "bill",
+                    row["id"],
+                    {"due_date": row["due_date"], "briva": row["briva"], "nim": row["nim"]},
+                )
     return list(updated)
 
 
@@ -1296,9 +1450,20 @@ def record_payment_transaction(
         values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
-            str(uuid.uuid4()), bill_id, student_id, tx_type, delta, new_paid,
-            old_status, new_status, today, payment_method,
-            reference_number, notes, admin_id_val, source,
+            str(uuid.uuid4()),
+            bill_id,
+            student_id,
+            tx_type,
+            delta,
+            new_paid,
+            old_status,
+            new_status,
+            today,
+            payment_method,
+            reference_number,
+            notes,
+            admin_id_val,
+            source,
         ),
     )
 
@@ -1383,7 +1548,9 @@ def list_payment_transactions(
 
 
 def payment_transaction_target_exists(
-    db_path: str | Path, bill_id: str | None = None, student_id: str | None = None,
+    db_path: str | Path,
+    bill_id: str | None = None,
+    student_id: str | None = None,
 ) -> bool:
     """Return whether the active bill or student requested by a history route exists."""
     if bool(bill_id) == bool(student_id):
@@ -1499,6 +1666,7 @@ def find_admin_by_session(token: str | None) -> sqlite3.Row | None:
 # MASTER DATA: STUDY PROGRAMS
 # ==========================================
 
+
 def list_study_programs(db_path: str | Path = config.DB_PATH) -> list[dict[str, object]]:
     with database_connection(db_path) as conn:
         rows = conn.execute(
@@ -1535,7 +1703,9 @@ def list_study_programs(db_path: str | Path = config.DB_PATH) -> list[dict[str, 
     ]
 
 
-def create_study_program(db_path: str | Path, payload: dict[str, object], actor_id: str | None = None) -> dict[str, object]:
+def create_study_program(
+    db_path: str | Path, payload: dict[str, object], actor_id: str | None = None
+) -> dict[str, object]:
     code = normalize_text(payload.get("code")).upper()
     name = normalize_text(payload.get("name"))
     degree = normalize_text(payload.get("degree")) or "S1"
@@ -1545,7 +1715,9 @@ def create_study_program(db_path: str | Path, payload: dict[str, object], actor_
     if not code:
         raise ValueError("Kode program studi wajib diisi.")
     if len(code) != 4 or not code.isalnum():
-        raise ValueError("Kode program studi harus terdiri dari 4 karakter alfanumerik huruf kapital (contoh: HKUM, MANJ, SIFO).")
+        raise ValueError(
+            "Kode program studi harus terdiri dari 4 karakter alfanumerik huruf kapital (contoh: HKUM, MANJ, SIFO)."
+        )
     if not name:
         raise ValueError("Nama program studi wajib diisi.")
 
@@ -1566,13 +1738,17 @@ def create_study_program(db_path: str | Path, payload: dict[str, object], actor_
             row = conn.execute("select * from study_programs where id = ?", (program_id,)).fetchone()
             program = dict(row)
             if actor_id:
-                write_audit(conn, actor_id, "study_program.create", "study_program", program_id, {"code": code, "name": name})
+                write_audit(
+                    conn, actor_id, "study_program.create", "study_program", program_id, {"code": code, "name": name}
+                )
             return program
     finally:
         conn.close()
 
 
-def update_study_program(db_path: str | Path, program_id: str, payload: dict[str, object], actor_id: str | None = None) -> dict[str, object] | None:
+def update_study_program(
+    db_path: str | Path, program_id: str, payload: dict[str, object], actor_id: str | None = None
+) -> dict[str, object] | None:
     code = normalize_text(payload.get("code")).upper() if payload.get("code") is not None else None
     name = normalize_text(payload.get("name")) if payload.get("name") is not None else None
     degree = normalize_text(payload.get("degree")) if payload.get("degree") is not None else None
@@ -1595,11 +1771,15 @@ def update_study_program(db_path: str | Path, program_id: str, payload: dict[str
             if not new_code:
                 raise ValueError("Kode program studi tidak boleh kosong.")
             if len(new_code) != 4 or not new_code.isalnum():
-                raise ValueError("Kode program studi harus terdiri dari 4 karakter alfanumerik huruf kapital (contoh: HKUM, MANJ, SIFO).")
+                raise ValueError(
+                    "Kode program studi harus terdiri dari 4 karakter alfanumerik huruf kapital (contoh: HKUM, MANJ, SIFO)."
+                )
             if not new_name:
                 raise ValueError("Nama program studi tidak boleh kosong.")
 
-            duplicate = conn.execute("select id from study_programs where upper(code) = ? and id <> ?", (new_code, program_id)).fetchone()
+            duplicate = conn.execute(
+                "select id from study_programs where upper(code) = ? and id <> ?", (new_code, program_id)
+            ).fetchone()
             if duplicate:
                 raise ValueError(f"Program studi dengan kode '{new_code}' sudah ada.")
 
@@ -1614,7 +1794,14 @@ def update_study_program(db_path: str | Path, program_id: str, payload: dict[str
             row = conn.execute("select * from study_programs where id = ?", (program_id,)).fetchone()
             program = dict(row)
             if actor_id:
-                write_audit(conn, actor_id, "study_program.update", "study_program", program_id, {"code": program["code"], "name": program["name"]})
+                write_audit(
+                    conn,
+                    actor_id,
+                    "study_program.update",
+                    "study_program",
+                    program_id,
+                    {"code": program["code"], "name": program["name"]},
+                )
             return program
     finally:
         conn.close()
@@ -1624,7 +1811,9 @@ def delete_study_program(db_path: str | Path, program_id: str, actor_id: str | N
     conn = connect(db_path)
     try:
         with conn:
-            current = conn.execute("select id from study_programs where id = ? and is_active = 1", (program_id,)).fetchone()
+            current = conn.execute(
+                "select id from study_programs where id = ? and is_active = 1", (program_id,)
+            ).fetchone()
             if not current:
                 return False
             # Keep the record for FK integrity and auditability.  It can be
@@ -1643,6 +1832,7 @@ def delete_study_program(db_path: str | Path, program_id: str, actor_id: str | N
 # ==========================================
 # MASTER DATA: ACADEMIC PERIODS
 # ==========================================
+
 
 def list_academic_periods(db_path: str | Path = config.DB_PATH) -> list[dict[str, object]]:
     with database_connection(db_path) as conn:
@@ -1669,7 +1859,9 @@ def list_academic_periods(db_path: str | Path = config.DB_PATH) -> list[dict[str
     ]
 
 
-def create_academic_period(db_path: str | Path, payload: dict[str, object], actor_id: str | None = None) -> dict[str, object]:
+def create_academic_period(
+    db_path: str | Path, payload: dict[str, object], actor_id: str | None = None
+) -> dict[str, object]:
     code = normalize_text(payload.get("code"))
     name = normalize_text(payload.get("name"))
     semester_type = normalize_text(payload.get("semester_type")).lower() or "ganjil"
@@ -1702,18 +1894,26 @@ def create_academic_period(db_path: str | Path, payload: dict[str, object], acto
             row = conn.execute("select * from academic_periods where id = ?", (period_id,)).fetchone()
             period = dict(row)
             if actor_id:
-                write_audit(conn, actor_id, "academic_period.create", "academic_period", period_id, {"code": code, "name": name})
+                write_audit(
+                    conn, actor_id, "academic_period.create", "academic_period", period_id, {"code": code, "name": name}
+                )
             return period
     finally:
         conn.close()
 
 
-def update_academic_period(db_path: str | Path, period_id: str, payload: dict[str, object], actor_id: str | None = None) -> dict[str, object] | None:
+def update_academic_period(
+    db_path: str | Path, period_id: str, payload: dict[str, object], actor_id: str | None = None
+) -> dict[str, object] | None:
     code = normalize_text(payload.get("code")) if payload.get("code") is not None else None
     name = normalize_text(payload.get("name")) if payload.get("name") is not None else None
-    semester_type = normalize_text(payload.get("semester_type")).lower() if payload.get("semester_type") is not None else None
+    semester_type = (
+        normalize_text(payload.get("semester_type")).lower() if payload.get("semester_type") is not None else None
+    )
     is_active = (1 if payload.get("is_active") else 0) if payload.get("is_active") is not None else None
-    default_due_date = validate_due_date_value(payload.get("default_due_date")) if "default_due_date" in payload else None
+    default_due_date = (
+        validate_due_date_value(payload.get("default_due_date")) if "default_due_date" in payload else None
+    )
 
     conn = connect(db_path)
     try:
@@ -1735,7 +1935,9 @@ def update_academic_period(db_path: str | Path, period_id: str, payload: dict[st
             if new_type not in {"ganjil", "genap", "pendek"}:
                 raise ValueError("Tipe semester harus ganjil, genap, atau pendek.")
 
-            duplicate = conn.execute("select id from academic_periods where code = ? and id <> ?", (new_code, period_id)).fetchone()
+            duplicate = conn.execute(
+                "select id from academic_periods where code = ? and id <> ?", (new_code, period_id)
+            ).fetchone()
             if duplicate:
                 raise ValueError(f"Periode akademik dengan kode '{new_code}' sudah ada.")
 
@@ -1753,7 +1955,14 @@ def update_academic_period(db_path: str | Path, period_id: str, payload: dict[st
             row = conn.execute("select * from academic_periods where id = ?", (period_id,)).fetchone()
             period = dict(row)
             if actor_id:
-                write_audit(conn, actor_id, "academic_period.update", "academic_period", period_id, {"code": period["code"], "name": period["name"]})
+                write_audit(
+                    conn,
+                    actor_id,
+                    "academic_period.update",
+                    "academic_period",
+                    period_id,
+                    {"code": period["code"], "name": period["name"]},
+                )
             return period
     finally:
         conn.close()
@@ -1762,6 +1971,7 @@ def update_academic_period(db_path: str | Path, period_id: str, payload: dict[st
 # ==========================================
 # DASHBOARD STATS & FINANCIAL REPORTS
 # ==========================================
+
 
 def get_dashboard_stats(db_path: str | Path = config.DB_PATH) -> dict[str, object]:
     """Compatibility wrapper for callers that still import the legacy service module."""

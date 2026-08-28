@@ -149,11 +149,7 @@ def _amount_to_int(value: str) -> int | None:
 
 
 def _normalized_headers(headers: list[str]) -> dict[str, str]:
-    return {
-        normalize_text(header).casefold(): normalize_text(header)
-        for header in headers
-        if normalize_text(header)
-    }
+    return {normalize_text(header).casefold(): normalize_text(header) for header in headers if normalize_text(header)}
 
 
 def _find_header_key(headers: dict[str, str], aliases: tuple[str, ...]) -> str:
@@ -233,8 +229,12 @@ def _read_sync_rows(
 
     for record in read_sheet(workbook, layout.data_sheet):
         nim = normalize_nim(_record_value(record, layout.headers, ("NIM", "Nomor Induk Mahasiswa")))
-        full_name = normalize_imported_name(_record_value(record, layout.headers, ("Nama", "Nama Mahasiswa", "Nama Lengkap")))
-        briva = _normalize_briva(_record_value(record, layout.headers, ("No Rek", "No. Rek", "No Rekening", "BRIVA", "Nomor BRIVA", "VA")))
+        full_name = normalize_imported_name(
+            _record_value(record, layout.headers, ("Nama", "Nama Mahasiswa", "Nama Lengkap"))
+        )
+        briva = _normalize_briva(
+            _record_value(record, layout.headers, ("No Rek", "No. Rek", "No Rekening", "BRIVA", "Nomor BRIVA", "VA"))
+        )
         amount = _amount_to_int(_record_value(record, layout.headers, ("Jumlah", "Nominal", "Tagihan", "Biaya")))
         row_number = int(record.get("_row_number") or 0)
         if not nim or not full_name or not briva or amount is None:
@@ -265,7 +265,9 @@ def _read_sync_rows(
         raw_tgl = _record_value(record, layout.headers, ("Tanggal Lahir", "Tanggal_Lahir", "Tgl Lahir"))
         raw_ibu = _record_value(record, layout.headers, ("Nama Ibu Kandung", "Nama Ibu", "Ibu Kandung"))
         raw_email = _record_value(record, layout.headers, ("e-Mail", "Email", "E-mail", "Surel"))
-        raw_kontak = _record_value(record, layout.headers, ("No Kontak", "No. Kontak", "No Hp", "No. HP", "No Telepon", "Telepon"))
+        raw_kontak = _record_value(
+            record, layout.headers, ("No Kontak", "No. Kontak", "No Hp", "No. HP", "No Telepon", "Telepon")
+        )
         raw_reg = _record_value(record, layout.headers, ("Registrasi Awal", "Periode Masuk", "Registrasi_Awal"))
         raw_prodi = _record_value(record, layout.headers, ("Program Studi", "Prodi", "Jurusan"))
         raw_due = _record_value(record, layout.headers, ("Batas Pembayaran", "Jatuh Tempo", "Due Date"))
@@ -295,7 +297,9 @@ def _read_sync_rows(
         }
         rows.append(row)
         if len(sample) < 5:
-            sample.append({key: row[key] for key in ("nim", "full_name", "briva", "amount", "program_study", "due_date")})
+            sample.append(
+                {key: row[key] for key in ("nim", "full_name", "briva", "amount", "program_study", "due_date")}
+            )
 
     canonical_profiles: dict[str, dict[str, object]] = {}
     for row in rows:
@@ -315,9 +319,18 @@ def _read_sync_rows(
                 }
             )
         for field in (
-            "full_name", "no_ktp", "tempat_lahir", "tanggal_lahir", "nama_ibu_kandung",
-            "email", "phone_number", "program_study", "initial_registration",
-            "entry_year", "entry_semester", "entry_period",
+            "full_name",
+            "no_ktp",
+            "tempat_lahir",
+            "tanggal_lahir",
+            "nama_ibu_kandung",
+            "email",
+            "phone_number",
+            "program_study",
+            "initial_registration",
+            "entry_year",
+            "entry_semester",
+            "entry_period",
         ):
             if canonical.get(field):
                 row[field] = canonical[field]
@@ -445,11 +458,15 @@ def _analyze_workbook(
         matching_briva_rows = [
             candidate
             for candidate in by_briva.get(briva, [])
-            if candidate["nim"] == nim and candidate["period"] == effective_period and str(candidate["id"]) not in used_existing_bill_ids
+            if candidate["nim"] == nim
+            and candidate["period"] == effective_period
+            and str(candidate["id"]) not in used_existing_bill_ids
         ]
         conflicting_briva_rows = [candidate for candidate in by_briva.get(briva, []) if candidate["nim"] != nim]
         existing_briva = matching_briva_rows[0] if matching_briva_rows else None
-        current_bills = [candidate for candidate in by_nim.get(nim, []) if str(candidate["id"]) not in used_existing_bill_ids]
+        current_bills = [
+            candidate for candidate in by_nim.get(nim, []) if str(candidate["id"]) not in used_existing_bill_ids
+        ]
 
         if existing_source_row:
             if existing_source_row["nim"] != nim:
@@ -503,7 +520,9 @@ def _analyze_workbook(
             amount_changed = int(existing_briva["amount"]) != amount
             name_changed = normalize_name(str(existing_briva["full_name"])) != normalize_name(str(row["full_name"]))
             program_changed = normalize_text(existing_briva["program_study"]) != normalize_text(row["program_study"])
-            registration_changed = normalize_text(existing_briva["initial_registration"]) != normalize_text(row["initial_registration"])
+            registration_changed = normalize_text(existing_briva["initial_registration"]) != normalize_text(
+                row["initial_registration"]
+            )
             phone_changed = normalize_text(existing_briva["phone_number"]) != normalize_text(row["phone_number"])
             due_date_changed = normalize_text(existing_briva["due_date"]) != normalize_text(row["due_date"])
             if existing_briva["status"] != "unpaid" and amount_changed:
@@ -521,7 +540,9 @@ def _analyze_workbook(
                 )
                 continue
 
-            if not any((amount_changed, name_changed, program_changed, registration_changed, phone_changed, due_date_changed)):
+            if not any(
+                (amount_changed, name_changed, program_changed, registration_changed, phone_changed, due_date_changed)
+            ):
                 unchanged_rows += 1
                 actions.append({"type": "unchanged", "row": row, "existing": existing_briva})
                 used_existing_bill_ids.add(str(existing_briva["id"]))
@@ -765,7 +786,9 @@ def import_workbook(
             _store_import_issue(conn, issue, source_file)
             issues += 1
             if len(issue_details) < 5:
-                issue_details.append({"sheet": issue["sheet_name"], "row_number": issue["row_number"], "note": issue["note"]})
+                issue_details.append(
+                    {"sheet": issue["sheet_name"], "row_number": issue["row_number"], "note": issue["note"]}
+                )
         for action in analysis["actions"]:
             action_type = str(action["type"])
             if action_type == "unchanged":
@@ -786,8 +809,16 @@ def import_workbook(
                     values (?, ?, ?, ?, ?, ?, 'unpaid', ?, ?, ?, ?, datetime('now'))
                     """,
                     (
-                        str(uuid.uuid4()), student_id, briva, amount, str(row["period"]), bill_type,
-                        DEFAULT_INSTRUCTIONS, due_date, source_file, row_number,
+                        str(uuid.uuid4()),
+                        student_id,
+                        briva,
+                        amount,
+                        str(row["period"]),
+                        bill_type,
+                        DEFAULT_INSTRUCTIONS,
+                        due_date,
+                        source_file,
+                        row_number,
                     ),
                 )
                 created += 1
@@ -801,7 +832,17 @@ def import_workbook(
                     source_file = ?, source_row_number = ?, updated_at = datetime('now')
                 where id = ?
                 """,
-                (student_id, briva, amount, str(row["period"]), bill_type, due_date, source_file, row_number, existing["id"]),
+                (
+                    student_id,
+                    briva,
+                    amount,
+                    str(row["period"]),
+                    bill_type,
+                    due_date,
+                    source_file,
+                    row_number,
+                    existing["id"],
+                ),
             )
             updated += 1
 
@@ -820,12 +861,19 @@ def import_workbook(
                 }
                 _store_import_issue(conn, issue, source_file)
                 if len(issue_details) < 5:
-                    issue_details.append({"sheet": issue["sheet_name"], "row_number": issue["row_number"], "note": issue["note"]})
+                    issue_details.append(
+                        {"sheet": issue["sheet_name"], "row_number": issue["row_number"], "note": issue["note"]}
+                    )
 
         if actor_id:
             from Backend.app.services import write_audit
+
             write_audit(
-                conn, actor_id, "import.commit", "excel_import", source_file,
+                conn,
+                actor_id,
+                "import.commit",
+                "excel_import",
+                source_file,
                 {"file_name": source_file, "created": created, "updated": updated, "issues": issues},
             )
 

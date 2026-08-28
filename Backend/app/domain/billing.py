@@ -19,9 +19,7 @@ def bill_row_to_dict(row: sqlite3.Row) -> dict[str, object]:
     student_name = str(row["full_name"]) if "full_name" in keys and row["full_name"] else ""
     program_study = str(row["program_study"]) if "program_study" in keys and row["program_study"] else ""
     study_program_name = (
-        str(row["study_program_name"])
-        if "study_program_name" in keys and row["study_program_name"]
-        else program_study
+        str(row["study_program_name"]) if "study_program_name" in keys and row["study_program_name"] else program_study
     )
     return {
         "id": row["id"],

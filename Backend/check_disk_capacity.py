@@ -35,7 +35,9 @@ def disk_capacity_report(paths: list[str | Path], threshold_percent: float = 85.
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Periksa kapasitas filesystem aplikasi dan backup.")
-    parser.add_argument("--path", action="append", required=True, dest="paths", help="Path yang diperiksa; dapat diulang.")
+    parser.add_argument(
+        "--path", action="append", required=True, dest="paths", help="Path yang diperiksa; dapat diulang."
+    )
     parser.add_argument("--threshold-percent", type=float, default=85.0, help="Ambang pemakaian disk (default 85).")
     args = parser.parse_args()
 

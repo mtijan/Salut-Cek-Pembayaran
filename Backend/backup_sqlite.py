@@ -16,7 +16,7 @@ def backup_timestamp(path: Path) -> datetime | None:
     if not name.startswith(BACKUP_PREFIX) or not name.endswith(BACKUP_SUFFIX):
         return None
     try:
-        return datetime.strptime(name[len(BACKUP_PREFIX):-len(BACKUP_SUFFIX)], "%Y%m%dT%H%M%SZ").replace(tzinfo=UTC)
+        return datetime.strptime(name[len(BACKUP_PREFIX) : -len(BACKUP_SUFFIX)], "%Y%m%dT%H%M%SZ").replace(tzinfo=UTC)
     except ValueError:
         return None
 
@@ -24,7 +24,11 @@ def backup_timestamp(path: Path) -> datetime | None:
 def prune_backups(destination_dir: Path, now: datetime | None = None) -> list[Path]:
     """Keep 14 daily, 8 weekly, and 12 monthly backup restore points."""
     now = now or datetime.now(UTC)
-    backups = [(timestamp, path) for path in destination_dir.glob("salut-*.sqlite.zip") if (timestamp := backup_timestamp(path))]
+    backups = [
+        (timestamp, path)
+        for path in destination_dir.glob("salut-*.sqlite.zip")
+        if (timestamp := backup_timestamp(path))
+    ]
     backups.sort(reverse=True, key=lambda item: item[0])
     keep: set[Path] = set()
     weekly: set[tuple[int, int]] = set()

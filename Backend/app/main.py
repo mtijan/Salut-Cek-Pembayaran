@@ -221,7 +221,9 @@ async def lookup(request: Request) -> JSONResponse:
     ).execute(nim)
     if result is None:
         write_lookup_log(nim, "", "not_found")
-        return error_response(404, "NOT_FOUND", "Data tagihan tidak ditemukan. Pastikan NIM sesuai data SALUT.", req_id=req_id)
+        return error_response(
+            404, "NOT_FOUND", "Data tagihan tidak ditemukan. Pastikan NIM sesuai data SALUT.", req_id=req_id
+        )
     write_lookup_log(nim, "", "found")
 
     return JSONResponse(
@@ -259,14 +261,26 @@ async def admin_login(request: Request) -> JSONResponse:
 
     token = create_admin_session(admin)
     return success_response(
-        {"email": admin["email"], "full_name": admin["full_name"], "role": admin["role"], "permissions": sorted(config.ROLE_PERMISSIONS.get(admin["role"], set()))},
+        {
+            "email": admin["email"],
+            "full_name": admin["full_name"],
+            "role": admin["role"],
+            "permissions": sorted(config.ROLE_PERMISSIONS.get(admin["role"], set())),
+        },
         headers={"Set-Cookie": cookie_header(token, config.SESSION_TTL_HOURS * 60 * 60)},
     )
 
 
 @app.get("/api/admin/me")
 async def admin_me(admin=Depends(require_admin())) -> JSONResponse:
-    return success_response({"email": admin["email"], "full_name": admin["full_name"], "role": admin["role"], "permissions": sorted(config.ROLE_PERMISSIONS.get(admin["role"], set()))})
+    return success_response(
+        {
+            "email": admin["email"],
+            "full_name": admin["full_name"],
+            "role": admin["role"],
+            "permissions": sorted(config.ROLE_PERMISSIONS.get(admin["role"], set())),
+        }
+    )
 
 
 @app.post("/api/admin/logout")
@@ -309,8 +323,14 @@ async def admin_bill_status(request: Request, admin=Depends(require_admin("manag
         return error_response(400, "VALIDATION_ERROR", "ID tagihan wajib diisi.")
     try:
         updated = update_bill_status(
-            config.DB_PATH, bill_id, status, paid_amount=paid_amount, recorded_by=admin["id"],
-            payment_date=payment_date, reference_number=reference_number, notes=notes,
+            config.DB_PATH,
+            bill_id,
+            status,
+            paid_amount=paid_amount,
+            recorded_by=admin["id"],
+            payment_date=payment_date,
+            reference_number=reference_number,
+            notes=notes,
         )
     except ValueError as exc:
         return error_response(400, "VALIDATION_ERROR", str(exc))
@@ -336,7 +356,9 @@ async def admin_bill_due_date(request: Request, admin=Depends(require_admin("man
     if not target_ids:
         return error_response(400, "VALIDATION_ERROR", "ID tagihan wajib diisi.")
     try:
-        updated_rows = update_bill_due_date(config.DB_PATH, target_ids, str(due_date) if due_date else "", actor_id=admin["id"])
+        updated_rows = update_bill_due_date(
+            config.DB_PATH, target_ids, str(due_date) if due_date else "", actor_id=admin["id"]
+        )
     except ValueError as exc:
         return error_response(400, "VALIDATION_ERROR", str(exc))
     if not updated_rows:
@@ -353,6 +375,7 @@ async def admin_bill_due_date(request: Request, admin=Depends(require_admin("man
 # ==========================================
 # DASHBOARD STATS & FINANCIAL REPORTS
 # ==========================================
+
 
 @app.get("/api/admin/dashboard/stats")
 async def admin_dashboard_stats(admin=Depends(require_admin("view_reports"))) -> JSONResponse:
@@ -377,13 +400,16 @@ async def admin_financial_summary(request: Request, admin=Depends(require_admin(
 # MASTER DATA: STUDY PROGRAMS
 # ==========================================
 
+
 @app.get("/api/admin/study-programs")
 async def admin_study_programs(admin=Depends(require_admin("view_master_data"))) -> JSONResponse:
     return success_response({"study_programs": list_study_programs(config.DB_PATH)})
 
 
 @app.post("/api/admin/study-programs")
-async def admin_create_study_program(request: Request, admin=Depends(require_admin("manage_master_data"))) -> JSONResponse:
+async def admin_create_study_program(
+    request: Request, admin=Depends(require_admin("manage_master_data"))
+) -> JSONResponse:
     payload = await read_json(request)
     try:
         program = create_study_program(config.DB_PATH, payload, actor_id=admin["id"])
@@ -394,7 +420,9 @@ async def admin_create_study_program(request: Request, admin=Depends(require_adm
 
 
 @app.patch("/api/admin/study-programs/{program_id}")
-async def admin_update_study_program(program_id: str, request: Request, admin=Depends(require_admin("manage_master_data"))) -> JSONResponse:
+async def admin_update_study_program(
+    program_id: str, request: Request, admin=Depends(require_admin("manage_master_data"))
+) -> JSONResponse:
     payload = await read_json(request)
     try:
         program = update_study_program(config.DB_PATH, program_id, payload, actor_id=admin["id"])
@@ -407,7 +435,9 @@ async def admin_update_study_program(program_id: str, request: Request, admin=De
 
 
 @app.delete("/api/admin/study-programs/{program_id}")
-async def admin_delete_study_program(program_id: str, admin=Depends(require_admin("manage_master_data"))) -> JSONResponse:
+async def admin_delete_study_program(
+    program_id: str, admin=Depends(require_admin("manage_master_data"))
+) -> JSONResponse:
     deleted = delete_study_program(config.DB_PATH, program_id, actor_id=admin["id"])
     if not deleted:
         return error_response(404, "NOT_FOUND", "Program studi tidak ditemukan.")
@@ -419,13 +449,16 @@ async def admin_delete_study_program(program_id: str, admin=Depends(require_admi
 # MASTER DATA: ACADEMIC PERIODS
 # ==========================================
 
+
 @app.get("/api/admin/academic-periods")
 async def admin_academic_periods(admin=Depends(require_admin("view_master_data"))) -> JSONResponse:
     return success_response({"academic_periods": list_academic_periods(config.DB_PATH)})
 
 
 @app.post("/api/admin/academic-periods")
-async def admin_create_academic_period(request: Request, admin=Depends(require_admin("manage_master_data"))) -> JSONResponse:
+async def admin_create_academic_period(
+    request: Request, admin=Depends(require_admin("manage_master_data"))
+) -> JSONResponse:
     payload = await read_json(request)
     try:
         period = create_academic_period(config.DB_PATH, payload, actor_id=admin["id"])
@@ -436,7 +469,9 @@ async def admin_create_academic_period(request: Request, admin=Depends(require_a
 
 
 @app.patch("/api/admin/academic-periods/{period_id}")
-async def admin_update_academic_period(period_id: str, request: Request, admin=Depends(require_admin("manage_master_data"))) -> JSONResponse:
+async def admin_update_academic_period(
+    period_id: str, request: Request, admin=Depends(require_admin("manage_master_data"))
+) -> JSONResponse:
     payload = await read_json(request)
     try:
         period = update_academic_period(config.DB_PATH, period_id, payload, actor_id=admin["id"])
@@ -452,6 +487,7 @@ async def admin_update_academic_period(period_id: str, request: Request, admin=D
 # TEMPLATES & MASTER DATA
 # ==========================================
 
+
 @app.get("/api/admin/template/master-data")
 async def admin_download_master_data_template(admin=Depends(require_admin("view_master_data"))) -> Response:
     content = generate_master_data_template()
@@ -466,6 +502,7 @@ async def admin_download_master_data_template(admin=Depends(require_admin("view_
 # STUDENTS & STUDENT PROFILE 360
 # ==========================================
 
+
 @app.get("/api/admin/students")
 async def admin_students(request: Request, admin=Depends(require_admin("view_students"))) -> JSONResponse:
     query = str(request.query_params.get("query") or "")
@@ -479,18 +516,20 @@ async def admin_students(request: Request, admin=Depends(require_admin("view_stu
         limit = parse_limit(request, default=2000, max_limit=5000)
     except ValueError as exc:
         return error_response(400, "VALIDATION_ERROR", str(exc))
-    return success_response({
-        "students": list_students(
-            config.DB_PATH,
-            query=query,
-            limit=limit,
-            study_program_id=study_program_id,
-            academic_status=academic_status,
-            entry_year=entry_year,
-            entry_period=entry_period,
-            sort_by=sort_by,
-        )
-    })
+    return success_response(
+        {
+            "students": list_students(
+                config.DB_PATH,
+                query=query,
+                limit=limit,
+                study_program_id=study_program_id,
+                academic_status=academic_status,
+                entry_year=entry_year,
+                entry_period=entry_period,
+                sort_by=sort_by,
+            )
+        }
+    )
 
 
 @app.get("/api/admin/students/{student_id}/detail")
@@ -522,7 +561,9 @@ async def admin_create_student(request: Request, admin=Depends(require_admin("ma
 
 
 @app.patch("/api/admin/students/{student_id}")
-async def admin_update_student(student_id: str, request: Request, admin=Depends(require_admin("manage_students"))) -> JSONResponse:
+async def admin_update_student(
+    student_id: str, request: Request, admin=Depends(require_admin("manage_students"))
+) -> JSONResponse:
     payload = await read_json(request)
     try:
         student = update_student(config.DB_PATH, student_id, payload, actor_id=admin["id"])
@@ -535,7 +576,9 @@ async def admin_update_student(student_id: str, request: Request, admin=Depends(
 
 
 @app.delete("/api/admin/students/{student_id}")
-async def admin_delete_student(student_id: str, request: Request, admin=Depends(require_admin("manage_students"))) -> JSONResponse:
+async def admin_delete_student(
+    student_id: str, request: Request, admin=Depends(require_admin("manage_students"))
+) -> JSONResponse:
     reason = str(request.query_params.get("reason") or "").strip()
     if not reason:
         payload = await read_json(request)
@@ -555,7 +598,9 @@ async def admin_bills(request: Request, admin=Depends(require_admin("view_billin
     query = str(request.query_params.get("query") or "")
     status = str(request.query_params.get("status") or "").strip().lower()
     source = str(request.query_params.get("source") or "").strip().lower()
-    study_program_id = str(request.query_params.get("study_program_id") or request.query_params.get("prodi") or "").strip()
+    study_program_id = str(
+        request.query_params.get("study_program_id") or request.query_params.get("prodi") or ""
+    ).strip()
     period = str(request.query_params.get("period") or "").strip()
     bill_type = str(request.query_params.get("bill_type") or "").strip()
     sort_by = str(request.query_params.get("sort_by") or "").strip()
@@ -631,7 +676,9 @@ async def admin_bill_detail(bill_id: str, admin=Depends(require_admin("view_bill
 
 
 @app.post("/api/admin/bills/{bill_id}/payments")
-async def admin_record_bill_payment(bill_id: str, request: Request, admin=Depends(require_admin("manage_billing"))) -> JSONResponse:
+async def admin_record_bill_payment(
+    bill_id: str, request: Request, admin=Depends(require_admin("manage_billing"))
+) -> JSONResponse:
     payload = await read_json(request)
     try:
         result = record_bill_payment(config.DB_PATH, bill_id, payload, actor_id=admin["id"])
@@ -642,7 +689,9 @@ async def admin_record_bill_payment(bill_id: str, request: Request, admin=Depend
 
 
 @app.patch("/api/admin/bills/{bill_id}")
-async def admin_update_bill(bill_id: str, request: Request, admin=Depends(require_admin("manage_billing"))) -> JSONResponse:
+async def admin_update_bill(
+    bill_id: str, request: Request, admin=Depends(require_admin("manage_billing"))
+) -> JSONResponse:
     payload = await read_json(request)
     try:
         bill = update_bill(config.DB_PATH, bill_id, payload, actor_id=admin["id"])
@@ -655,7 +704,9 @@ async def admin_update_bill(bill_id: str, request: Request, admin=Depends(requir
 
 
 @app.get("/api/admin/bills/{bill_id}/transactions")
-async def admin_bill_transactions(bill_id: str, request: Request, admin=Depends(require_admin("view_billing"))) -> JSONResponse:
+async def admin_bill_transactions(
+    bill_id: str, request: Request, admin=Depends(require_admin("view_billing"))
+) -> JSONResponse:
     try:
         limit = parse_limit(request, default=50, max_limit=200)
         offset = parse_offset(request)
@@ -668,7 +719,9 @@ async def admin_bill_transactions(bill_id: str, request: Request, admin=Depends(
 
 
 @app.get("/api/admin/students/{student_id}/transactions")
-async def admin_student_transactions(student_id: str, request: Request, admin=Depends(require_admin("view_billing"))) -> JSONResponse:
+async def admin_student_transactions(
+    student_id: str, request: Request, admin=Depends(require_admin("view_billing"))
+) -> JSONResponse:
     try:
         limit = parse_limit(request, default=50, max_limit=200)
         offset = parse_offset(request)
@@ -681,7 +734,9 @@ async def admin_student_transactions(student_id: str, request: Request, admin=De
 
 
 @app.delete("/api/admin/bills/{bill_id}")
-async def admin_delete_bill(bill_id: str, request: Request, admin=Depends(require_admin("manage_billing"))) -> JSONResponse:
+async def admin_delete_bill(
+    bill_id: str, request: Request, admin=Depends(require_admin("manage_billing"))
+) -> JSONResponse:
     reason = str(request.query_params.get("reason") or "").strip()
     if not reason:
         payload = await read_json(request)
@@ -704,7 +759,9 @@ async def admin_import_preview(
 ) -> JSONResponse:
     retry_after = enforce_rate_limit("import_preview", admin["id"], 20, 60 * 60)
     if retry_after:
-        return error_response(429, "RATE_LIMITED", "Terlalu banyak permintaan. Coba lagi nanti.", {"Retry-After": str(retry_after)})
+        return error_response(
+            429, "RATE_LIMITED", "Terlalu banyak permintaan. Coba lagi nanti.", {"Retry-After": str(retry_after)}
+        )
 
     saved_path: Path | None = None
     try:
@@ -755,7 +812,9 @@ async def admin_import_preview(
             logger.exception("Unexpected failure while previewing import")
         if saved_path:
             saved_path.unlink(missing_ok=True)
-        message = str(exc) if isinstance(exc, ValueError) else "File tidak dapat diproses. Gunakan workbook Excel yang valid."
+        message = (
+            str(exc) if isinstance(exc, ValueError) else "File tidak dapat diproses. Gunakan workbook Excel yang valid."
+        )
         return error_response(400, "IMPORT_PREVIEW_FAILED", message)
     finally:
         await file.close()
@@ -765,7 +824,9 @@ async def admin_import_preview(
 async def admin_import_commit(request: Request, admin=Depends(require_admin("import"))) -> JSONResponse:
     retry_after = enforce_rate_limit("import_commit", admin["id"], 10, 60 * 60)
     if retry_after:
-        return error_response(429, "RATE_LIMITED", "Terlalu banyak permintaan. Coba lagi nanti.", {"Retry-After": str(retry_after)})
+        return error_response(
+            429, "RATE_LIMITED", "Terlalu banyak permintaan. Coba lagi nanti.", {"Retry-After": str(retry_after)}
+        )
 
     payload = await read_json(request)
     import_token = str(payload.get("import_token") or payload.get("token") or "")
@@ -795,7 +856,9 @@ async def admin_import_commit(request: Request, admin=Depends(require_admin("imp
         if preview["critical_rows"]:
             workbook.unlink(missing_ok=True)
             delete_import_preview(import_token)
-            return error_response(400, "IMPORT_VALIDATION_FAILED", "Import dibatalkan karena ada baris kritis pada sheet Data Sinkron.")
+            return error_response(
+                400, "IMPORT_VALIDATION_FAILED", "Import dibatalkan karena ada baris kritis pada sheet Data Sinkron."
+            )
         if preview["requires_update_confirmation"] and not confirm_updates:
             return error_response(
                 409,
@@ -803,8 +866,11 @@ async def admin_import_commit(request: Request, admin=Depends(require_admin("imp
                 "Perubahan nominal atau BRIVA harus dikonfirmasi admin sebelum import disimpan.",
             )
         result = import_workbook(
-            workbook, config.DB_PATH, source_file_name=source_file_name,
-            confirm_updates=confirm_updates, actor_id=admin["id"],
+            workbook,
+            config.DB_PATH,
+            source_file_name=source_file_name,
+            confirm_updates=confirm_updates,
+            actor_id=admin["id"],
         )
         workbook.unlink(missing_ok=True)
         delete_import_preview(import_token)
@@ -833,7 +899,7 @@ async def frontend(full_path: str):
         return error_response(404, "NOT_FOUND", "Endpoint tidak ditemukan.")
 
     if full_path.startswith("admin/"):
-        sub_path = full_path[len("admin/"):]
+        sub_path = full_path[len("admin/") :]
         admin_dist_root = (config.FRONTEND_DIR / "admin-dist").resolve()
         if admin_dist_root.exists():
             admin_dist_file = (admin_dist_root / sub_path).resolve()

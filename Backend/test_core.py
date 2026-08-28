@@ -127,7 +127,10 @@ class CoreBehaviorTests(unittest.TestCase):
             self.assertEqual(result["data"]["student"]["full_name"], "Syahla Taqiyyah")
             self.assertEqual(result["data"]["student"]["program_study"], "S1 Ilmu Hukum")
             self.assertEqual(result["data"]["student"]["payment_period"], "Semester Ganjil 2026")
-            self.assertEqual(set(result["data"]["student"]), {"nim", "full_name", "program_study", "payment_period", "due_date", "due_date_formatted"})
+            self.assertEqual(
+                set(result["data"]["student"]),
+                {"nim", "full_name", "program_study", "payment_period", "due_date", "due_date_formatted"},
+            )
             self.assertEqual([bill["bill_label"] for bill in result["data"]["bills"]], ["Tagihan 1", "Tagihan 2"])
 
     def test_lookup_rejects_letters_instead_of_silently_stripping_them(self) -> None:
@@ -337,7 +340,9 @@ class CoreBehaviorTests(unittest.TestCase):
 
             conn = sqlite3.connect(database)
             count = conn.execute("select count(*) from bills where briva = '60001'").fetchone()[0]
-            source_rows = conn.execute("select source_row_number from bills where briva = '60001' order by source_row_number").fetchall()
+            source_rows = conn.execute(
+                "select source_row_number from bills where briva = '60001' order by source_row_number"
+            ).fetchall()
             conn.close()
             self.assertEqual(count, 2)
             self.assertEqual([row[0] for row in source_rows], [None, 3])
@@ -383,13 +388,16 @@ class CoreBehaviorTests(unittest.TestCase):
             init_db(conn)
             conn.close()
             student = create_student(database, {"nim": "090000001", "full_name": "Nominal Wajib"})
-            bill = create_bill(database, {
-                "student_id": student["id"],
-                "briva": "90000001",
-                "amount": 100000,
-                "period": "2026.1",
-                "status": "unpaid",
-            })
+            bill = create_bill(
+                database,
+                {
+                    "student_id": student["id"],
+                    "briva": "90000001",
+                    "amount": 100000,
+                    "period": "2026.1",
+                    "status": "unpaid",
+                },
+            )
 
             with self.assertRaisesRegex(ValueError, "wajib diisi"):
                 update_bill_status(database, bill["id"], "partial")
@@ -472,6 +480,7 @@ class CoreBehaviorTests(unittest.TestCase):
 
     def test_admin_bill_due_date_update(self) -> None:
         from Backend.app.services import update_bill_due_date, format_due_date
+
         with tempfile.TemporaryDirectory() as temporary_directory:
             temp = Path(temporary_directory)
             database = temp / "salut.sqlite"
@@ -502,8 +511,13 @@ class CoreBehaviorTests(unittest.TestCase):
                 workbook,
                 [
                     (
-                        "01008", "Tara Utami", "UT Serang/2025-Ganjil", "'081234567890",
-                        "FST - Sistem Informasi", "'178100023200888", 1850000,
+                        "01008",
+                        "Tara Utami",
+                        "UT Serang/2025-Ganjil",
+                        "'081234567890",
+                        "FST - Sistem Informasi",
+                        "'178100023200888",
+                        1850000,
                         "07 Agustus 2026 Pukul 11.59 WIB",
                     ),
                 ],
@@ -545,8 +559,26 @@ class CoreBehaviorTests(unittest.TestCase):
             self._write_current_workbook(
                 workbook,
                 [
-                    ("01009", "Dina Putri", "UT Serang/2025-Ganjil", "'081234567891", "FST - Sistem Informasi", "'178100023200889", 1850000, "07 Agustus 2026 Pukul 11.59 WIB"),
-                    ("`", "Data Tidak Valid", "UT Serang/2025-Ganjil", "'081234567892", "FST - Sistem Informasi", "'178100023200890", 1850000, "07 Agustus 2026 Pukul 11.59 WIB"),
+                    (
+                        "01009",
+                        "Dina Putri",
+                        "UT Serang/2025-Ganjil",
+                        "'081234567891",
+                        "FST - Sistem Informasi",
+                        "'178100023200889",
+                        1850000,
+                        "07 Agustus 2026 Pukul 11.59 WIB",
+                    ),
+                    (
+                        "`",
+                        "Data Tidak Valid",
+                        "UT Serang/2025-Ganjil",
+                        "'081234567892",
+                        "FST - Sistem Informasi",
+                        "'178100023200890",
+                        1850000,
+                        "07 Agustus 2026 Pukul 11.59 WIB",
+                    ),
                 ],
             )
 
@@ -563,6 +595,7 @@ class CoreBehaviorTests(unittest.TestCase):
             conn.close()
             self.assertEqual(issue, (3, "Baris dilewati karena NIM, nama, BRIVA, atau nominal tidak valid."))
             from Backend.app.services import list_import_issues
+
             stored_issues = list_import_issues(database)
             self.assertEqual(len(stored_issues), 1)
             self.assertEqual(stored_issues[0]["row_number"], 3)
@@ -577,8 +610,13 @@ class CoreBehaviorTests(unittest.TestCase):
                 workbook,
                 [
                     (
-                        "`01010", "' Dini Putri", "`UT Serang/2025-Ganjil", "`0812-3456-7890",
-                        "'FST - Sistem Informasi", "`178100023200891", "Rp 1.850.000",
+                        "`01010",
+                        "' Dini Putri",
+                        "`UT Serang/2025-Ganjil",
+                        "`0812-3456-7890",
+                        "'FST - Sistem Informasi",
+                        "`178100023200891",
+                        "Rp 1.850.000",
                         "`07 Agustus 2026 Pukul 11.59 WIB",
                     ),
                 ],
@@ -595,7 +633,9 @@ class CoreBehaviorTests(unittest.TestCase):
             ).fetchone()
             bill = conn.execute("select briva, amount, due_date from bills").fetchone()
             conn.close()
-            self.assertEqual(student, ("01010", "Dini Putri", "UT Serang/2025-Ganjil", "081234567890", "FST - Sistem Informasi"))
+            self.assertEqual(
+                student, ("01010", "Dini Putri", "UT Serang/2025-Ganjil", "081234567890", "FST - Sistem Informasi")
+            )
             self.assertEqual(bill, ("178100023200891", 1850000, "07 Agustus 2026 Pukul 11.59 WIB"))
 
     def test_admin_manual_student_and_bill_crud_api(self) -> None:
@@ -676,7 +716,17 @@ class CoreBehaviorTests(unittest.TestCase):
                           (id, student_id, briva, amount, period, bill_type, instructions, source_file, source_row_number)
                         values (?, ?, ?, ?, ?, ?, ?, ?, ?)
                         """,
-                        ("bill-import-api", student_id, "70002", 150000, "Semester Ganjil 2026", "UKT BRIVA", "Bayar", "api-import.xlsx", 2),
+                        (
+                            "bill-import-api",
+                            student_id,
+                            "70002",
+                            150000,
+                            "Semester Ganjil 2026",
+                            "UKT BRIVA",
+                            "Bayar",
+                            "api-import.xlsx",
+                            2,
+                        ),
                     )
                 conn.close()
                 deleted_file = client.request(
@@ -718,9 +768,7 @@ class CoreBehaviorTests(unittest.TestCase):
                     """,
                     [(f"bill-page-{index}", f"900{index:03d}") for index in range(105)],
                 )
-                conn.execute(
-                    "update bills set status = 'paid', source_file = 'Manual Admin' where id = 'bill-page-0'"
-                )
+                conn.execute("update bills set status = 'paid', source_file = 'Manual Admin' where id = 'bill-page-0'")
             conn.close()
 
             original_db_path = app_config.DB_PATH
@@ -752,7 +800,13 @@ class CoreBehaviorTests(unittest.TestCase):
 
     def test_bills_page_uses_api_pagination_total(self) -> None:
         hook_path = Path(__file__).resolve().parents[1] / "Frontend-Admin" / "src" / "hooks" / "useBillsPage.js"
-        source = hook_path.read_text(encoding="utf-8") if hook_path.exists() else (Path(__file__).resolve().parents[1] / "Frontend-Admin" / "src" / "pages" / "BillsPage.jsx").read_text(encoding="utf-8")
+        source = (
+            hook_path.read_text(encoding="utf-8")
+            if hook_path.exists()
+            else (Path(__file__).resolve().parents[1] / "Frontend-Admin" / "src" / "pages" / "BillsPage.jsx").read_text(
+                encoding="utf-8"
+            )
+        )
         self.assertTrue("pagination" in source)
         self.assertTrue("Number(pagination.total)" in source or "Number(pageData.total)" in source)
         self.assertNotIn("setTotalCount(res.total_count || 0);", source)
@@ -773,13 +827,16 @@ class CoreBehaviorTests(unittest.TestCase):
             conn.close()
 
             student = create_student(database, {"nim": "090000002", "full_name": "Akses Riwayat"})
-            bill = create_bill(database, {
-                "student_id": student["id"],
-                "briva": "90000002",
-                "amount": 100000,
-                "period": "2026.1",
-                "status": "unpaid",
-            })
+            bill = create_bill(
+                database,
+                {
+                    "student_id": student["id"],
+                    "briva": "90000002",
+                    "amount": 100000,
+                    "period": "2026.1",
+                    "status": "unpaid",
+                },
+            )
             update_bill_status(database, bill["id"], "partial", paid_amount=40000)
 
             original_db_path = app_config.DB_PATH
@@ -809,8 +866,12 @@ class CoreBehaviorTests(unittest.TestCase):
                 )
                 self.assertEqual(client.get("/api/admin/bills/not-found/transactions").status_code, 404)
                 self.assertEqual(client.get("/api/admin/students/not-found/transactions").status_code, 404)
-                self.assertEqual(client.get(f"/api/admin/bills/{bill['id']}/transactions?limit=invalid").status_code, 400)
-                self.assertEqual(client.get(f"/api/admin/students/{student['id']}/transactions?offset=invalid").status_code, 400)
+                self.assertEqual(
+                    client.get(f"/api/admin/bills/{bill['id']}/transactions?limit=invalid").status_code, 400
+                )
+                self.assertEqual(
+                    client.get(f"/api/admin/students/{student['id']}/transactions?offset=invalid").status_code, 400
+                )
             finally:
                 app_config.DB_PATH = original_db_path
 
@@ -828,13 +889,16 @@ class CoreBehaviorTests(unittest.TestCase):
                 )
             conn.close()
             student = create_student(database, {"nim": "090000003", "full_name": "API Partial"})
-            bill = create_bill(database, {
-                "student_id": student["id"],
-                "briva": "90000003",
-                "amount": 100000,
-                "period": "2026.1",
-                "status": "unpaid",
-            })
+            bill = create_bill(
+                database,
+                {
+                    "student_id": student["id"],
+                    "briva": "90000003",
+                    "amount": 100000,
+                    "period": "2026.1",
+                    "status": "unpaid",
+                },
+            )
 
             original_db_path = app_config.DB_PATH
             app_config.DB_PATH = database
@@ -957,7 +1021,9 @@ class CoreBehaviorTests(unittest.TestCase):
                 store_import_preview("imp_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "owner-admin", "owner.xlsx", workbook)
                 client = TestClient(server.app)
                 client.post("/api/admin/login", json={"email": "other@imp.test", "password": "Password123!"})
-                res = client.post("/api/admin/import/commit", json={"import_token": "imp_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"})
+                res = client.post(
+                    "/api/admin/import/commit", json={"import_token": "imp_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}
+                )
                 self.assertEqual(res.status_code, 404)
                 self.assertTrue(workbook.exists())
             finally:
@@ -969,7 +1035,12 @@ class CoreBehaviorTests(unittest.TestCase):
         self.assertEqual(client.get("/api/admin/students").status_code, 401)
         self.assertEqual(client.get("/api/admin/bills").status_code, 401)
         self.assertEqual(client.get("/api/admin/imported-bills").status_code, 401)
-        self.assertEqual(client.request("DELETE", "/api/admin/imported-files", json={"file_name": "x.xlsx", "reason": "test"}).status_code, 401)
+        self.assertEqual(
+            client.request(
+                "DELETE", "/api/admin/imported-files", json={"file_name": "x.xlsx", "reason": "test"}
+            ).status_code,
+            401,
+        )
 
     def test_application_csp_blocks_inline_style_elements_and_external_fonts(self) -> None:
         response = TestClient(server.app).get("/")
@@ -1038,7 +1109,16 @@ class CoreBehaviorTests(unittest.TestCase):
             conn.close()
 
             student = create_student(database, "050999888", "Mahasiswa Soft Delete")
-            bill = create_bill(database, {"nim": "050999888", "full_name": "Mahasiswa Soft Delete", "briva": "999888", "amount": 500000, "period": "2026.1"})
+            bill = create_bill(
+                database,
+                {
+                    "nim": "050999888",
+                    "full_name": "Mahasiswa Soft Delete",
+                    "briva": "999888",
+                    "amount": 500000,
+                    "period": "2026.1",
+                },
+            )
 
             self.assertEqual(len(list_students(database)), 1)
             self.assertEqual(len(list_bills(database)), 1)
@@ -1052,7 +1132,9 @@ class CoreBehaviorTests(unittest.TestCase):
             self.assertEqual(len(list_students(database)), 0)
 
             conn = sqlite3.connect(database)
-            st_row = conn.execute("select deleted_at, delete_reason from students where id = ?", (student["id"],)).fetchone()
+            st_row = conn.execute(
+                "select deleted_at, delete_reason from students where id = ?", (student["id"],)
+            ).fetchone()
             conn.close()
             self.assertIsNotNone(st_row[0])
             self.assertEqual(st_row[1], "Pengunduran diri")
@@ -1071,7 +1153,9 @@ class CoreBehaviorTests(unittest.TestCase):
             try:
                 client = TestClient(server.app)
                 for i in range(10):
-                    resp = client.post("/api/lookup", json={"nim": "000000"}, headers={"X-Forwarded-For": f"10.0.0.{i}"})
+                    resp = client.post(
+                        "/api/lookup", json={"nim": "000000"}, headers={"X-Forwarded-For": f"10.0.0.{i}"}
+                    )
                 resp = client.post("/api/lookup", json={"nim": "000000"}, headers={"X-Forwarded-For": "10.0.0.99"})
                 self.assertEqual(resp.status_code, 429)
             finally:
@@ -1141,10 +1225,14 @@ class CoreBehaviorTests(unittest.TestCase):
             database = Path(temporary_directory) / "salut.sqlite"
             migrate_database(database)
             student = create_student(database, {"nim": "20260002", "full_name": "Mahasiswa Ledger"})
-            bill = create_bill(database, {"student_id": student["id"], "briva": "BRIVA-LEDGER", "amount": 100000, "period": "2026.1"})
+            bill = create_bill(
+                database, {"student_id": student["id"], "briva": "BRIVA-LEDGER", "amount": 100000, "period": "2026.1"}
+            )
             update_bill_status(database, bill["id"], "paid", recorded_by="operator-1")
             conn = connect(database)
-            transaction = conn.execute("select id from payment_transactions where bill_id = ?", (bill["id"],)).fetchone()
+            transaction = conn.execute(
+                "select id from payment_transactions where bill_id = ?", (bill["id"],)
+            ).fetchone()
             with self.assertRaises(sqlite3.DatabaseError):
                 conn.execute("update payment_transactions set notes = 'ubah' where id = ?", (transaction["id"],))
             with self.assertRaises(sqlite3.DatabaseError):
@@ -1157,9 +1245,21 @@ class CoreBehaviorTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "NIM hanya boleh"):
                 create_student(database, {"nim": "NIM-2026", "full_name": "Invalid NIM"})
             with self.assertRaisesRegex(ValueError, "Status akademik"):
-                create_student(database, {"nim": "20260003", "full_name": "Invalid Status", "academic_status": "sembarang"})
+                create_student(
+                    database, {"nim": "20260003", "full_name": "Invalid Status", "academic_status": "sembarang"}
+                )
             with self.assertRaisesRegex(ValueError, "Format tanggal"):
-                create_bill(database, {"nim": "20260004", "full_name": "Invalid Date", "briva": "BRIVA-DATE", "amount": 100000, "period": "2026.1", "due_date": "2026-99-99"})
+                create_bill(
+                    database,
+                    {
+                        "nim": "20260004",
+                        "full_name": "Invalid Date",
+                        "briva": "BRIVA-DATE",
+                        "amount": 100000,
+                        "period": "2026.1",
+                        "due_date": "2026-99-99",
+                    },
+                )
 
     def test_automatic_academic_period_registration_handles_readable_id_collisions(self) -> None:
         from Backend.db import ensure_academic_period
@@ -1190,7 +1290,9 @@ class CoreBehaviorTests(unittest.TestCase):
         limiter = RateLimiter()
         with (
             mock.patch.object(app_main, "RATE_LIMITER", limiter),
-            mock.patch.object(app_main, "authenticate_admin", side_effect=[None, None, None, None, None, fake_admin]) as authenticate,
+            mock.patch.object(
+                app_main, "authenticate_admin", side_effect=[None, None, None, None, None, fake_admin]
+            ) as authenticate,
         ):
             client = TestClient(app_main.app)
             try:
@@ -1251,7 +1353,9 @@ class CoreBehaviorTests(unittest.TestCase):
             restored = create_student(database, {"nim": "20260001", "full_name": "Mahasiswa Dipulihkan"})
             self.assertEqual(restored["id"], original["id"])
             conn = connect(database)
-            row = conn.execute("select full_name, deleted_at, deleted_by, delete_reason from students where id = ?", (original["id"],)).fetchone()
+            row = conn.execute(
+                "select full_name, deleted_at, deleted_by, delete_reason from students where id = ?", (original["id"],)
+            ).fetchone()
             conn.close()
             self.assertEqual(row["full_name"], "Mahasiswa Dipulihkan")
             self.assertIsNone(row["deleted_at"])
@@ -1259,7 +1363,12 @@ class CoreBehaviorTests(unittest.TestCase):
             self.assertIsNone(row["delete_reason"])
 
     def test_study_programs_crud(self) -> None:
-        from Backend.app.services import create_study_program, delete_study_program, list_study_programs, update_study_program
+        from Backend.app.services import (
+            create_study_program,
+            delete_study_program,
+            list_study_programs,
+            update_study_program,
+        )
 
         with tempfile.TemporaryDirectory() as temporary_directory:
             database = Path(temporary_directory) / "salut.sqlite"
@@ -1271,7 +1380,9 @@ class CoreBehaviorTests(unittest.TestCase):
                 create_study_program(database, {"code": "TINFOR", "name": "Teknik Informatika"})
 
             # Create with valid 4-character code
-            created = create_study_program(database, {"code": "TINF", "name": "Teknik Informatika", "degree": "S1", "faculty": "FST"})
+            created = create_study_program(
+                database, {"code": "TINF", "name": "Teknik Informatika", "degree": "S1", "faculty": "FST"}
+            )
             self.assertEqual(created["code"], "TINF")
             self.assertEqual(created["name"], "Teknik Informatika")
 
@@ -1302,7 +1413,16 @@ class CoreBehaviorTests(unittest.TestCase):
             database = Path(temporary_directory) / "salut.sqlite"
             migrate_database(database)
             # Create
-            created = create_academic_period(database, {"code": "20261", "name": "2026/2027 Ganjil", "semester_type": "ganjil", "is_active": 1, "default_due_date": "2026-09-30"})
+            created = create_academic_period(
+                database,
+                {
+                    "code": "20261",
+                    "name": "2026/2027 Ganjil",
+                    "semester_type": "ganjil",
+                    "is_active": 1,
+                    "default_due_date": "2026-09-30",
+                },
+            )
             self.assertEqual(created["code"], "20261")
             self.assertEqual(created["is_active"], 1)
 
@@ -1338,8 +1458,28 @@ class CoreBehaviorTests(unittest.TestCase):
             )
 
             # Add two bills
-            create_bill(database, {"nim": "050117099", "full_name": "Rizky Firmansyah", "briva": "17810001", "amount": 1000000, "period": "2025.1", "status": "paid"})
-            create_bill(database, {"nim": "050117099", "full_name": "Rizky Firmansyah", "briva": "17810002", "amount": 1500000, "period": "2025.2", "status": "unpaid"})
+            create_bill(
+                database,
+                {
+                    "nim": "050117099",
+                    "full_name": "Rizky Firmansyah",
+                    "briva": "17810001",
+                    "amount": 1000000,
+                    "period": "2025.1",
+                    "status": "paid",
+                },
+            )
+            create_bill(
+                database,
+                {
+                    "nim": "050117099",
+                    "full_name": "Rizky Firmansyah",
+                    "briva": "17810002",
+                    "amount": 1500000,
+                    "period": "2025.2",
+                    "status": "unpaid",
+                },
+            )
 
             detail = get_student_detail(database, student["id"])
             self.assertIsNotNone(detail)
@@ -1358,8 +1498,26 @@ class CoreBehaviorTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary_directory:
             database = Path(temporary_directory) / "salut.sqlite"
             migrate_database(database)
-            create_student(database, {"nim": "1001", "full_name": "Mhs Aktif Hukum", "program_study": "S1 Ilmu Hukum", "academic_status": "aktif", "entry_year": 2024})
-            create_student(database, {"nim": "1002", "full_name": "Mhs Cuti Manajemen", "program_study": "S1 Manajemen", "academic_status": "cuti", "entry_year": 2025})
+            create_student(
+                database,
+                {
+                    "nim": "1001",
+                    "full_name": "Mhs Aktif Hukum",
+                    "program_study": "S1 Ilmu Hukum",
+                    "academic_status": "aktif",
+                    "entry_year": 2024,
+                },
+            )
+            create_student(
+                database,
+                {
+                    "nim": "1002",
+                    "full_name": "Mhs Cuti Manajemen",
+                    "program_study": "S1 Manajemen",
+                    "academic_status": "cuti",
+                    "entry_year": 2025,
+                },
+            )
 
             # Filter by academic_status
             aktif_list = list_students(database, academic_status="aktif")
@@ -1377,11 +1535,37 @@ class CoreBehaviorTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary_directory:
             database = Path(temporary_directory) / "salut.sqlite"
             migrate_database(database)
-            create_student(database, {"nim": "2001", "full_name": "Student A", "program_study": "S1 Ilmu Hukum", "academic_status": "aktif"})
-            create_student(database, {"nim": "2002", "full_name": "Student B", "program_study": "S1 Manajemen", "academic_status": "cuti"})
+            create_student(
+                database,
+                {"nim": "2001", "full_name": "Student A", "program_study": "S1 Ilmu Hukum", "academic_status": "aktif"},
+            )
+            create_student(
+                database,
+                {"nim": "2002", "full_name": "Student B", "program_study": "S1 Manajemen", "academic_status": "cuti"},
+            )
 
-            create_bill(database, {"nim": "2001", "full_name": "Student A", "briva": "17810011", "amount": 2000000, "period": "2025.1", "status": "paid"})
-            create_bill(database, {"nim": "2002", "full_name": "Student B", "briva": "17810012", "amount": 3000000, "period": "2025.1", "status": "unpaid"})
+            create_bill(
+                database,
+                {
+                    "nim": "2001",
+                    "full_name": "Student A",
+                    "briva": "17810011",
+                    "amount": 2000000,
+                    "period": "2025.1",
+                    "status": "paid",
+                },
+            )
+            create_bill(
+                database,
+                {
+                    "nim": "2002",
+                    "full_name": "Student B",
+                    "briva": "17810012",
+                    "amount": 3000000,
+                    "period": "2025.1",
+                    "status": "unpaid",
+                },
+            )
 
             stats = get_dashboard_stats(database)
             self.assertEqual(stats["total_students"], 2)
@@ -1414,15 +1598,33 @@ class CoreBehaviorTests(unittest.TestCase):
             )
             create_bill(
                 database,
-                {"student_id": student_a["id"], "briva": "3001001", "amount": 1000000, "period": "2025.1", "status": "paid"},
+                {
+                    "student_id": student_a["id"],
+                    "briva": "3001001",
+                    "amount": 1000000,
+                    "period": "2025.1",
+                    "status": "paid",
+                },
             )
             create_bill(
                 database,
-                {"student_id": student_a["id"], "briva": "3001002", "amount": 500000, "period": "2025.2", "status": "unpaid"},
+                {
+                    "student_id": student_a["id"],
+                    "briva": "3001002",
+                    "amount": 500000,
+                    "period": "2025.2",
+                    "status": "unpaid",
+                },
             )
             create_bill(
                 database,
-                {"student_id": student_b["id"], "briva": "3002001", "amount": 2000000, "period": "2025.1", "status": "unpaid"},
+                {
+                    "student_id": student_b["id"],
+                    "briva": "3002001",
+                    "amount": 2000000,
+                    "period": "2025.1",
+                    "status": "unpaid",
+                },
             )
 
             summary = get_financial_summary(
@@ -1440,6 +1642,7 @@ class CoreBehaviorTests(unittest.TestCase):
 
     def test_granular_rbac_roles(self) -> None:
         from Backend.app.config import ROLE_PERMISSIONS
+
         self.assertIn("manage_master_data", ROLE_PERMISSIONS["admin_akademik"])
         self.assertIn("manage_students", ROLE_PERMISSIONS["admin_akademik"])
         self.assertNotIn("import", ROLE_PERMISSIONS["admin_akademik"])
@@ -1471,7 +1674,7 @@ class CoreBehaviorTests(unittest.TestCase):
                 data_rows.append(
                     f'<row r="{index}">{inline(f"A{index}", str(index - 1))}{inline(f"B{index}", nim)}'
                     f'{inline(f"C{index}", name)}{inline(f"D{index}", briva)}<c r="E{index}"><v>{amount}</v></c>'
-                    f'{inline(f"F{index}", "") if issue_sheet else ""}</row>'
+                    f"{inline(f'F{index}', '') if issue_sheet else ''}</row>"
                 )
             return (
                 '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
@@ -1488,12 +1691,14 @@ class CoreBehaviorTests(unittest.TestCase):
             '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
             '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>'
             '<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet2.xml"/>'
-            '</Relationships>'
+            "</Relationships>"
         )
         with zipfile.ZipFile(path, "w") as archive:
             archive.writestr("xl/workbook.xml", workbook)
             archive.writestr("xl/_rels/workbook.xml.rels", relationships)
-            archive.writestr("xl/worksheets/sheet1.xml", worksheet(["No.", "NIM", "Nama Mahasiswa", "BRIVA", "Jumlah"], rows))
+            archive.writestr(
+                "xl/worksheets/sheet1.xml", worksheet(["No.", "NIM", "Nama Mahasiswa", "BRIVA", "Jumlah"], rows)
+            )
             archive.writestr(
                 "xl/worksheets/sheet2.xml",
                 worksheet(["No.", "NIM", "Nama Mahasiswa", "BRIVA", "Jumlah", "Keterangan"], [], issue_sheet=True),
@@ -1504,14 +1709,25 @@ class CoreBehaviorTests(unittest.TestCase):
         def inline(cell: str, value: str) -> str:
             return f'<c r="{cell}" t="inlineStr"><is><t>{value}</t></is></c>'
 
-        headers = ["NIM", "Nama", "Registrasi Awal", " No  Hp ", "Program Studi", "No Rek", "Jumlah", "Batas Pembayaran"]
+        headers = [
+            "NIM",
+            "Nama",
+            "Registrasi Awal",
+            " No  Hp ",
+            "Program Studi",
+            "No Rek",
+            "Jumlah",
+            "Batas Pembayaran",
+        ]
         columns = "ABCDEFGH"
         header_cells = "".join(inline(f"{column}1", value) for column, value in zip(columns, headers))
         data_rows = []
         for index, row in enumerate(rows, start=2):
             values = [str(value) for value in row]
             cells = "".join(
-                f'<c r="{column}{index}"><v>{value}</v></c>' if column == "G" and value.isdigit() else inline(f"{column}{index}", value)
+                f'<c r="{column}{index}"><v>{value}</v></c>'
+                if column == "G" and value.isdigit()
+                else inline(f"{column}{index}", value)
                 for column, value in zip(columns, values)
             )
             data_rows.append(f'<row r="{index}">{cells}</row>')
@@ -1524,7 +1740,7 @@ class CoreBehaviorTests(unittest.TestCase):
         relationships = (
             '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
             '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>'
-            '</Relationships>'
+            "</Relationships>"
         )
         worksheet = (
             '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
@@ -1556,14 +1772,34 @@ class CoreBehaviorTests(unittest.TestCase):
 
             rows = [
                 (
-                    "049530265", "MUHAMAD ROMLI", "3603100510860014", "Tangerang", "14 September 2000",
-                    "Siti Aminah", "rhomly0496@gmail.com", "082310867195", "UNIVERSITAS TERBUKA 2023.1",
-                    "FEB - Akuntansi", "178100023200085", 1850000, "22 Januari 2027 Pukul 11.59 WIB",
+                    "049530265",
+                    "MUHAMAD ROMLI",
+                    "3603100510860014",
+                    "Tangerang",
+                    "14 September 2000",
+                    "Siti Aminah",
+                    "rhomly0496@gmail.com",
+                    "082310867195",
+                    "UNIVERSITAS TERBUKA 2023.1",
+                    "FEB - Akuntansi",
+                    "178100023200085",
+                    1850000,
+                    "22 Januari 2027 Pukul 11.59 WIB",
                 ),
                 (
-                    "049532688", "RIA ANGGRAENI", "-", "-", "-",
-                    "-", "riaa1390@gmail.com", "'0895411921596", "UNIVERSITAS TERBUKA 2023.2",
-                    "FHISIP - Sosiologi", "178100023200060", 1850000, "22 Januari 2027 Pukul 11.59 WIB",
+                    "049532688",
+                    "RIA ANGGRAENI",
+                    "-",
+                    "-",
+                    "-",
+                    "-",
+                    "riaa1390@gmail.com",
+                    "'0895411921596",
+                    "UNIVERSITAS TERBUKA 2023.2",
+                    "FHISIP - Sosiologi",
+                    "178100023200060",
+                    1850000,
+                    "22 Januari 2027 Pukul 11.59 WIB",
                 ),
             ]
             self._write_master_13_workbook(workbook, rows)
@@ -1585,9 +1821,39 @@ class CoreBehaviorTests(unittest.TestCase):
             conn.close()
 
             # Verify s1 has Title Case, demography, and parsed entry period
-            self.assertEqual(s1, ("049530265", "Muhamad Romli", "3603100510860014", "Tangerang", "14 September 2000", "Siti Aminah", "rhomly0496@gmail.com", "082310867195", 2023, "ganjil", "2023.1"))
+            self.assertEqual(
+                s1,
+                (
+                    "049530265",
+                    "Muhamad Romli",
+                    "3603100510860014",
+                    "Tangerang",
+                    "14 September 2000",
+                    "Siti Aminah",
+                    "rhomly0496@gmail.com",
+                    "082310867195",
+                    2023,
+                    "ganjil",
+                    "2023.1",
+                ),
+            )
             # Verify s2 cleaned '-' to None and stripped apostrophe in phone number
-            self.assertEqual(s2, ("049532688", "Ria Anggraeni", None, None, None, None, "riaa1390@gmail.com", "0895411921596", 2023, "genap", "2023.2"))
+            self.assertEqual(
+                s2,
+                (
+                    "049532688",
+                    "Ria Anggraeni",
+                    None,
+                    None,
+                    None,
+                    None,
+                    "riaa1390@gmail.com",
+                    "0895411921596",
+                    2023,
+                    "genap",
+                    "2023.2",
+                ),
+            )
 
     def test_master_data_template_download_and_api_filters(self) -> None:
         from Backend.app.security import hash_password
@@ -1609,22 +1875,28 @@ class CoreBehaviorTests(unittest.TestCase):
                 )
             conn.close()
 
-            s1 = create_student(database, {
-                "nim": "0301",
-                "full_name": "andi saputra",
-                "no_ktp": "32010101",
-                "entry_period": "2024.1",
-                "initial_registration": "UNIVERSITAS TERBUKA 2024.1",
-                "email": "andi@test.com",
-            })
-            create_student(database, {
-                "nim": "0302",
-                "full_name": "budi santoso",
-                "no_ktp": "32010102",
-                "entry_period": "2023.2",
-                "initial_registration": "UNIVERSITAS TERBUKA 2023.2",
-                "email": "budi@test.com",
-            })
+            s1 = create_student(
+                database,
+                {
+                    "nim": "0301",
+                    "full_name": "andi saputra",
+                    "no_ktp": "32010101",
+                    "entry_period": "2024.1",
+                    "initial_registration": "UNIVERSITAS TERBUKA 2024.1",
+                    "email": "andi@test.com",
+                },
+            )
+            create_student(
+                database,
+                {
+                    "nim": "0302",
+                    "full_name": "budi santoso",
+                    "no_ktp": "32010102",
+                    "entry_period": "2023.2",
+                    "initial_registration": "UNIVERSITAS TERBUKA 2023.2",
+                    "email": "budi@test.com",
+                },
+            )
 
             # Verify sorting by entry_period
             sorted_asc = list_students(database, sort_by="entry_period_asc")
@@ -1653,7 +1925,9 @@ class CoreBehaviorTests(unittest.TestCase):
             app_config.DB_PATH = database
             try:
                 client = TestClient(server.app)
-                login = client.post("/api/admin/login", json={"email": "master@example.test", "password": "PasswordBaru123!"})
+                login = client.post(
+                    "/api/admin/login", json={"email": "master@example.test", "password": "PasswordBaru123!"}
+                )
                 session_token = login.cookies["salut_admin_session"]
 
                 resp = client.get("/api/admin/template/master-data", cookies={"salut_admin_session": session_token})
@@ -1665,18 +1939,29 @@ class CoreBehaviorTests(unittest.TestCase):
     @staticmethod
     def _write_master_13_workbook(path: Path, rows: list[tuple]) -> None:
         import openpyxl
+
         wb = openpyxl.Workbook()
         ws = wb.active
         ws.title = "Master"
         headers = [
-            "NIM", "Nama", "NO KTP", "Tempat Lahir", "Tanggal Lahir", "Nama Ibu Kandung",
-            "e-Mail", "No Kontak", "Registrasi Awal", "Program Studi", "No Rek", "Jumlah", "Batas Pembayaran",
+            "NIM",
+            "Nama",
+            "NO KTP",
+            "Tempat Lahir",
+            "Tanggal Lahir",
+            "Nama Ibu Kandung",
+            "e-Mail",
+            "No Kontak",
+            "Registrasi Awal",
+            "Program Studi",
+            "No Rek",
+            "Jumlah",
+            "Batas Pembayaran",
         ]
         ws.append(headers)
         for row in rows:
             ws.append(list(row))
         wb.save(path)
-
 
     def test_study_program_4_char_codes_and_student_filtering(self) -> None:
         from Backend.app.services import create_student, list_study_programs
@@ -1704,18 +1989,24 @@ class CoreBehaviorTests(unittest.TestCase):
             conn.close()
 
             # Create students with different prodis
-            create_student(database, {
-                "nim": "1001",
-                "full_name": "Mahasiswa Hukum",
-                "program_study": "FHISIP - Ilmu Hukum",
-                "study_program_id": "sp_hkum",
-            })
-            create_student(database, {
-                "nim": "1002",
-                "full_name": "Mahasiswa Sistem Informasi",
-                "program_study": "FST - Sistem Informasi",
-                "study_program_id": "sp_sifo",
-            })
+            create_student(
+                database,
+                {
+                    "nim": "1001",
+                    "full_name": "Mahasiswa Hukum",
+                    "program_study": "FHISIP - Ilmu Hukum",
+                    "study_program_id": "sp_hkum",
+                },
+            )
+            create_student(
+                database,
+                {
+                    "nim": "1002",
+                    "full_name": "Mahasiswa Sistem Informasi",
+                    "program_study": "FST - Sistem Informasi",
+                    "study_program_id": "sp_sifo",
+                },
+            )
 
             # Filter by study_program_id
             hukum_list = list_students(database, study_program_id="sp_hkum")
@@ -1747,28 +2038,35 @@ class CoreBehaviorTests(unittest.TestCase):
 
             # 1. Create a student and bill
             st = create_student(database, {"nim": "050117077", "full_name": "Syahla Taqiyyah"})
-            bill = create_bill(database, {
-                "student_id": st["id"],
-                "briva": "178100023200040",
-                "amount": 2000000,
-                "period": "20251",
-                "bill_type": "UKT",
-                "status": "unpaid",
-            })
+            bill = create_bill(
+                database,
+                {
+                    "student_id": st["id"],
+                    "briva": "178100023200040",
+                    "amount": 2000000,
+                    "period": "20251",
+                    "bill_type": "UKT",
+                    "status": "unpaid",
+                },
+            )
             self.assertIsNotNone(bill)
             self.assertEqual(bill["nim"], "050117077")
             self.assertEqual(bill["status"], "unpaid")
             self.assertEqual(bill["paid_amount"], 0)
 
             # 2. Update bill without sending nim/full_name, setting status to partial
-            updated = update_bill(database, bill["id"], {
-                "briva": "178100023200040",
-                "amount": 2000000,
-                "paid_amount": 1200000,
-                "period": "20251",
-                "bill_type": "UKT",
-                "status": "partial",
-            })
+            updated = update_bill(
+                database,
+                bill["id"],
+                {
+                    "briva": "178100023200040",
+                    "amount": 2000000,
+                    "paid_amount": 1200000,
+                    "period": "20251",
+                    "bill_type": "UKT",
+                    "status": "partial",
+                },
+            )
             self.assertIsNotNone(updated)
             self.assertEqual(updated["nim"], "050117077")
             self.assertEqual(updated["status"], "partial")
@@ -1784,23 +2082,31 @@ class CoreBehaviorTests(unittest.TestCase):
             # 3. Test validation errors on partial payment
             with self.assertRaises(ValueError):
                 # paid_amount >= amount
-                update_bill(database, bill["id"], {
-                    "briva": "178100023200040",
-                    "amount": 2000000,
-                    "paid_amount": 2000000,
-                    "period": "20251",
-                    "status": "partial",
-                })
+                update_bill(
+                    database,
+                    bill["id"],
+                    {
+                        "briva": "178100023200040",
+                        "amount": 2000000,
+                        "paid_amount": 2000000,
+                        "period": "20251",
+                        "status": "partial",
+                    },
+                )
 
             with self.assertRaises(ValueError):
                 # paid_amount <= 0
-                update_bill(database, bill["id"], {
-                    "briva": "178100023200040",
-                    "amount": 2000000,
-                    "paid_amount": 0,
-                    "period": "20251",
-                    "status": "partial",
-                })
+                update_bill(
+                    database,
+                    bill["id"],
+                    {
+                        "briva": "178100023200040",
+                        "amount": 2000000,
+                        "paid_amount": 0,
+                        "period": "20251",
+                        "status": "partial",
+                    },
+                )
 
             # 4. Update bill status to paid automatically sets paid_amount = amount
             paid_row = update_bill_status(database, bill["id"], "paid")
@@ -1811,14 +2117,17 @@ class CoreBehaviorTests(unittest.TestCase):
             self.assertEqual(paid_dict["remaining_amount"], 0)
 
             # 5. Check custom period auto-registration
-            custom_bill = create_bill(database, {
-                "student_id": st["id"],
-                "briva": "178100023200041",
-                "amount": 500000,
-                "period": "20261",
-                "bill_type": "WISUDA",
-                "status": "unpaid",
-            })
+            custom_bill = create_bill(
+                database,
+                {
+                    "student_id": st["id"],
+                    "briva": "178100023200041",
+                    "amount": 500000,
+                    "period": "20261",
+                    "bill_type": "WISUDA",
+                    "status": "unpaid",
+                },
+            )
             self.assertIsNotNone(custom_bill)
             self.assertEqual(custom_bill["period"], "20261")
 
@@ -1839,34 +2148,43 @@ class CoreBehaviorTests(unittest.TestCase):
             st2 = create_student(database, {"nim": "050117002", "full_name": "Mhs Dua", "study_program_id": "sp_sifo"})
 
             # Bill 1: 2.000.000, paid 1.500.000 (partial)
-            create_bill(database, {
-                "student_id": st1["id"],
-                "briva": "178100023200001",
-                "amount": 2000000,
-                "paid_amount": 1500000,
-                "period": "20251",
-                "status": "partial",
-            })
+            create_bill(
+                database,
+                {
+                    "student_id": st1["id"],
+                    "briva": "178100023200001",
+                    "amount": 2000000,
+                    "paid_amount": 1500000,
+                    "period": "20251",
+                    "status": "partial",
+                },
+            )
 
             # Bill 2: 1.000.000, paid (full)
-            create_bill(database, {
-                "student_id": st2["id"],
-                "briva": "178100023200002",
-                "amount": 1000000,
-                "paid_amount": 1000000,
-                "period": "20251",
-                "status": "paid",
-            })
+            create_bill(
+                database,
+                {
+                    "student_id": st2["id"],
+                    "briva": "178100023200002",
+                    "amount": 1000000,
+                    "paid_amount": 1000000,
+                    "period": "20251",
+                    "status": "paid",
+                },
+            )
 
             # Bill 3: 500.000, unpaid
-            create_bill(database, {
-                "student_id": st2["id"],
-                "briva": "178100023200003",
-                "amount": 500000,
-                "paid_amount": 0,
-                "period": "20251",
-                "status": "unpaid",
-            })
+            create_bill(
+                database,
+                {
+                    "student_id": st2["id"],
+                    "briva": "178100023200003",
+                    "amount": 500000,
+                    "paid_amount": 0,
+                    "period": "20251",
+                    "status": "unpaid",
+                },
+            )
 
             stats = get_dashboard_stats(database)
             # Total billed = 2.000.000 + 1.000.000 + 500.000 = 3.500.000
@@ -1896,25 +2214,37 @@ class CoreBehaviorTests(unittest.TestCase):
             conn.commit()
             conn.close()
 
-            student = create_student(database, {
-                "nim": "099887766",
-                "full_name": "Budi Santoso",
-                "program_study": "S1 Ilmu Hukum",
-            })
+            student = create_student(
+                database,
+                {
+                    "nim": "099887766",
+                    "full_name": "Budi Santoso",
+                    "program_study": "S1 Ilmu Hukum",
+                },
+            )
 
-            bill = create_bill(database, {
-                "student_id": student["id"],
-                "briva": "178100023299999",
-                "amount": 2000000,
-                "paid_amount": 0,
-                "period": "20251",
-                "status": "unpaid",
-            })
+            bill = create_bill(
+                database,
+                {
+                    "student_id": student["id"],
+                    "briva": "178100023299999",
+                    "amount": 2000000,
+                    "paid_amount": 0,
+                    "period": "20251",
+                    "status": "unpaid",
+                },
+            )
 
             # 1. Update status to partial (Bayar 1.000.000)
             updated = update_bill_status(
-                database, bill["id"], "partial", paid_amount=1000000, recorded_by="admin-123",
-                payment_date="2026-08-20", reference_number="BRI-REF-001", notes="Cicilan pertama",
+                database,
+                bill["id"],
+                "partial",
+                paid_amount=1000000,
+                recorded_by="admin-123",
+                payment_date="2026-08-20",
+                reference_number="BRI-REF-001",
+                notes="Cicilan pertama",
             )
             self.assertIsNotNone(updated)
             self.assertEqual(updated["status"], "partial")
@@ -1960,7 +2290,9 @@ class CoreBehaviorTests(unittest.TestCase):
             database = Path(temporary_directory) / "test.sqlite"
             migrate_database(database)
             student = create_student(database, {"nim": "088776655", "full_name": "Metadata Test"})
-            bill = create_bill(database, {"student_id": student["id"], "briva": "BRIVA-META", "amount": 100000, "period": "2026.1"})
+            bill = create_bill(
+                database, {"student_id": student["id"], "briva": "BRIVA-META", "amount": 100000, "period": "2026.1"}
+            )
             with self.assertRaisesRegex(ValueError, "Format tanggal"):
                 update_bill_status(database, bill["id"], "paid", payment_date="2026-99-99")
             with self.assertRaisesRegex(ValueError, "Nomor referensi maksimal"):
@@ -2053,6 +2385,7 @@ class CoreBehaviorTests(unittest.TestCase):
             database = Path(temporary_directory) / "test.sqlite"
             with mock.patch("Backend.app.config.DB_PATH", database):
                 from Backend.app.main import app
+
                 conn = connect(database)
                 init_db(conn)
                 conn.close()
@@ -2099,19 +2432,54 @@ class CoreBehaviorTests(unittest.TestCase):
             with mock.patch("Backend.app.config.DB_PATH", database):
                 from Backend.app.main import app
                 from Backend.app.services import list_study_programs, create_student, create_bill
+
                 conn = connect(database)
                 init_db(conn)
                 prodis = list_study_programs(database)
                 p1 = prodis[0]
                 p2 = prodis[1]
-                
+
                 # Create students with different prodis and entry periods
-                st1 = create_student(database, {"nim": "01001", "full_name": "Mahasiswa Satu", "study_program_id": p1["id"], "entry_period": "2024.1"})
-                st2 = create_student(database, {"nim": "02002", "full_name": "Mahasiswa Dua", "study_program_id": p2["id"], "entry_period": "2025.2"})
-                
+                st1 = create_student(
+                    database,
+                    {
+                        "nim": "01001",
+                        "full_name": "Mahasiswa Satu",
+                        "study_program_id": p1["id"],
+                        "entry_period": "2024.1",
+                    },
+                )
+                st2 = create_student(
+                    database,
+                    {
+                        "nim": "02002",
+                        "full_name": "Mahasiswa Dua",
+                        "study_program_id": p2["id"],
+                        "entry_period": "2025.2",
+                    },
+                )
+
                 # Create bills
-                create_bill(database, {"student_id": st1["id"], "briva": "1111", "amount": 1000000, "period": "2025.1", "bill_type": "UKT"})
-                create_bill(database, {"student_id": st2["id"], "briva": "2222", "amount": 2500000, "period": "2025.2", "bill_type": "WISUDA"})
+                create_bill(
+                    database,
+                    {
+                        "student_id": st1["id"],
+                        "briva": "1111",
+                        "amount": 1000000,
+                        "period": "2025.1",
+                        "bill_type": "UKT",
+                    },
+                )
+                create_bill(
+                    database,
+                    {
+                        "student_id": st2["id"],
+                        "briva": "2222",
+                        "amount": 2500000,
+                        "period": "2025.2",
+                        "bill_type": "WISUDA",
+                    },
+                )
                 conn.close()
 
                 fake_admin = {"id": "admin-1", "email": "admin@salut.id", "role": "admin", "full_name": "Admin Test"}

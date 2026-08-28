@@ -9,7 +9,9 @@ def request_id() -> str:
     return f"req_{uuid.uuid4().hex[:12]}"
 
 
-def success_response(data: dict | None = None, status_code: int = 200, headers: dict[str, str] | None = None) -> JSONResponse:
+def success_response(
+    data: dict | None = None, status_code: int = 200, headers: dict[str, str] | None = None
+) -> JSONResponse:
     payload: dict[str, object] = {"success": True}
     if data is not None:
         payload["data"] = data
@@ -32,4 +34,3 @@ def error_response(
         status_code=status_code,
         headers=headers,
     )
-

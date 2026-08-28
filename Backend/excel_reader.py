@@ -101,10 +101,7 @@ def _cell_value(cell: ET.Element, shared: list[str]) -> str:
 def _sheet_targets(zf: zipfile.ZipFile) -> dict[str, str]:
     workbook = _parse_xml(zf.read("xl/workbook.xml"))
     rels = _parse_xml(zf.read("xl/_rels/workbook.xml.rels"))
-    rel_targets = {
-        rel.attrib["Id"]: rel.attrib["Target"].lstrip("/")
-        for rel in rels.findall("p:Relationship", NS)
-    }
+    rel_targets = {rel.attrib["Id"]: rel.attrib["Target"].lstrip("/") for rel in rels.findall("p:Relationship", NS)}
 
     sheets: dict[str, str] = {}
     for sheet in workbook.findall(".//a:sheet", NS):
@@ -143,8 +140,7 @@ def read_sheet(path: str | Path, sheet_name: str) -> list[dict[str, str]]:
             raise ValueError(f"Jumlah baris worksheet melebihi batas maksimum {MAX_WORKSHEET_ROWS}.")
 
         header_cells = {
-            _column_name(cell.attrib["r"]): _cell_value(cell, shared)
-            for cell in rows[0].findall("a:c", NS)
+            _column_name(cell.attrib["r"]): _cell_value(cell, shared) for cell in rows[0].findall("a:c", NS)
         }
         records: list[dict[str, str]] = []
         for row in rows[1:]:

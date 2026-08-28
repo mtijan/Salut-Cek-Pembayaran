@@ -80,7 +80,9 @@ def init_db(conn: sqlite3.Connection) -> None:
             migrate_master_data_and_student_siakad(conn)
             migrate_students_for_master_data(conn)
             migrate_payment_transactions(conn)
-            conn.execute("create index if not exists idx_bills_source_file_row on bills(source_file, source_row_number)")
+            conn.execute(
+                "create index if not exists idx_bills_source_file_row on bills(source_file, source_row_number)"
+            )
             conn.execute("create index if not exists idx_students_academic_status on students(academic_status)")
             conn.execute("create index if not exists idx_students_entry_year on students(entry_year)")
             conn.execute("create index if not exists idx_students_study_program_id on students(study_program_id)")
@@ -112,6 +114,7 @@ def parse_entry_registration(initial_registration: object) -> tuple[int | None, 
          '2024.1' -> (2024, 'ganjil', '2024.1')
     """
     import re
+
     text = str(initial_registration or "").strip()
     match = re.search(r"(20\d{2})\s*\.\s*([12])", text)
     if match:
@@ -134,7 +137,9 @@ def migrate_bills_for_paid_amount(conn: sqlite3.Connection) -> None:
     if "paid_amount" not in columns:
         conn.execute("alter table bills add column paid_amount integer not null default 0")
     # For existing paid bills where paid_amount is 0 or null, set paid_amount = amount
-    conn.execute("update bills set paid_amount = amount where status = 'paid' and (paid_amount is null or paid_amount = 0)")
+    conn.execute(
+        "update bills set paid_amount = amount where status = 'paid' and (paid_amount is null or paid_amount = 0)"
+    )
 
 
 def migrate_payment_transaction_append_only(conn: sqlite3.Connection) -> None:
@@ -266,7 +271,14 @@ DEFAULT_STUDY_PROGRAMS: list[tuple[str, str, str, str, str, list[str]]] = [
     ("sp_pajk", "PAJK", "S1 Perpajakan", "S1", "FEB", ["perpajakan"]),
     ("sp_komu", "KOMU", "S1 Ilmu Komunikasi", "S1", "FHISIP", ["ilmu komunikasi", "komunikasi"]),
     ("sp_ipem", "IPEM", "S1 Ilmu Pemerintahan", "S1", "FHISIP", ["ilmu pemerintahan", "pemerintahan"]),
-    ("sp_admn", "ADMN", "S1 Ilmu Administrasi Negara", "S1", "FHISIP", ["ilmu administrasi negara", "administrasi negara"]),
+    (
+        "sp_admn",
+        "ADMN",
+        "S1 Ilmu Administrasi Negara",
+        "S1",
+        "FHISIP",
+        ["ilmu administrasi negara", "administrasi negara"],
+    ),
     ("sp_admb", "ADMB", "S1 Administrasi Bisnis", "S1", "FHISIP", ["administrasi bisnis"]),
     ("sp_sosi", "SOSI", "S1 Sosiologi", "S1", "FHISIP", ["sosiologi"]),
     ("sp_sing", "SING", "S1 Sastra Inggris", "S1", "FHISIP", ["sastra inggris"]),
@@ -274,7 +286,14 @@ DEFAULT_STUDY_PROGRAMS: list[tuple[str, str, str, str, str, list[str]]] = [
     ("sp_paud", "PAUD", "S1 PGPAUD", "S1", "FKIP", ["pgpaud", "paud"]),
     ("sp_pgai", "PGAI", "S1 PAI", "S1", "FKIP", ["pai", "pendidikan agama islam"]),
     ("sp_ppkn", "PPKN", "S1 PPKN", "S1", "FKIP", ["ppkn"]),
-    ("sp_pbin", "PBIN", "S1 Pendidikan Bahasa dan Sastra Indonesia", "S1", "FKIP", ["pendidikan bahasa dan sastra indonesia", "pendidikan bahasa indonesia"]),
+    (
+        "sp_pbin",
+        "PBIN",
+        "S1 Pendidikan Bahasa dan Sastra Indonesia",
+        "S1",
+        "FKIP",
+        ["pendidikan bahasa dan sastra indonesia", "pendidikan bahasa indonesia"],
+    ),
     ("sp_pbig", "PBIG", "S1 Pendidikan Bahasa Inggris", "S1", "FKIP", ["pendidikan bahasa inggris"]),
     ("sp_pbio", "PBIO", "S1 Pendidikan Biologi", "S1", "FKIP", ["pendidikan biologi"]),
     ("sp_peko", "PEKO", "S1 Pendidikan Ekonomi", "S1", "FKIP", ["pendidikan ekonomi"]),
@@ -308,7 +327,9 @@ def resolve_study_program_id(conn: sqlite3.Connection, raw_program: str | None) 
     if not candidates:
         candidates = DEFAULT_STUDY_PROGRAMS
 
-    for sp_id, code, name, deg, fac, keywords in sorted(candidates, key=lambda x: max(len(k) for k in x[5]), reverse=True):
+    for sp_id, code, name, deg, fac, keywords in sorted(
+        candidates, key=lambda x: max(len(k) for k in x[5]), reverse=True
+    ):
         for kw in sorted(keywords, key=len, reverse=True):
             if kw in prodi_name:
                 db_sp = conn.execute("select id from study_programs where upper(code) = ? limit 1", (code,)).fetchone()
@@ -342,7 +363,6 @@ def migrate_study_programs_to_4char_codes(conn: sqlite3.Connection) -> None:
             """,
             (sp_id, code, name, deg, fac),
         )
-
 
 
 def migrate_bills_for_duplicate_briva(conn: sqlite3.Connection) -> None:

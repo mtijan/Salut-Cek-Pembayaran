@@ -73,14 +73,20 @@ class DatabaseLifecycleTests(unittest.TestCase):
             database = Path(temporary_directory) / "salut.sqlite"
             migrate_database(database)
             with database_connection(database) as conn:
-                first_versions = [tuple(row) for row in conn.execute(
-                    "select version, applied_at from schema_migrations order by version"
-                ).fetchall()]
+                first_versions = [
+                    tuple(row)
+                    for row in conn.execute(
+                        "select version, applied_at from schema_migrations order by version"
+                    ).fetchall()
+                ]
             migrate_database(database)
             with database_connection(database) as conn:
-                second_versions = [tuple(row) for row in conn.execute(
-                    "select version, applied_at from schema_migrations order by version"
-                ).fetchall()]
+                second_versions = [
+                    tuple(row)
+                    for row in conn.execute(
+                        "select version, applied_at from schema_migrations order by version"
+                    ).fetchall()
+                ]
             self.assertEqual(first_versions, second_versions)
             self.assertEqual([int(row[0]) for row in second_versions], [LATEST_SCHEMA_VERSION])
 
@@ -97,9 +103,7 @@ class DatabaseLifecycleTests(unittest.TestCase):
     def test_import_cli_migrates_before_import(self) -> None:
         source = (Path(__file__).resolve().parent / "import_excel.py").read_text(encoding="utf-8")
         tree = ast.parse(source)
-        main_function = next(
-            node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name == "main"
-        )
+        main_function = next(node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name == "main")
         calls = [
             (node.func.id, node.lineno)
             for node in ast.walk(main_function)
@@ -113,9 +117,7 @@ class DatabaseLifecycleTests(unittest.TestCase):
     def test_maintenance_bootstraps_before_cleanup(self) -> None:
         source = (Path(__file__).resolve().parent / "maintenance.py").read_text(encoding="utf-8")
         tree = ast.parse(source)
-        main_function = next(
-            node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name == "main"
-        )
+        main_function = next(node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name == "main")
         call_lines = {
             node.func.id: node.lineno
             for node in ast.walk(main_function)
@@ -294,8 +296,12 @@ class DatabaseLifecycleTests(unittest.TestCase):
             conn = connect(database)
             try:
                 student_count = conn.execute("select count(*) from students where nim = ?", ("910001",)).fetchone()[0]
-                bill_count = conn.execute("select count(*) from bills where source_file = ?", (workbook.name,)).fetchone()[0]
-                issue_count = conn.execute("select count(*) from import_issues where source_file = ?", (workbook.name,)).fetchone()[0]
+                bill_count = conn.execute(
+                    "select count(*) from bills where source_file = ?", (workbook.name,)
+                ).fetchone()[0]
+                issue_count = conn.execute(
+                    "select count(*) from import_issues where source_file = ?", (workbook.name,)
+                ).fetchone()[0]
             finally:
                 conn.close()
             self.assertEqual(student_count, 0)
@@ -310,8 +316,15 @@ class DatabaseLifecycleTests(unittest.TestCase):
             self.assertEqual(second_retry["updated"], 0)
             self.assertEqual(second_retry["unchanged"], 1)
             with database_connection(database) as verify_conn:
-                self.assertEqual(verify_conn.execute("select count(*) from students where nim = ?", ("910001",)).fetchone()[0], 1)
-                self.assertEqual(verify_conn.execute("select count(*) from bills where source_file = ?", (workbook.name,)).fetchone()[0], 1)
+                self.assertEqual(
+                    verify_conn.execute("select count(*) from students where nim = ?", ("910001",)).fetchone()[0], 1
+                )
+                self.assertEqual(
+                    verify_conn.execute(
+                        "select count(*) from bills where source_file = ?", (workbook.name,)
+                    ).fetchone()[0],
+                    1,
+                )
 
     def test_import_group_delete_rolls_back_when_audit_write_fails(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
