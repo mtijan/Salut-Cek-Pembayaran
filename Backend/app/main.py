@@ -1,6 +1,8 @@
 import logging
 import re
+import sqlite3
 import uuid
+from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
 from json import JSONDecodeError
 from pathlib import Path
@@ -8,6 +10,7 @@ from pathlib import Path
 from fastapi import Depends, FastAPI, File, Request, Response, UploadFile
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
+from starlette.middleware.base import RequestResponseEndpoint
 
 from Backend.app import config
 from Backend.app.rate_limit import RATE_LIMITER
@@ -75,7 +78,7 @@ class AuthError(Exception):
 
 
 @asynccontextmanager
-async def lifespan(_: FastAPI):
+async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     ensure_database()
     cleanup_operational_data()
     yield
@@ -93,13 +96,13 @@ DOCS_CONTENT_SECURITY_POLICY = (
 APPLICATION_CONTENT_SECURITY_POLICY = (
     "default-src 'self'; base-uri 'none'; frame-ancestors 'none'; object-src 'none'; "
     "script-src 'self'; connect-src 'self'; "
-    "style-src 'self'; style-src-elem 'self'; style-src-attr 'unsafe-inline'; "
+    "style-src 'self'; style-src-elem 'self'; "
     "font-src 'self'; img-src 'self' data:; form-action 'self'; manifest-src 'self';"
 )
 
 
 @app.middleware("http")
-async def security_headers(request: Request, call_next):
+async def security_headers(request: Request, call_next: RequestResponseEndpoint) -> Response:
     response = await call_next(request)
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["Referrer-Policy"] = "no-referrer"
@@ -159,7 +162,7 @@ def session_token(request: Request) -> str | None:
     return request.cookies.get(config.SESSION_COOKIE)
 
 
-async def read_json(request: Request) -> dict:
+async def read_json(request: Request) -> dict[str, object]:
     try:
         payload = await request.json()
     except JSONDecodeError:
@@ -167,12 +170,12 @@ async def read_json(request: Request) -> dict:
     return payload if isinstance(payload, dict) else {}
 
 
-def current_admin(request: Request):
+def current_admin(request: Request) -> sqlite3.Row | None:
     return find_admin_by_session(session_token(request))
 
 
-def require_admin(permission: str | None = None):
-    def dependency(request: Request):
+def require_admin(permission: str | None = None) -> Callable[[Request], sqlite3.Row]:
+    def dependency(request: Request) -> sqlite3.Row:
         admin = current_admin(request)
         if not admin:
             raise AuthError(401, "UNAUTHORIZED", "Silakan login sebagai admin.")
@@ -272,7 +275,7 @@ async def admin_login(request: Request) -> JSONResponse:
 
 
 @app.get("/api/admin/me")
-async def admin_me(admin=Depends(require_admin())) -> JSONResponse:
+async def admin_me(admin: sqlite3.Row = Depends(require_admin())) -> JSONResponse:
     return success_response(
         {
             "email": admin["email"],
@@ -291,12 +294,14 @@ async def admin_logout(request: Request) -> JSONResponse:
 
 
 @app.get("/api/admin/imported-bills")
-async def admin_imported_bills(admin=Depends(require_admin("view_imports"))) -> JSONResponse:
+async def admin_imported_bills(admin: sqlite3.Row = Depends(require_admin("view_imports"))) -> JSONResponse:
     return success_response({"groups": list_imported_bill_groups(config.DB_PATH)})
 
 
 @app.delete("/api/admin/imported-files")
-async def admin_delete_imported_file(request: Request, admin=Depends(require_admin("import"))) -> JSONResponse:
+async def admin_delete_imported_file(
+    request: Request, admin: sqlite3.Row = Depends(require_admin("import"))
+) -> JSONResponse:
     payload = await read_json(request)
     file_name = str(payload.get("file_name") or "").strip()
     reason = str(payload.get("reason") or "").strip()
@@ -311,7 +316,9 @@ async def admin_delete_imported_file(request: Request, admin=Depends(require_adm
 
 
 @app.post("/api/admin/bills/status")
-async def admin_bill_status(request: Request, admin=Depends(require_admin("manage_billing"))) -> JSONResponse:
+async def admin_bill_status(
+    request: Request, admin: sqlite3.Row = Depends(require_admin("manage_billing"))
+) -> JSONResponse:
     payload = await read_json(request)
     bill_id = str(payload.get("bill_id") or "").strip()
     status = str(payload.get("status") or "").strip().lower()
@@ -341,7 +348,9 @@ async def admin_bill_status(request: Request, admin=Depends(require_admin("manag
 
 
 @app.post("/api/admin/bills/due-date")
-async def admin_bill_due_date(request: Request, admin=Depends(require_admin("manage_billing"))) -> JSONResponse:
+async def admin_bill_due_date(
+    request: Request, admin: sqlite3.Row = Depends(require_admin("manage_billing"))
+) -> JSONResponse:
     payload = await read_json(request)
     bill_ids = payload.get("bill_ids")
     single_bill_id = str(payload.get("bill_id") or "").strip()
@@ -378,12 +387,14 @@ async def admin_bill_due_date(request: Request, admin=Depends(require_admin("man
 
 
 @app.get("/api/admin/dashboard/stats")
-async def admin_dashboard_stats(admin=Depends(require_admin("view_reports"))) -> JSONResponse:
+async def admin_dashboard_stats(admin: sqlite3.Row = Depends(require_admin("view_reports"))) -> JSONResponse:
     return success_response(ReportingService(config.DB_PATH).dashboard_stats())
 
 
 @app.get("/api/admin/reports/financial-summary")
-async def admin_financial_summary(request: Request, admin=Depends(require_admin("view_reports"))) -> JSONResponse:
+async def admin_financial_summary(
+    request: Request, admin: sqlite3.Row = Depends(require_admin("view_reports"))
+) -> JSONResponse:
     period = str(request.query_params.get("period") or "").strip()
     study_program_id = str(request.query_params.get("study_program_id") or "").strip()
     entry_period = str(request.query_params.get("entry_period") or "").strip()
@@ -402,13 +413,13 @@ async def admin_financial_summary(request: Request, admin=Depends(require_admin(
 
 
 @app.get("/api/admin/study-programs")
-async def admin_study_programs(admin=Depends(require_admin("view_master_data"))) -> JSONResponse:
+async def admin_study_programs(admin: sqlite3.Row = Depends(require_admin("view_master_data"))) -> JSONResponse:
     return success_response({"study_programs": list_study_programs(config.DB_PATH)})
 
 
 @app.post("/api/admin/study-programs")
 async def admin_create_study_program(
-    request: Request, admin=Depends(require_admin("manage_master_data"))
+    request: Request, admin: sqlite3.Row = Depends(require_admin("manage_master_data"))
 ) -> JSONResponse:
     payload = await read_json(request)
     try:
@@ -421,7 +432,7 @@ async def admin_create_study_program(
 
 @app.patch("/api/admin/study-programs/{program_id}")
 async def admin_update_study_program(
-    program_id: str, request: Request, admin=Depends(require_admin("manage_master_data"))
+    program_id: str, request: Request, admin: sqlite3.Row = Depends(require_admin("manage_master_data"))
 ) -> JSONResponse:
     payload = await read_json(request)
     try:
@@ -436,7 +447,7 @@ async def admin_update_study_program(
 
 @app.delete("/api/admin/study-programs/{program_id}")
 async def admin_delete_study_program(
-    program_id: str, admin=Depends(require_admin("manage_master_data"))
+    program_id: str, admin: sqlite3.Row = Depends(require_admin("manage_master_data"))
 ) -> JSONResponse:
     deleted = delete_study_program(config.DB_PATH, program_id, actor_id=admin["id"])
     if not deleted:
@@ -451,13 +462,13 @@ async def admin_delete_study_program(
 
 
 @app.get("/api/admin/academic-periods")
-async def admin_academic_periods(admin=Depends(require_admin("view_master_data"))) -> JSONResponse:
+async def admin_academic_periods(admin: sqlite3.Row = Depends(require_admin("view_master_data"))) -> JSONResponse:
     return success_response({"academic_periods": list_academic_periods(config.DB_PATH)})
 
 
 @app.post("/api/admin/academic-periods")
 async def admin_create_academic_period(
-    request: Request, admin=Depends(require_admin("manage_master_data"))
+    request: Request, admin: sqlite3.Row = Depends(require_admin("manage_master_data"))
 ) -> JSONResponse:
     payload = await read_json(request)
     try:
@@ -470,7 +481,7 @@ async def admin_create_academic_period(
 
 @app.patch("/api/admin/academic-periods/{period_id}")
 async def admin_update_academic_period(
-    period_id: str, request: Request, admin=Depends(require_admin("manage_master_data"))
+    period_id: str, request: Request, admin: sqlite3.Row = Depends(require_admin("manage_master_data"))
 ) -> JSONResponse:
     payload = await read_json(request)
     try:
@@ -489,7 +500,9 @@ async def admin_update_academic_period(
 
 
 @app.get("/api/admin/template/master-data")
-async def admin_download_master_data_template(admin=Depends(require_admin("view_master_data"))) -> Response:
+async def admin_download_master_data_template(
+    admin: sqlite3.Row = Depends(require_admin("view_master_data")),
+) -> Response:
     content = generate_master_data_template()
     return Response(
         content=content,
@@ -504,7 +517,9 @@ async def admin_download_master_data_template(admin=Depends(require_admin("view_
 
 
 @app.get("/api/admin/students")
-async def admin_students(request: Request, admin=Depends(require_admin("view_students"))) -> JSONResponse:
+async def admin_students(
+    request: Request, admin: sqlite3.Row = Depends(require_admin("view_students"))
+) -> JSONResponse:
     query = str(request.query_params.get("query") or "")
     study_program_id = str(request.query_params.get("study_program_id") or request.query_params.get("prodi") or "")
     academic_status = str(request.query_params.get("academic_status") or "")
@@ -533,7 +548,9 @@ async def admin_students(request: Request, admin=Depends(require_admin("view_stu
 
 
 @app.get("/api/admin/students/{student_id}/detail")
-async def admin_student_detail(student_id: str, admin=Depends(require_admin("view_students"))) -> JSONResponse:
+async def admin_student_detail(
+    student_id: str, admin: sqlite3.Row = Depends(require_admin("view_students"))
+) -> JSONResponse:
     detail = get_student_detail(config.DB_PATH, student_id)
     if not detail:
         return error_response(404, "NOT_FOUND", "Mahasiswa tidak ditemukan.")
@@ -541,7 +558,9 @@ async def admin_student_detail(student_id: str, admin=Depends(require_admin("vie
 
 
 @app.get("/api/admin/import-issues")
-async def admin_import_issues(request: Request, admin=Depends(require_admin("view_imports"))) -> JSONResponse:
+async def admin_import_issues(
+    request: Request, admin: sqlite3.Row = Depends(require_admin("view_imports"))
+) -> JSONResponse:
     try:
         limit = parse_limit(request, default=500, max_limit=2000)
     except ValueError as exc:
@@ -550,7 +569,9 @@ async def admin_import_issues(request: Request, admin=Depends(require_admin("vie
 
 
 @app.post("/api/admin/students")
-async def admin_create_student(request: Request, admin=Depends(require_admin("manage_students"))) -> JSONResponse:
+async def admin_create_student(
+    request: Request, admin: sqlite3.Row = Depends(require_admin("manage_students"))
+) -> JSONResponse:
     payload = await read_json(request)
     try:
         student = create_student(config.DB_PATH, payload=payload, actor_id=admin["id"])
@@ -562,7 +583,7 @@ async def admin_create_student(request: Request, admin=Depends(require_admin("ma
 
 @app.patch("/api/admin/students/{student_id}")
 async def admin_update_student(
-    student_id: str, request: Request, admin=Depends(require_admin("manage_students"))
+    student_id: str, request: Request, admin: sqlite3.Row = Depends(require_admin("manage_students"))
 ) -> JSONResponse:
     payload = await read_json(request)
     try:
@@ -577,7 +598,7 @@ async def admin_update_student(
 
 @app.delete("/api/admin/students/{student_id}")
 async def admin_delete_student(
-    student_id: str, request: Request, admin=Depends(require_admin("manage_students"))
+    student_id: str, request: Request, admin: sqlite3.Row = Depends(require_admin("manage_students"))
 ) -> JSONResponse:
     reason = str(request.query_params.get("reason") or "").strip()
     if not reason:
@@ -594,7 +615,7 @@ async def admin_delete_student(
 
 
 @app.get("/api/admin/bills")
-async def admin_bills(request: Request, admin=Depends(require_admin("view_billing"))) -> JSONResponse:
+async def admin_bills(request: Request, admin: sqlite3.Row = Depends(require_admin("view_billing"))) -> JSONResponse:
     query = str(request.query_params.get("query") or "")
     status = str(request.query_params.get("status") or "").strip().lower()
     source = str(request.query_params.get("source") or "").strip().lower()
@@ -657,7 +678,9 @@ async def admin_bills(request: Request, admin=Depends(require_admin("view_billin
 
 
 @app.post("/api/admin/bills")
-async def admin_create_bill(request: Request, admin=Depends(require_admin("manage_billing"))) -> JSONResponse:
+async def admin_create_bill(
+    request: Request, admin: sqlite3.Row = Depends(require_admin("manage_billing"))
+) -> JSONResponse:
     payload = await read_json(request)
     try:
         bill = create_bill(config.DB_PATH, payload, actor_id=admin["id"])
@@ -668,7 +691,7 @@ async def admin_create_bill(request: Request, admin=Depends(require_admin("manag
 
 
 @app.get("/api/admin/bills/{bill_id}")
-async def admin_bill_detail(bill_id: str, admin=Depends(require_admin("view_billing"))) -> JSONResponse:
+async def admin_bill_detail(bill_id: str, admin: sqlite3.Row = Depends(require_admin("view_billing"))) -> JSONResponse:
     detail = get_bill_detail(config.DB_PATH, bill_id)
     if not detail:
         return error_response(404, "NOT_FOUND", "Tagihan tidak ditemukan.")
@@ -677,7 +700,7 @@ async def admin_bill_detail(bill_id: str, admin=Depends(require_admin("view_bill
 
 @app.post("/api/admin/bills/{bill_id}/payments")
 async def admin_record_bill_payment(
-    bill_id: str, request: Request, admin=Depends(require_admin("manage_billing"))
+    bill_id: str, request: Request, admin: sqlite3.Row = Depends(require_admin("manage_billing"))
 ) -> JSONResponse:
     payload = await read_json(request)
     try:
@@ -690,7 +713,7 @@ async def admin_record_bill_payment(
 
 @app.patch("/api/admin/bills/{bill_id}")
 async def admin_update_bill(
-    bill_id: str, request: Request, admin=Depends(require_admin("manage_billing"))
+    bill_id: str, request: Request, admin: sqlite3.Row = Depends(require_admin("manage_billing"))
 ) -> JSONResponse:
     payload = await read_json(request)
     try:
@@ -705,7 +728,7 @@ async def admin_update_bill(
 
 @app.get("/api/admin/bills/{bill_id}/transactions")
 async def admin_bill_transactions(
-    bill_id: str, request: Request, admin=Depends(require_admin("view_billing"))
+    bill_id: str, request: Request, admin: sqlite3.Row = Depends(require_admin("view_billing"))
 ) -> JSONResponse:
     try:
         limit = parse_limit(request, default=50, max_limit=200)
@@ -720,7 +743,7 @@ async def admin_bill_transactions(
 
 @app.get("/api/admin/students/{student_id}/transactions")
 async def admin_student_transactions(
-    student_id: str, request: Request, admin=Depends(require_admin("view_billing"))
+    student_id: str, request: Request, admin: sqlite3.Row = Depends(require_admin("view_billing"))
 ) -> JSONResponse:
     try:
         limit = parse_limit(request, default=50, max_limit=200)
@@ -735,7 +758,7 @@ async def admin_student_transactions(
 
 @app.delete("/api/admin/bills/{bill_id}")
 async def admin_delete_bill(
-    bill_id: str, request: Request, admin=Depends(require_admin("manage_billing"))
+    bill_id: str, request: Request, admin: sqlite3.Row = Depends(require_admin("manage_billing"))
 ) -> JSONResponse:
     reason = str(request.query_params.get("reason") or "").strip()
     if not reason:
@@ -755,7 +778,7 @@ async def admin_delete_bill(
 async def admin_import_preview(
     request: Request,
     file: UploadFile = File(...),
-    admin=Depends(require_admin("import")),
+    admin: sqlite3.Row = Depends(require_admin("import")),
 ) -> JSONResponse:
     retry_after = enforce_rate_limit("import_preview", admin["id"], 20, 60 * 60)
     if retry_after:
@@ -821,7 +844,7 @@ async def admin_import_preview(
 
 
 @app.post("/api/admin/import/commit")
-async def admin_import_commit(request: Request, admin=Depends(require_admin("import"))) -> JSONResponse:
+async def admin_import_commit(request: Request, admin: sqlite3.Row = Depends(require_admin("import"))) -> JSONResponse:
     retry_after = enforce_rate_limit("import_commit", admin["id"], 10, 60 * 60)
     if retry_after:
         return error_response(
@@ -894,7 +917,7 @@ async def admin_page(request: Request) -> FileResponse | RedirectResponse:
 
 
 @app.get("/{full_path:path}", include_in_schema=False, response_model=None)
-async def frontend(full_path: str):
+async def frontend(full_path: str) -> FileResponse | JSONResponse:
     if full_path.startswith("api/"):
         return error_response(404, "NOT_FOUND", "Endpoint tidak ditemukan.")
 

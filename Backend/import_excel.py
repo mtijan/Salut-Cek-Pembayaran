@@ -4,53 +4,39 @@ import argparse
 import io
 import re
 import sqlite3
+import sys
 import uuid
 from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any, cast
+
+if __package__ in {None, ""}:
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import openpyxl
+from openpyxl.utils.cell import get_column_letter
+from openpyxl.worksheet.worksheet import Worksheet
 
-try:
-    from Backend.db import (
-        DEFAULT_DB_PATH,
-        database_connection,
-        database_transaction,
-        migrate_database,
-        parse_entry_registration,
-        resolve_study_program_id,
-    )
-    from Backend.excel_reader import (
-        clean_demographic_value,
-        clean_excel_text,
-        normalize_imported_name,
-        normalize_name,
-        normalize_nim,
-        normalize_text,
-        read_sheet,
-        read_sheet_headers,
-        workbook_sheet_names,
-    )
-except ModuleNotFoundError:
-    from db import (
-        DEFAULT_DB_PATH,
-        database_connection,
-        database_transaction,
-        migrate_database,
-        parse_entry_registration,
-        resolve_study_program_id,
-    )
-    from excel_reader import (
-        clean_demographic_value,
-        clean_excel_text,
-        normalize_imported_name,
-        normalize_name,
-        normalize_nim,
-        normalize_text,
-        read_sheet,
-        read_sheet_headers,
-        workbook_sheet_names,
-    )
+from Backend.db import (
+    DEFAULT_DB_PATH,
+    database_connection,
+    database_transaction,
+    migrate_database,
+    parse_entry_registration,
+    resolve_study_program_id,
+)
+from Backend.excel_reader import (
+    clean_demographic_value,
+    clean_excel_text,
+    normalize_imported_name,
+    normalize_name,
+    normalize_nim,
+    normalize_text,
+    read_sheet,
+    read_sheet_headers,
+    workbook_sheet_names,
+)
 
 DEFAULT_WORKBOOK = Path(__file__).resolve().parents[1] / "MASTER_DATA_2023_1_2026_1.xlsx"
 DEFAULT_PERIOD = "UKT 2023.1 s/d 2025.2"
@@ -116,7 +102,7 @@ MASTER_SAMPLE_ROWS = [
 
 def generate_master_data_template() -> bytes:
     wb = openpyxl.Workbook()
-    ws = wb.active
+    ws = cast(Worksheet, wb.active)
     ws.title = "Master_Data_Mahasiswa"
     ws.append(MASTER_TEMPLATE_HEADERS)
     for sample in MASTER_SAMPLE_ROWS:
@@ -124,7 +110,9 @@ def generate_master_data_template() -> bytes:
 
     for col in ws.columns:
         max_len = max(len(str(cell.value or "")) for cell in col)
-        col_letter = openpyxl.utils.get_column_letter(col[0].column)
+        column_index = col[0].column
+        assert isinstance(column_index, int)
+        col_letter = get_column_letter(column_index)
         ws.column_dimensions[col_letter].width = max(max_len + 4, 14)
 
     buf = io.BytesIO()
@@ -452,8 +440,8 @@ def _analyze_workbook(
     for row in rows:
         nim = str(row["nim"])
         briva = str(row["briva"])
-        amount = int(row["amount"])
-        row_number = int(row["row_number"])
+        amount = int(cast(Any, row["amount"]))
+        row_number = int(cast(Any, row["row_number"]))
         existing_source_row = by_source_row.get(row_number)
         matching_briva_rows = [
             candidate
@@ -746,7 +734,7 @@ def _store_import_issue(conn: sqlite3.Connection, issue: dict[str, object], sour
         (
             str(uuid.uuid4()),
             str(issue["sheet_name"]),
-            int(issue["row_number"]),
+            int(cast(Any, issue["row_number"])),
             str(issue.get("nim") or ""),
             str(issue.get("full_name") or ""),
             str(issue.get("briva") or ""),
@@ -781,7 +769,7 @@ def import_workbook(
 
     with database_transaction(db_path) as conn:
         conn.execute("delete from import_issues where source_file = ?", (source_file,))
-        for issue in analysis["_skipped_issues"]:
+        for issue in cast(list[dict[str, object]], analysis["_skipped_issues"]):
             assert isinstance(issue, dict)
             _store_import_issue(conn, issue, source_file)
             issues += 1
@@ -789,7 +777,7 @@ def import_workbook(
                 issue_details.append(
                     {"sheet": issue["sheet_name"], "row_number": issue["row_number"], "note": issue["note"]}
                 )
-        for action in analysis["actions"]:
+        for action in cast(list[dict[str, object]], analysis["actions"]):
             action_type = str(action["type"])
             if action_type == "unchanged":
                 continue
@@ -866,9 +854,9 @@ def import_workbook(
                     )
 
         if actor_id:
-            from Backend.app.services import write_audit
+            from Backend.app.services import audit as _audit
 
-            write_audit(
+            _audit.write_audit(
                 conn,
                 actor_id,
                 "import.commit",
@@ -881,7 +869,7 @@ def import_workbook(
         "imported": created + updated,
         "created": created,
         "updated": updated,
-        "unchanged": int(analysis["unchanged_rows"]),
+        "unchanged": int(cast(Any, analysis["unchanged_rows"])),
         "issues": issues,
         "issue_details": issue_details,
     }

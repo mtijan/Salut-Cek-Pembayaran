@@ -93,11 +93,18 @@ class DatabaseLifecycleTests(unittest.TestCase):
     def test_runtime_modules_do_not_call_init_db(self) -> None:
         backend_root = Path(__file__).resolve().parent
         violations: list[str] = []
-        for relative_path in (Path("app/services.py"), Path("import_excel.py")):
-            tree = ast.parse((backend_root / relative_path).read_text(encoding="utf-8"))
+        service_paths: list[Path] = []
+        services_dir = backend_root / "app" / "services"
+        if services_dir.is_dir():
+            service_paths.extend(services_dir.glob("*.py"))
+        else:
+            # Fallback: monolith file if package does not exist.
+            service_paths.append(backend_root / "app" / "services.py")
+        for relative_path in service_paths + [backend_root / "import_excel.py"]:
+            tree = ast.parse(Path(relative_path).read_text(encoding="utf-8"))
             for node in ast.walk(tree):
                 if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id == "init_db":
-                    violations.append(f"{relative_path}:{node.lineno}")
+                    violations.append(f"{relative_path.relative_to(backend_root)}:{node.lineno}")
         self.assertEqual(violations, [])
 
     def test_import_cli_migrates_before_import(self) -> None:
@@ -212,7 +219,7 @@ class DatabaseLifecycleTests(unittest.TestCase):
             database = Path(temporary_directory) / "salut.sqlite"
             self._initialize(database)
 
-            with mock.patch.object(services, "write_audit", side_effect=RuntimeError("forced audit failure")):
+            with mock.patch("Backend.app.services.audit.write_audit", side_effect=RuntimeError("forced audit failure")):
                 with self.assertRaisesRegex(RuntimeError, "forced audit failure"):
                     services.create_student(
                         database,
@@ -236,7 +243,7 @@ class DatabaseLifecycleTests(unittest.TestCase):
                 {"nim": "910005", "full_name": "Nama Sebelum"},
             )
 
-            with mock.patch.object(services, "write_audit", side_effect=RuntimeError("forced audit failure")):
+            with mock.patch("Backend.app.services.audit.write_audit", side_effect=RuntimeError("forced audit failure")):
                 with self.assertRaisesRegex(RuntimeError, "forced audit failure"):
                     services.update_student(
                         database,
@@ -258,7 +265,7 @@ class DatabaseLifecycleTests(unittest.TestCase):
                 {"nim": "910003", "full_name": "Mahasiswa Tagihan"},
             )
 
-            with mock.patch.object(services, "write_audit", side_effect=RuntimeError("forced audit failure")):
+            with mock.patch("Backend.app.services.audit.write_audit", side_effect=RuntimeError("forced audit failure")):
                 with self.assertRaisesRegex(RuntimeError, "forced audit failure"):
                     services.create_bill(
                         database,
@@ -289,7 +296,7 @@ class DatabaseLifecycleTests(unittest.TestCase):
             self._initialize(database)
             self._write_workbook(workbook)
 
-            with mock.patch.object(services, "write_audit", side_effect=RuntimeError("forced audit failure")):
+            with mock.patch("Backend.app.services.audit.write_audit", side_effect=RuntimeError("forced audit failure")):
                 with self.assertRaisesRegex(RuntimeError, "forced audit failure"):
                     import_workbook(workbook, database, actor_id="actor-p1")
 
@@ -335,7 +342,7 @@ class DatabaseLifecycleTests(unittest.TestCase):
             self._write_workbook(workbook)
             import_workbook(workbook, database)
 
-            with mock.patch.object(services, "write_audit", side_effect=RuntimeError("forced audit failure")):
+            with mock.patch("Backend.app.services.audit.write_audit", side_effect=RuntimeError("forced audit failure")):
                 with self.assertRaisesRegex(RuntimeError, "forced audit failure"):
                     services.delete_imported_bill_group(
                         database,
