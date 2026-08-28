@@ -26,8 +26,11 @@ strict_equality = true
 disallow_untyped_defs = true
 follow_imports = "skip"
 files = [
+  "Backend/app/main.py",
   "Backend/app/domain",
   "Backend/app/repositories",
+  "Backend/app/services",
   "Backend/app/use_cases",
   "Backend/app/version.py",
+  "Backend/import_excel.py",
 ]

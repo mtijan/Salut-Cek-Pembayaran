@@ -1,5 +1,3 @@
-k
-300704
 # Salut Cek Pembayaran & SIAKAD
 
 Aplikasi web untuk membantu mahasiswa SALUT mengecek tagihan secara mandiri dan membantu admin mengelola data akademik, pembayaran, serta import data Excel dalam satu sistem.
@@ -51,13 +49,14 @@ Project ini menggabungkan portal publik yang sederhana dengan dashboard admin be
 
 | Path | Keterangan |
 |---|---|
-| `Backend/app/` | Route FastAPI, konfigurasi, keamanan, dan business service. |
+| `Backend/app/` | Route FastAPI, konfigurasi, keamanan, dan router API. |
+| `Backend/app/services/` | Modul domain terfokus (system, auth, audit, master data, students, billing) dengan thin shim. |
 | `Backend/app/domain/` | Validasi dan presenter murni per domain mahasiswa/tagihan. |
 | `Backend/app/repositories/` | Akses data terfokus untuk lookup publik dan reporting read-only. |
 | `Backend/app/use_cases/` | Orkestrasi business flow lookup publik serta dashboard/financial reporting. |
 | `Backend/db.py` | Koneksi, skema, dan migrasi SQLite. |
 | `Backend/import_excel.py` | Preview, validasi, dan import workbook. |
-| `Backend/test_core.py` | Unit dan integration test backend. |
+| `Backend/test_core.py` | Test runner modular & discovery test suite backend. |
 | `Frontend/` | Portal mahasiswa dan bundle admin hasil build. |
 | `Frontend-Admin/` | Source dashboard admin React. |
 | `Frontend-Admin/src/styles/` | Layer CSS token, base, layout, components, profile/payment, responsive, dan data pages. |
@@ -130,9 +129,12 @@ Dependency quality Python dipisahkan dari runtime production:
 
 ```powershell
 .\.venv\Scripts\python.exe -m pip install -r requirements-dev.txt
-.\.venv\Scripts\ruff.exe check Backend scripts
-.\.venv\Scripts\mypy.exe
-python -m unittest Backend.test_core Backend.test_database_lifecycle Backend.test_operations Backend.test_version Backend.test_domain Backend.test_lookup
+.\.venv\Scripts\python.exe scripts\check_python_dependency_locks.py
+.\.venv\Scripts\python.exe -m ruff check Backend scripts
+.\.venv\Scripts\python.exe -m ruff format --check Backend scripts
+.\.venv\Scripts\python.exe -m mypy
+.\.venv\Scripts\python.exe scripts\check_backend_test_inventory.py
+.\.venv\Scripts\python.exe -m unittest discover -s Backend -t . -p "test_*.py"
 Set-Location Frontend-Admin
 npm ci
 npm run lint
@@ -162,7 +164,8 @@ Dashboard development tersedia di `http://localhost:5173/admin/`. Request `/api`
 Backend:
 
 ```powershell
-.\.venv\Scripts\python.exe -m unittest Backend.test_core Backend.test_database_lifecycle Backend.test_operations
+python scripts/check_backend_test_inventory.py
+python -m unittest discover -s Backend -t . -p "test_*.py"
 ```
 
 Build frontend:
