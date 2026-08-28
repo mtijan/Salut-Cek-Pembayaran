@@ -78,8 +78,8 @@ export function useUploadPage() {
   const critical = (s.critical_rows || 0) > 0;
   const hasSensitive = Boolean(
     s.requires_update_confirmation ||
-      (s.amount_change_rows || 0) > 0 ||
-      (s.briva_change_rows || 0) > 0,
+    (s.amount_change_rows || 0) > 0 ||
+    (s.briva_change_rows || 0) > 0,
   );
   const canCommit = !critical && (!hasSensitive || confirmSensitive);
 

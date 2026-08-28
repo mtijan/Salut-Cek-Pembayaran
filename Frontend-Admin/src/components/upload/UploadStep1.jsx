@@ -11,9 +11,7 @@ export default function UploadStep1({ file, analyzing, onFileChange, onAnalyze }
     <div className="panel-card">
       <div className="upload-header-row">
         <div>
-          <h3
-            style={{ fontSize: 16, fontWeight: 800, color: 'var(--brand-strong)', margin: 0 }}
-          >
+          <h3 style={{ fontSize: 16, fontWeight: 800, color: 'var(--brand-strong)', margin: 0 }}>
             Impor Data Mahasiswa &amp; Tagihan
           </h3>
           <p style={{ fontSize: 13, color: 'var(--muted)', margin: '4px 0 0' }}>
@@ -36,11 +34,10 @@ export default function UploadStep1({ file, analyzing, onFileChange, onAnalyze }
           Tarik atau Pilih File Excel (.xlsx)
         </h4>
         <p className="upload-dropzone-desc">
-          Mendukung Master Data 13 kolom (<code>NIM</code>, <code>Nama</code>,{' '}
-          <code>NO KTP</code>, <code>Tempat/Tgl Lahir</code>, <code>Nama Ibu Kandung</code>,{' '}
-          <code>e-Mail</code>, <code>No Kontak</code>, <code>Registrasi Awal</code>,{' '}
-          <code>Program Studi</code>, <code>No Rek</code>, <code>Jumlah</code>,{' '}
-          <code>Batas Pembayaran</code>).
+          Mendukung Master Data 13 kolom (<code>NIM</code>, <code>Nama</code>, <code>NO KTP</code>,{' '}
+          <code>Tempat/Tgl Lahir</code>, <code>Nama Ibu Kandung</code>, <code>e-Mail</code>,{' '}
+          <code>No Kontak</code>, <code>Registrasi Awal</code>, <code>Program Studi</code>,{' '}
+          <code>No Rek</code>, <code>Jumlah</code>, <code>Batas Pembayaran</code>).
         </p>
 
         <input

@@ -123,9 +123,7 @@ export default function BillFormFields({
                     &bull; {studentData.study_program_name || 'Program Studi'}
                   </div>
                 </div>
-                <span className="bill-readonly-badge">
-                  Terkunci (Read-Only)
-                </span>
+                <span className="bill-readonly-badge">Terkunci (Read-Only)</span>
               </div>
             )}
           </div>
@@ -266,9 +264,7 @@ export default function BillFormFields({
 
           {/* Due Date */}
           <div>
-            <label className="bill-field-label">
-              Batas Pembayaran / Jatuh Tempo
-            </label>
+            <label className="bill-field-label">Batas Pembayaran / Jatuh Tempo</label>
             <input
               type="date"
               className="form-control"
@@ -296,9 +292,7 @@ export default function BillFormFields({
 
           {/* Paid Amount */}
           <div>
-            <label className="bill-field-label">
-              Nominal Sudah Terbayar (Rp)
-            </label>
+            <label className="bill-field-label">Nominal Sudah Terbayar (Rp)</label>
             <div className="bill-currency-input-container">
               <span className="bill-currency-prefix-tag">Rp</span>
               <input
@@ -318,7 +312,9 @@ export default function BillFormFields({
                 }}
               />
             </div>
-            <div style={{ fontSize: '11px', color: 'var(--text-muted, #6b7280)', marginTop: '4px' }}>
+            <div
+              style={{ fontSize: '11px', color: 'var(--text-muted, #6b7280)', marginTop: '4px' }}
+            >
               {formData.status === 'partial'
                 ? 'Masukkan nominal cicilan yang sudah dibayarkan mahasiswa'
                 : formData.status === 'paid'
@@ -386,16 +382,12 @@ export default function BillFormFields({
 
           {/* Instructions */}
           <div className="bill-field-full-col">
-            <label className="bill-field-label">
-              Petunjuk Pembayaran / Catatan
-            </label>
+            <label className="bill-field-label">Petunjuk Pembayaran / Catatan</label>
             <textarea
               className="form-control"
               rows={3}
               value={formData.instructions}
-              onChange={(e) =>
-                setFormData((prev) => ({ ...prev, instructions: e.target.value }))
-              }
+              onChange={(e) => setFormData((prev) => ({ ...prev, instructions: e.target.value }))}
               placeholder="Petunjuk cara pembayaran untuk mahasiswa..."
               style={{
                 width: '100%',
@@ -407,12 +399,7 @@ export default function BillFormFields({
 
         {/* Action Buttons */}
         <div className="bill-form-actions-row">
-          <button
-            type="button"
-            onClick={onCancel}
-            className="btn btn-secondary"
-            disabled={saving}
-          >
+          <button type="button" onClick={onCancel} className="btn btn-secondary" disabled={saving}>
             Batal
           </button>
 

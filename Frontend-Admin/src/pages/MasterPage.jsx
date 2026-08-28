@@ -272,7 +272,9 @@ export default function MasterPage() {
                   />
                 </div>
                 <div className="form-group">
-                  <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+                  <label
+                    style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}
+                  >
                     <input
                       type="checkbox"
                       checked={Boolean(m.prodiForm.is_active)}
@@ -380,7 +382,9 @@ export default function MasterPage() {
                   />
                 </div>
                 <div className="form-group">
-                  <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+                  <label
+                    style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}
+                  >
                     <input
                       type="checkbox"
                       checked={Boolean(m.periodForm.is_active)}

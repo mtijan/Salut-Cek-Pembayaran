@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { billsApi, studentsApi, masterApi } from '../services/api';
 import { useToast } from '../components/common/Toast';
 import { useCopyFeedback } from './useCopyFeedback';
+import { createBillFormData, initialBillFormData } from './billEditorModel';
 
 /**
  * Feature hook untuk BillEditPage.
@@ -25,23 +26,7 @@ export function useBillEditor({ billId, mode, navigateTo }) {
   const [loadedBill, setLoadedBill] = useState(null);
   const [loadedStudent, setLoadedStudent] = useState(null);
 
-  const [formData, setFormData] = useState({
-    student_id: '',
-    nim: '',
-    full_name: '',
-    period_mode: 'master',
-    period: '20251',
-    custom_period: '',
-    bill_type_mode: 'UKT',
-    custom_bill_type: '',
-    amount: '',
-    paid_amount: '0',
-    briva: '',
-    status: 'unpaid',
-    due_date: '',
-    instructions: 'Bayar melalui BRIVA BRI dengan nomor BRIVA yang tampil.',
-    notes: '',
-  });
+  const [formData, setFormData] = useState(initialBillFormData);
 
   const fetchMasterOptions = useCallback(async () => {
     try {
@@ -64,31 +49,7 @@ export function useBillEditor({ billId, mode, navigateTo }) {
       setLoadedBill(b);
       setLoadedStudent(s);
 
-      const rawPeriod = b.period || '';
-      const isPeriodInList = periods.some((p) => p.code === rawPeriod || p.name === rawPeriod);
-
-      const rawType = b.bill_type || 'UKT';
-      const isKnownType = ['UKT', 'WISUDA', 'PRAKTIKUM', 'REGISTRASI'].includes(
-        rawType.toUpperCase(),
-      );
-
-      setFormData({
-        student_id: b.student_id || s.id || '',
-        nim: s.nim || b.nim || '',
-        full_name: s.full_name || b.full_name || '',
-        period_mode: isPeriodInList ? 'master' : rawPeriod ? 'custom' : 'master',
-        period: isPeriodInList ? rawPeriod : periods[0]?.code || '20251',
-        custom_period: !isPeriodInList ? rawPeriod : '',
-        bill_type_mode: isKnownType ? rawType.toUpperCase() : 'Custom',
-        custom_bill_type: !isKnownType ? rawType : '',
-        amount: String(b.amount || ''),
-        paid_amount: String(b.paid_amount || '0'),
-        briva: b.briva || '',
-        status: b.status || 'unpaid',
-        due_date: b.due_date ? String(b.due_date).slice(0, 10) : '',
-        instructions: b.instructions || 'Bayar melalui BRIVA BRI dengan nomor BRIVA yang tampil.',
-        notes: '',
-      });
+      setFormData(createBillFormData({ bill: b, student: s, periods }));
     } catch (err) {
       showToast(err.message || 'Gagal memuat data tagihan.', 'error');
     } finally {

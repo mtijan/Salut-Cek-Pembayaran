@@ -16,16 +16,10 @@ export default function UploadWizardSteps({ step }) {
       {steps.map((s, idx) => (
         <React.Fragment key={s.num}>
           {idx > 0 && (
-            <div
-              className={`upload-step-line ${step >= s.num ? 'active' : 'inactive'}`}
-            />
+            <div className={`upload-step-line ${step >= s.num ? 'active' : 'inactive'}`} />
           )}
-          <div
-            className={`upload-step-item ${step >= s.num ? 'active' : 'inactive'}`}
-          >
-            <span
-              className={`upload-step-num ${step >= s.num ? 'active' : 'inactive'}`}
-            >
+          <div className={`upload-step-item ${step >= s.num ? 'active' : 'inactive'}`}>
+            <span className={`upload-step-num ${step >= s.num ? 'active' : 'inactive'}`}>
               {s.num}
             </span>
             <strong style={{ fontSize: 13 }}>{s.label}</strong>

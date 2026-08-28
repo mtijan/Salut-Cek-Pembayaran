@@ -91,8 +91,8 @@ export default function UploadStep2({
             <strong>Persetujuan Perubahan Data Sensitif Diperlukan</strong>
           </div>
           <p style={{ fontSize: 13, color: '#78350f', marginBottom: 12 }}>
-            Ditemukan {s.amount_change_rows || 0} perubahan nominal dan{' '}
-            {s.briva_change_rows || 0} perubahan nomor BRIVA dari data sebelumnya.
+            Ditemukan {s.amount_change_rows || 0} perubahan nominal dan {s.briva_change_rows || 0}{' '}
+            perubahan nomor BRIVA dari data sebelumnya.
           </p>
           <label
             style={{
@@ -194,12 +194,7 @@ export default function UploadStep2({
         className="panel-card"
         style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
       >
-        <button
-          type="button"
-          className="btn btn-secondary"
-          onClick={onBack}
-          disabled={committing}
-        >
+        <button type="button" className="btn btn-secondary" onClick={onBack} disabled={committing}>
           Batal &amp; Ganti File
         </button>
 

@@ -59,9 +59,7 @@ export default function BillPaymentPage({ billId, navigateTo }) {
             <span className="crumb-sep">/</span>
             <span className="crumb-active">Catat Pembayaran</span>
             <span className="crumb-sep">/</span>
-            <span className="crumb-target">
-              {p.bill.briva || p.student.full_name || 'Tagihan'}
-            </span>
+            <span className="crumb-target">{p.bill.briva || p.student.full_name || 'Tagihan'}</span>
           </div>
         </div>
 
@@ -97,7 +95,10 @@ export default function BillPaymentPage({ billId, navigateTo }) {
           {/* Student Identity Card */}
           <div className="panel-card payment-id-card">
             <div className="payment-id-header">
-              <div className="profile-avatar-circle" style={{ width: 48, height: 48, fontSize: 16 }}>
+              <div
+                className="profile-avatar-circle"
+                style={{ width: 48, height: 48, fontSize: 16 }}
+              >
                 {(p.student.full_name || p.bill.student_name || 'M').slice(0, 2).toUpperCase()}
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>

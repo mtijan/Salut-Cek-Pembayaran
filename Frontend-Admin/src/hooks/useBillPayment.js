@@ -94,9 +94,7 @@ export function useBillPayment({ billId }) {
       return;
     }
     if (numericPayment > remainingAmount) {
-      setFormError(
-        `Nominal pembayaran melebihi sisa tagihan.`,
-      );
+      setFormError(`Nominal pembayaran melebihi sisa tagihan.`);
       return;
     }
 

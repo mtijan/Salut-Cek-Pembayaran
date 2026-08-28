@@ -878,7 +878,11 @@
   width: 52px;
   height: 52px;
   border-radius: var(--radius-md, 12px);
-  background: linear-gradient(135deg, var(--brand-primary, #059669) 0%, var(--brand-dark, #047857) 100%);
+  background: linear-gradient(
+    135deg,
+    var(--brand-primary, #059669) 0%,
+    var(--brand-dark, #047857) 100%
+  );
   color: #ffffff;
   display: flex;
   align-items: center;

@@ -48,7 +48,11 @@ export default function BillEditPage({ billId, mode, navigateTo }) {
             gap: '16px',
           }}
         >
-          <RefreshCw size={36} className="spin" style={{ color: 'var(--brand-primary, #059669)' }} />
+          <RefreshCw
+            size={36}
+            className="spin"
+            style={{ color: 'var(--brand-primary, #059669)' }}
+          />
           <p style={{ color: 'var(--text-muted, #6b7280)', fontSize: '15px' }}>
             Memuat formulir data tagihan...
           </p>

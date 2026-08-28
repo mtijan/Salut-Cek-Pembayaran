@@ -46,9 +46,7 @@ export default function BillSummaryCard({
               {formData.full_name || (isCreate ? 'Pilih Mahasiswa' : 'Nama Mahasiswa')}
             </h3>
             <div className="bill-nim-subrow">
-              <span className="bill-nim-text">
-                {formData.nim || '-'}
-              </span>
+              <span className="bill-nim-text">{formData.nim || '-'}</span>
               {formData.nim && (
                 <button
                   type="button"
@@ -100,31 +98,21 @@ export default function BillSummaryCard({
 
         <div className="bill-calc-stack">
           <div className="bill-calc-total-box">
-            <div className="bill-calc-total-label">
-              Total Tagihan
-            </div>
-            <div className="bill-calc-total-val">
-              {formatRupiah(totalAmountNum)}
-            </div>
+            <div className="bill-calc-total-label">Total Tagihan</div>
+            <div className="bill-calc-total-val">{formatRupiah(totalAmountNum)}</div>
           </div>
 
           <div className="bill-calc-split-grid">
             <div className="bill-calc-paid-box">
               <div className="bill-calc-paid-label">Terbayar</div>
-              <div className="bill-calc-paid-val">
-                {formatRupiah(paidAmountNum)}
-              </div>
+              <div className="bill-calc-paid-val">{formatRupiah(paidAmountNum)}</div>
             </div>
 
             <div
               className={`bill-calc-remaining-box ${remainingAmountNum > 0 ? 'has-balance' : 'no-balance'}`}
             >
-              <div className="bill-calc-remaining-label">
-                Sisa Tagihan
-              </div>
-              <div className="bill-calc-remaining-val">
-                {formatRupiah(remainingAmountNum)}
-              </div>
+              <div className="bill-calc-remaining-label">Sisa Tagihan</div>
+              <div className="bill-calc-remaining-val">{formatRupiah(remainingAmountNum)}</div>
             </div>
           </div>
 

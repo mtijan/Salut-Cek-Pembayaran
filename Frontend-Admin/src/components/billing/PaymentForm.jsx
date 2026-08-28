@@ -1,21 +1,8 @@
 import React from 'react';
-import {
-  CreditCard,
-  CheckCircle2,
-  AlertCircle,
-  Layers,
-  Save,
-} from 'lucide-react';
-
-const formatRupiah = (val) => {
-  const num = Number(val) || 0;
-  return new Intl.NumberFormat('id-ID', {
-    style: 'currency',
-    currency: 'IDR',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(num);
-};
+import { CreditCard, CheckCircle2, AlertCircle, Layers, Save } from 'lucide-react';
+import PaymentTransactionFields from './PaymentTransactionFields';
+import PaymentSettledState from './PaymentSettledState';
+import { formatRupiah } from '../../utils/currency';
 
 /**
  * Formulir input transaksi pembayaran baru.
@@ -65,16 +52,7 @@ export default function PaymentForm({
       </div>
 
       {remainingAmount <= 0 || bill.status === 'paid' ? (
-        <div className="paid-celebration-box">
-          <CheckCircle2 size={42} color="var(--success)" style={{ margin: '0 auto 12px' }} />
-          <h4 style={{ fontSize: 17, fontWeight: 800, color: 'var(--success)' }}>
-            Tagihan Ini Sudah Lunas Sepenuhnya
-          </h4>
-          <p style={{ fontSize: 13, color: 'var(--muted)', marginTop: 4 }}>
-            Total tagihan sebesar {formatRupiah(totalAmount)} telah terbayar lunas. Tidak ada sisa
-            tunggakan yang perlu dibayarkan.
-          </p>
-        </div>
+        <PaymentSettledState totalAmount={totalAmount} />
       ) : (
         <form onSubmit={handleSubmitPayment} className="payment-form-body">
           {formError && (
@@ -219,67 +197,28 @@ export default function PaymentForm({
             </div>
           </div>
 
-          {/* Transaction Metadata */}
-          <div className="form-grid-2" style={{ marginTop: 16 }}>
-            <div className="form-group">
-              <label>
-                Tanggal Transaksi Pembayaran <span style={{ color: 'var(--danger)' }}>*</span>
-              </label>
-              <input
-                type="date"
-                value={paymentDate}
-                onChange={(e) => setPaymentDate(e.target.value)}
-                className="form-input"
-                required
-              />
-            </div>
-
-            <div className="form-group">
-              <label>Metode Pembayaran</label>
-              <select
-                value={paymentMethod}
-                onChange={(e) => setPaymentMethod(e.target.value)}
-                className="form-input"
-              >
-                <option value="BRIVA">BRIVA Bank BRI</option>
-                <option value="Transfer Bank BCA">Transfer Bank BCA</option>
-                <option value="Transfer Bank Mandiri">Transfer Bank Mandiri</option>
-                <option value="Transfer Bank BNI">Transfer Bank BNI</option>
-                <option value="Kasir / Tunai">Kasir / Tunai Langsung</option>
-                <option value="QRIS">QRIS SALUT</option>
-                <option value="Lainnya">Metode Lainnya</option>
-              </select>
-            </div>
-
-            <div className="form-group">
-              <label>Nomor Referensi Transaksi Bank (Opsional)</label>
-              <input
-                type="text"
-                value={referenceNumber}
-                onChange={(e) => setReferenceNumber(e.target.value)}
-                className="form-input"
-                placeholder="Contoh: REF-20260825-9988"
-              />
-            </div>
-
-            <div className="form-group">
-              <label>Catatan / Keterangan Pembayaran (Opsional)</label>
-              <input
-                type="text"
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                className="form-input"
-                placeholder="Contoh: Cicilan ke-1 biaya UKT semester genap"
-              />
-            </div>
-          </div>
+          <PaymentTransactionFields
+            paymentDate={paymentDate}
+            setPaymentDate={setPaymentDate}
+            paymentMethod={paymentMethod}
+            setPaymentMethod={setPaymentMethod}
+            referenceNumber={referenceNumber}
+            setReferenceNumber={setReferenceNumber}
+            notes={notes}
+            setNotes={setNotes}
+          />
 
           <div className="form-actions-bar" style={{ marginTop: 24 }}>
             <button
               type="submit"
               className="btn btn-primary btn-large"
               disabled={submitting || numericPayment <= 0 || numericPayment > remainingAmount}
-              style={{ width: '100%', justifyContent: 'center', fontSize: 14.5, padding: '12px 20px' }}
+              style={{
+                width: '100%',
+                justifyContent: 'center',
+                fontSize: 14.5,
+                padding: '12px 20px',
+              }}
             >
               {submitting ? (
                 <>
@@ -289,7 +228,9 @@ export default function PaymentForm({
               ) : (
                 <>
                   <Save size={18} />
-                  <span>Simpan &amp; Catat Transaksi Pembayaran ({formatRupiah(numericPayment)})</span>
+                  <span>
+                    Simpan &amp; Catat Transaksi Pembayaran ({formatRupiah(numericPayment)})
+                  </span>
                 </>
               )}
             </button>
