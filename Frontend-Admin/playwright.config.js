@@ -1,5 +1,7 @@
 import { defineConfig } from '@playwright/test';
 
+const chromiumExecutable = process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH;
+
 export default defineConfig({
   testDir: './tests/browser',
   outputDir: './test-results/playwright',
@@ -16,9 +18,7 @@ export default defineConfig({
       name: 'chrome',
       use: {
         browserName: 'chromium',
-        launchOptions: {
-          executablePath: 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
-        },
+        launchOptions: chromiumExecutable ? { executablePath: chromiumExecutable } : {},
       },
     },
   ],

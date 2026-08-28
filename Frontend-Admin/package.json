@@ -8,7 +8,8 @@
     "build": "vite build",
     "preview": "vite preview",
     "test": "node --test",
-    "test:browser": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File tests/browser/run-browser-tests.ps1",
+    "test:browser": "node tests/browser/run-browser-tests.mjs",
+    "test:browser:windows": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File tests/browser/run-browser-tests.ps1",
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check ."

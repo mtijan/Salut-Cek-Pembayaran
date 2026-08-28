@@ -111,12 +111,42 @@ function dashboardFixture() {
 
 let mockTransactions = [];
 let mockProdis = [
-  { id: 'prodi-1', code: '311', name: 'Ilmu Hukum', degree: 'S1', faculty: 'FHISIP', student_count: 15, is_active: 1 },
-  { id: 'prodi-2', code: '54', name: 'Manajemen', degree: 'S1', faculty: 'FE', student_count: 10, is_active: 1 },
+  {
+    id: 'prodi-1',
+    code: '311',
+    name: 'Ilmu Hukum',
+    degree: 'S1',
+    faculty: 'FHISIP',
+    student_count: 15,
+    is_active: 1,
+  },
+  {
+    id: 'prodi-2',
+    code: '54',
+    name: 'Manajemen',
+    degree: 'S1',
+    faculty: 'FE',
+    student_count: 10,
+    is_active: 1,
+  },
 ];
 let mockPeriods = [
-  { id: 'period-1', code: '20261', name: 'Semester 2026/2027 Ganjil', semester_type: 'ganjil', default_due_date: '2026-10-30', is_active: 1 },
-  { id: 'period-2', code: '20252', name: 'Semester 2025/2026 Genap', semester_type: 'genap', default_due_date: '2026-03-30', is_active: 0 },
+  {
+    id: 'period-1',
+    code: '20261',
+    name: 'Semester 2026/2027 Ganjil',
+    semester_type: 'ganjil',
+    default_due_date: '2026-10-30',
+    is_active: 1,
+  },
+  {
+    id: 'period-2',
+    code: '20252',
+    name: 'Semester 2025/2026 Genap',
+    semester_type: 'genap',
+    default_due_date: '2026-03-30',
+    is_active: 0,
+  },
 ];
 
 async function installApiMocks(page, currentAdmin = admin) {
@@ -143,7 +173,7 @@ async function installApiMocks(page, currentAdmin = admin) {
       if (method === 'PUT') {
         const id = path.split('/').pop();
         const body = request.postDataJSON() || {};
-        const idx = mockProdis.findIndex(p => p.id === id);
+        const idx = mockProdis.findIndex((p) => p.id === id);
         if (idx >= 0) {
           mockProdis[idx] = { ...mockProdis[idx], ...body };
           return fulfillJson(route, mockProdis[idx]);
@@ -163,7 +193,7 @@ async function installApiMocks(page, currentAdmin = admin) {
       if (method === 'PUT') {
         const id = path.split('/').pop();
         const body = request.postDataJSON() || {};
-        const idx = mockPeriods.findIndex(p => p.id === id);
+        const idx = mockPeriods.findIndex((p) => p.id === id);
         if (idx >= 0) {
           mockPeriods[idx] = { ...mockPeriods[idx], ...body };
           return fulfillJson(route, mockPeriods[idx]);
@@ -281,7 +311,11 @@ async function installApiMocks(page, currentAdmin = admin) {
           },
         ],
         errors: [
-          { row_number: 2, message: 'Nominal berubah dari Rp 1.000.000 ke Rp 1.500.000', severity: 'warning' },
+          {
+            row_number: 2,
+            message: 'Nominal berubah dari Rp 1.000.000 ke Rp 1.500.000',
+            severity: 'warning',
+          },
         ],
       });
     }
@@ -427,7 +461,9 @@ test('bill payment flow: partial payment, live calculation, submit transaksi dan
 
   // Fill reference & notes
   await page.getByPlaceholder('Contoh: REF-20260825-9988').fill('REF-SYNTH-001');
-  await page.getByPlaceholder('Contoh: Cicilan ke-1 biaya UKT semester genap').fill('Cicilan pertama');
+  await page
+    .getByPlaceholder('Contoh: Cicilan ke-1 biaya UKT semester genap')
+    .fill('Cicilan pertama');
 
   // Submit payment
   await page.getByRole('button', { name: /Simpan & Catat Transaksi/ }).click();
@@ -500,9 +536,7 @@ test('master data flow: switch prodi dan periode tab, open create modal, form va
   await page.getByRole('button', { name: 'Batal' }).click();
 });
 
-test('negative and empty states: search empty results dan api error handling', async ({
-  page,
-}) => {
+test('negative and empty states: search empty results dan api error handling', async ({ page }) => {
   await installApiMocks(page);
   await page.goto('/admin');
   await page.getByRole('button', { name: 'Data Mahasiswa', exact: true }).click();

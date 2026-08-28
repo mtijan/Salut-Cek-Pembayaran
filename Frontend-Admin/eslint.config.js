@@ -18,8 +18,11 @@ const browserGlobals = {
 };
 
 const nodeGlobals = {
+  AbortSignal: 'readonly',
   Buffer: 'readonly',
+  fetch: 'readonly',
   process: 'readonly',
+  setTimeout: 'readonly',
   URL: 'readonly',
 };
 
@@ -42,7 +45,7 @@ export default [
     },
   },
   {
-    files: ['*.config.js', 'src/**/*.test.js'],
+    files: ['*.config.js', 'src/**/*.test.js', 'tests/browser/**/*.mjs'],
     languageOptions: {
       globals: nodeGlobals,
     },
