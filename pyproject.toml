@@ -29,8 +29,10 @@ files = [
   "Backend/app/main.py",
   "Backend/app/domain",
   "Backend/app/repositories",
+  "Backend/app/routers",
   "Backend/app/services",
   "Backend/app/use_cases",
   "Backend/app/version.py",
+  "Backend/importing",
   "Backend/import_excel.py",
 ]
