@@ -1,0 +1,167 @@
+/* Modern UI/UX Enhancements for Billing & Data Tables */
+.kpi-card-interactive {
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease,
+    border-color 0.2s ease;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+}
+
+.kpi-card-interactive:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.06);
+  border-color: #cbd5e1 !important;
+}
+
+.kpi-card-interactive.is-active {
+  border-color: var(--brand-primary, #059669) !important;
+  box-shadow:
+    0 0 0 2px rgba(5, 150, 105, 0.18),
+    0 6px 16px rgba(5, 150, 105, 0.08);
+}
+
+.kpi-card-interactive:active {
+  transform: translateY(0);
+}
+
+.filter-chips-container {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding-top: 10px;
+}
+
+.filter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  color: #334155;
+  padding: 4px 10px;
+  border-radius: 9999px;
+  font-size: 12px;
+  font-weight: 500;
+  transition: all 0.15s ease;
+}
+
+.filter-chip:hover {
+  background: #e2e8f0;
+  border-color: #cbd5e1;
+}
+
+.filter-chip-label {
+  color: #64748b;
+  font-weight: 600;
+}
+
+.filter-chip-close {
+  background: none;
+  border: none;
+  padding: 0;
+  color: #94a3b8;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: color 0.15s ease;
+}
+
+.filter-chip-close:hover {
+  color: #ef4444;
+}
+
+.status-dot-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 9999px;
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.status-dot-badge .dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.status-dot-badge.paid {
+  background: #ecfdf5;
+  color: #065f46;
+  border: 1px solid #a7f3d0;
+}
+
+.status-dot-badge.paid .dot {
+  background: #10b981;
+}
+
+.status-dot-badge.partial {
+  background: #fffbeb;
+  color: #92400e;
+  border: 1px solid #fde68a;
+}
+
+.status-dot-badge.partial .dot {
+  background: #f59e0b;
+}
+
+.status-dot-badge.unpaid {
+  background: #fef2f2;
+  color: #991b1b;
+  border: 1px solid #fecaca;
+}
+
+.status-dot-badge.unpaid .dot {
+  background: #ef4444;
+}
+
+.table-row-modern {
+  border-bottom: 1px solid #f1f5f9;
+  border-left: 3px solid transparent;
+  transition:
+    background-color 0.15s ease,
+    border-left-color 0.15s ease;
+}
+
+.table-row-modern:hover {
+  background-color: #f8fafc;
+  border-left-color: var(--brand-primary, #059669);
+}
+
+.mono-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-family: var(--font-mono, monospace);
+  font-size: 12px;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.micro-progress-wrap {
+  width: 100%;
+  height: 5px;
+  background: #e2e8f0;
+  border-radius: 9999px;
+  overflow: hidden;
+  margin-top: 4px;
+}
+
+.micro-progress-bar {
+  height: 100%;
+  border-radius: 9999px;
+  transition: width 0.3s ease;
+}

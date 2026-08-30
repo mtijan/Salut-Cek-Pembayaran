@@ -1,30 +1,8 @@
 import React from 'react';
-import {
-  LayoutDashboard,
-  Users,
-  Receipt,
-  FileSpreadsheet,
-  UploadCloud,
-  Layers,
-  Database,
-  LogOut,
-  ChevronLeft,
-  ChevronRight,
-  PanelLeftClose,
-  PanelLeftOpen,
-} from 'lucide-react';
+import { LogOut, ChevronLeft, ChevronRight, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
+import { NAV_ITEMS } from '../../config/navigation';
 import { useAuth } from '../../context/AuthContext';
 import { APP_VERSION } from '../../version';
-
-export const NAV_ITEMS = [
-  { id: 'dashboard', label: 'Dashboard', kicker: 'Ringkasan Sistem', icon: LayoutDashboard },
-  { id: 'students', label: 'Data Mahasiswa', kicker: 'Data Akademik', icon: Users },
-  { id: 'bills', label: 'Tagihan Mahasiswa', kicker: 'Manajemen Keuangan', icon: Receipt },
-  { id: 'reports', label: 'Rekap Keuangan', kicker: 'Laporan & Evaluasi', icon: FileSpreadsheet },
-  { id: 'files', label: 'Data File Import', kicker: 'Riwayat Import', icon: Layers },
-  { id: 'upload', label: 'Upload File', kicker: 'Upload Excel', icon: UploadCloud },
-  { id: 'master', label: 'Master Data', kicker: 'Master Data Akademik', icon: Database },
-];
 
 export default function Sidebar({
   activeView,

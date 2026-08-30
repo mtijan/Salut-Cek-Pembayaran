@@ -61,6 +61,7 @@ export const studentsApi = {
     if (params.entry_period) query.set('entry_period', params.entry_period);
     if (params.entry_year) query.set('entry_year', String(params.entry_year));
     if (params.sort_by) query.set('sort_by', params.sort_by);
+    if (params.limit) query.set('limit', String(params.limit));
     return apiFetch(`/admin/students?${query.toString()}`);
   },
   getDetail: (id) => apiFetch(`/admin/students/${id}/detail`),

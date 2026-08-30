@@ -1,7 +1,7 @@
 import React from 'react';
 import { PanelLeftClose, PanelLeftOpen, User } from 'lucide-react';
+import { NAV_ITEMS } from '../../config/navigation';
 import { useAuth } from '../../context/AuthContext';
-import { NAV_ITEMS } from './Sidebar';
 
 const VIEW_TITLES = {
   'student-profile': { label: 'Profil 360 Mahasiswa', kicker: 'Data Akademik & Biodata' },

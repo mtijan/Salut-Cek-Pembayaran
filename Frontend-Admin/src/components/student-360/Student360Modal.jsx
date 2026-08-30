@@ -1,9 +1,9 @@
 import React from 'react';
 import { BookOpen, Check, Clock, Copy, CreditCard, X } from 'lucide-react';
-import { Student360Bio } from '../components/student-360/Student360Bio';
-import { Student360Financial } from '../components/student-360/Student360Financial';
-import { Student360History } from '../components/student-360/Student360History';
-import { useStudent360 } from '../hooks/useStudent360';
+import { Student360Bio } from './Student360Bio';
+import { Student360Financial } from './Student360Financial';
+import { Student360History } from './Student360History';
+import { useStudent360 } from '../../hooks/useStudent360';
 
 const TABS = [
   { id: 'bio', label: 'Biodata & Akademik', Icon: BookOpen },

@@ -6,7 +6,7 @@ export const initialBillFormData = {
   nim: '',
   full_name: '',
   period_mode: 'master',
-  period: '20251',
+  period: '',
   custom_period: '',
   bill_type_mode: 'UKT',
   custom_bill_type: '',
@@ -19,11 +19,19 @@ export const initialBillFormData = {
   notes: '',
 };
 
+export function selectDefaultPeriodCode(periods = []) {
+  const activePeriod = periods.find(
+    (period) => period.is_active === true || Number(period.is_active) === 1,
+  );
+  return String(activePeriod?.code || periods[0]?.code || '');
+}
+
 export function createBillFormData({ bill, student, periods }) {
   const rawPeriod = bill.period || '';
-  const isPeriodInList = periods.some(
+  const matchingPeriod = periods.find(
     (period) => period.code === rawPeriod || period.name === rawPeriod,
   );
+  const defaultPeriod = selectDefaultPeriodCode(periods);
   const rawType = bill.bill_type || 'UKT';
   const normalizedType = rawType.toUpperCase();
   const isKnownType = KNOWN_BILL_TYPES.includes(normalizedType);
@@ -32,9 +40,15 @@ export function createBillFormData({ bill, student, periods }) {
     student_id: bill.student_id || student.id || '',
     nim: student.nim || bill.nim || '',
     full_name: student.full_name || bill.full_name || '',
-    period_mode: isPeriodInList ? 'master' : rawPeriod ? 'custom' : 'master',
-    period: isPeriodInList ? rawPeriod : periods[0]?.code || '20251',
-    custom_period: !isPeriodInList ? rawPeriod : '',
+    period_mode: matchingPeriod
+      ? 'master'
+      : rawPeriod
+        ? 'custom'
+        : defaultPeriod
+          ? 'master'
+          : 'custom',
+    period: matchingPeriod?.code || defaultPeriod,
+    custom_period: !matchingPeriod ? rawPeriod : '',
     bill_type_mode: isKnownType ? normalizedType : 'Custom',
     custom_bill_type: !isKnownType ? rawType : '',
     amount: String(bill.amount || ''),

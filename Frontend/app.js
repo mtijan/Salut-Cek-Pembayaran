@@ -126,8 +126,12 @@ function renderResult(data) {
     copyButton.setAttribute("aria-label", `Salin nomor BRIVA ${vaLabel.textContent}`);
     copyButton.textContent = "Salin";
     copyButton.addEventListener("click", async () => {
-      await navigator.clipboard.writeText(bill.briva);
-      setMessage("Nomor BRIVA disalin.");
+      try {
+        await navigator.clipboard.writeText(String(bill.briva || ""));
+        setMessage("Nomor BRIVA disalin.");
+      } catch {
+        setMessage("Nomor BRIVA gagal disalin. Salin secara manual.", "error");
+      }
     });
 
     vaRow.append(vaInfo, copyButton);

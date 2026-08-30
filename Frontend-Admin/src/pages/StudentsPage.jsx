@@ -6,7 +6,7 @@ import StudentsStats from '../components/students/StudentsStats';
 import StudentsTable from '../components/students/StudentsTable';
 import { useAuth } from '../context/AuthContext';
 import { useStudentsPage } from '../hooks/useStudentsPage';
-import Student360Modal from './Student360Modal';
+import Student360Modal from '../components/student-360/Student360Modal';
 
 export default function StudentsPage({ navigateTo }) {
   const { can } = useAuth();

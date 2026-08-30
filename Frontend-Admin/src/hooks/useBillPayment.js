@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { billsApi } from '../services/api';
 import { useToast } from '../components/common/Toast';
 import { useCopyFeedback } from './useCopyFeedback';
+import { toLocalDateInputValue } from '../utils/date';
 
 /**
  * Feature hook untuk BillPaymentPage.
@@ -17,7 +18,7 @@ export function useBillPayment({ billId }) {
 
   const [paymentMode, setPaymentMode] = useState('full');
   const [paymentAmount, setPaymentAmount] = useState('');
-  const [paymentDate, setPaymentDate] = useState(new Date().toISOString().slice(0, 10));
+  const [paymentDate, setPaymentDate] = useState(() => toLocalDateInputValue());
   const [paymentMethod, setPaymentMethod] = useState('BRIVA');
   const [referenceNumber, setReferenceNumber] = useState('');
   const [notes, setNotes] = useState('');

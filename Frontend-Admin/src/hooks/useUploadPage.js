@@ -20,7 +20,7 @@ export function useUploadPage() {
   const handleFileChange = (e) => {
     const selected = e.target.files?.[0];
     if (selected) {
-      if (!selected.name.endsWith('.xlsx')) {
+      if (!selected.name.toLowerCase().endsWith('.xlsx')) {
         showToast('Hanya file format .xlsx yang didukung.', 'error');
         return;
       }

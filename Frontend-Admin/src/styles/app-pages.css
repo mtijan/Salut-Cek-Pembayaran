@@ -1,0 +1,268 @@
+/* ==========================================
+   LOGIN, DASHBOARD, FILES, & UPLOAD
+   ========================================== */
+
+.login-error-box {
+  padding: 12px 16px;
+  background: var(--danger-bg);
+  color: var(--danger);
+  border-radius: var(--radius-md);
+  font-size: 13.5px;
+  font-weight: 600;
+  margin-bottom: 20px;
+  border: 1px solid #fca5a5;
+}
+
+.input-icon-wrap {
+  position: relative;
+}
+
+.input-icon-left {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--muted-light);
+  pointer-events: none;
+}
+
+.input-icon-btn-right {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+
+.input-pl-38 {
+  padding-left: 38px;
+}
+
+.input-px-38 {
+  padding-left: 38px;
+  padding-right: 38px;
+}
+
+.btn-login-submit {
+  width: 100%;
+  padding: 12px 18px;
+  font-size: 14px;
+}
+
+.dashboard-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+.dashboard-title {
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--brand-strong);
+}
+
+.dashboard-subtitle {
+  font-size: 13px;
+  color: var(--muted);
+  margin-top: 2px;
+}
+
+.progress-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.progress-title {
+  font-size: 15px;
+  color: var(--ink);
+  font-weight: 700;
+}
+
+.progress-desc {
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 2px;
+}
+
+.progress-percent-label {
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--brand-strong);
+}
+
+.files-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 16px;
+}
+
+.file-card {
+  background: #ffffff;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  box-shadow: var(--shadow-sm);
+}
+
+.file-card-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.file-icon-box {
+  padding: 8px;
+  background: #f1f5f9;
+  border-radius: var(--radius-md);
+  color: var(--brand);
+}
+
+.file-name-title {
+  font-size: 14px;
+  color: var(--brand-strong);
+  word-break: break-all;
+}
+
+.file-meta-row {
+  font-size: 11px;
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 2px;
+}
+
+.file-stats-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin: 16px 0;
+  padding: 12px;
+  background: #f8fafc;
+  border-radius: var(--radius-md);
+}
+
+.file-stat-label {
+  font-size: 11px;
+  color: var(--muted);
+  text-transform: uppercase;
+}
+
+.file-stat-val {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.file-badges-row {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+.file-card-footer {
+  border-top: 1px solid var(--line);
+  padding-top: 12px;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.upload-warning-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #92400e;
+  margin-bottom: 8px;
+}
+
+.upload-warning-text {
+  font-size: 13px;
+  color: #78350f;
+  margin-bottom: 12px;
+}
+
+.upload-confirm-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.upload-actions-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.upload-success-icon {
+  margin: 0 auto 16px;
+}
+
+.upload-success-title {
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--brand-strong);
+}
+
+.upload-success-desc {
+  font-size: 13px;
+  color: var(--muted);
+  max-width: 480px;
+  margin: 8px auto 20px;
+}
+
+.upload-buttons-center {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+}
+
+.hidden-file-input {
+  display: none;
+}
+
+.issue-severity-tag {
+  font-weight: 700;
+  text-transform: uppercase;
+  font-size: 10px;
+}
+
+.upload-metric-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--muted);
+  text-transform: uppercase;
+}
+
+.upload-metric-val {
+  font-size: 18px;
+  font-weight: 800;
+  margin-top: 4px;
+}
+
+.upload-title {
+  font-size: 16px;
+  font-weight: 800;
+}
+
+.selected-file-name {
+  font-size: 13px;
+  color: var(--ink);
+  font-weight: 600;
+}

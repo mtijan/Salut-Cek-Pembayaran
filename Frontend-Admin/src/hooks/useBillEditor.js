@@ -1,8 +1,12 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { billsApi, studentsApi, masterApi } from '../services/api';
 import { useToast } from '../components/common/Toast';
 import { useCopyFeedback } from './useCopyFeedback';
-import { createBillFormData, initialBillFormData } from './billEditorModel';
+import {
+  createBillFormData,
+  initialBillFormData,
+  selectDefaultPeriodCode,
+} from '../features/billing/model/billEditorModel';
 
 /**
  * Feature hook untuk BillEditPage.
@@ -21,6 +25,7 @@ export function useBillEditor({ billId, mode, navigateTo }) {
   // Master data options
   const [periods, setPeriods] = useState([]);
   const [students, setStudents] = useState([]);
+  const periodsRef = useRef([]);
 
   // Loaded bill & student (edit mode)
   const [loadedBill, setLoadedBill] = useState(null);
@@ -29,15 +34,36 @@ export function useBillEditor({ billId, mode, navigateTo }) {
   const [formData, setFormData] = useState(initialBillFormData);
 
   const fetchMasterOptions = useCallback(async () => {
-    try {
-      const [pRes, sRes] = await Promise.all([
-        masterApi.listPeriods(),
-        studentsApi.list({ limit: 1000 }),
-      ]);
-      setPeriods(pRes.academic_periods || []);
-      setStudents(sRes.students || []);
-    } catch {}
-  }, []);
+    const [periodResult, studentResult] = await Promise.allSettled([
+      masterApi.listPeriods(),
+      studentsApi.list({ limit: 1000 }),
+    ]);
+
+    if (periodResult.status === 'fulfilled') {
+      const nextPeriods = periodResult.value.academic_periods || [];
+      periodsRef.current = nextPeriods;
+      setPeriods(nextPeriods);
+      if (isCreate) {
+        setFormData((current) => {
+          if (current.period || current.custom_period) return current;
+          const defaultPeriod = selectDefaultPeriodCode(nextPeriods);
+          return {
+            ...current,
+            period_mode: defaultPeriod ? 'master' : 'custom',
+            period: defaultPeriod,
+          };
+        });
+      }
+    } else {
+      showToast(periodResult.reason?.message || 'Gagal memuat opsi periode akademik.', 'error');
+    }
+
+    if (studentResult.status === 'fulfilled') {
+      setStudents(studentResult.value.students || []);
+    } else {
+      showToast(studentResult.reason?.message || 'Gagal memuat pilihan mahasiswa.', 'error');
+    }
+  }, [isCreate, showToast]);
 
   const fetchBillData = useCallback(async () => {
     if (isCreate || !billId) return;
@@ -49,23 +75,43 @@ export function useBillEditor({ billId, mode, navigateTo }) {
       setLoadedBill(b);
       setLoadedStudent(s);
 
-      setFormData(createBillFormData({ bill: b, student: s, periods }));
+      setFormData(createBillFormData({ bill: b, student: s, periods: periodsRef.current }));
     } catch (err) {
       showToast(err.message || 'Gagal memuat data tagihan.', 'error');
     } finally {
       setLoading(false);
     }
-  }, [billId, isCreate, periods, showToast]);
+  }, [billId, isCreate, showToast]);
 
   useEffect(() => {
     fetchMasterOptions();
   }, [fetchMasterOptions]);
 
   useEffect(() => {
-    if (periods.length > 0 || isCreate) {
-      fetchBillData();
-    }
-  }, [periods, fetchBillData, isCreate]);
+    fetchBillData();
+  }, [fetchBillData]);
+
+  useEffect(() => {
+    if (isCreate || !loadedBill || periods.length === 0) return;
+    const normalized = createBillFormData({
+      bill: loadedBill,
+      student: loadedStudent || {},
+      periods,
+    });
+    if (normalized.period_mode !== 'master') return;
+
+    setFormData((current) => {
+      const stillHasOriginalCustomPeriod =
+        current.period_mode === 'custom' && current.custom_period === (loadedBill.period || '');
+      if (!stillHasOriginalCustomPeriod) return current;
+      return {
+        ...current,
+        period_mode: normalized.period_mode,
+        period: normalized.period,
+        custom_period: '',
+      };
+    });
+  }, [isCreate, loadedBill, loadedStudent, periods]);
 
   const handleCopy = (text, label) => {
     copyToClipboard(text, label, () => showToast(`${label} disalin ke clipboard!`, 'success'));
