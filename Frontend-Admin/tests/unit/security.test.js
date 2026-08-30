@@ -4,8 +4,9 @@ import { readFileSync, readdirSync } from 'node:fs';
 import { dirname, extname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const sourceRoot = dirname(fileURLToPath(import.meta.url));
-const projectRoot = dirname(sourceRoot);
+const unitTestDir = dirname(fileURLToPath(import.meta.url));
+const projectRoot = join(unitTestDir, '..', '..');
+const sourceRoot = join(projectRoot, 'src');
 
 function sourceFiles(directory) {
   return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
