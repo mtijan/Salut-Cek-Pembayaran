@@ -56,17 +56,19 @@ Project ini menggabungkan portal publik yang sederhana dengan dashboard admin be
 | `Backend/app/use_cases/` | Orkestrasi business flow lookup publik serta dashboard/financial reporting. |
 | `Backend/db.py` | Koneksi, skema, dan migrasi SQLite. |
 | `Backend/import_excel.py` | Preview, validasi, dan import workbook. |
-| `Backend/test_core.py` | Test runner modular & discovery test suite backend. |
+| `Backend/tests/` | Suite test backend per domain beserta compatibility runner. |
 | `Frontend/` | Portal mahasiswa dan bundle admin hasil build. |
 | `Frontend-Admin/` | Source dashboard admin React. |
-| `Frontend-Admin/src/styles/` | Layer CSS token, base, layout, components, profile/payment, responsive, dan data pages. |
+| `Frontend-Admin/src/styles/` | CSS berurutan per ownership: token/base/layout, cards/tables/dialogs, profil, pembayaran, billing, upload, dan halaman data. |
 | `Frontend-Admin/src/hooks/` | Hook bersama dan feature hook untuk copy/master/pagination, report, tagihan, mahasiswa, profil, dan Student 360. |
 | `Frontend-Admin/src/components/reports/` | Filter, statistik, dan tabel feature-specific untuk rekap keuangan admin. |
 | `Frontend-Admin/src/components/bills/` | Statistik, filter, tabel, baris, dan riwayat transaksi halaman tagihan. |
 | `Frontend-Admin/src/components/students/` | Statistik, filter, tabel, baris, dan editor data mahasiswa. |
 | `Frontend-Admin/src/components/student-profile/` | Header, sidebar, navigasi, dan lima tab halaman profil mahasiswa. |
 | `Frontend-Admin/src/components/student-360/` | View biodata, keuangan, dan riwayat pada modal Student 360. |
-| `scripts/` | Utility pengembangan dan audit dependency. |
+| `scripts/quality/` | Inventory test dan pemeriksaan lock dependency untuk CI. |
+| `scripts/security/` | Audit dependency serta boundary path/konten repository publik. |
+| `scripts/dev/` | Utility developer yang opt-in, dry-run, dan membutuhkan target/kredensial eksplisit. |
 | `VERSION` | Sumber tunggal versi aplikasi untuk backend dan bundle admin. |
 
 ## Menjalankan di Lokal
@@ -107,7 +109,7 @@ npm run build
 Set-Location ..
 ```
 
-Hasil build disimpan di `Frontend/admin-dist/` dan disajikan langsung oleh FastAPI.
+Hasil build disimpan di `Frontend/admin-dist/` dan disajikan langsung oleh FastAPI. Legacy admin telah dihapus; `/admin` mengembalikan `503 ADMIN_BUNDLE_UNAVAILABLE` bila bundle React belum dibangun.
 
 ### 3. Jalankan aplikasi
 
@@ -129,12 +131,14 @@ Dependency quality Python dipisahkan dari runtime production:
 
 ```powershell
 .\.venv\Scripts\python.exe -m pip install -r requirements-dev.txt
-.\.venv\Scripts\python.exe scripts\check_python_dependency_locks.py
+.\.venv\Scripts\python.exe scripts\quality\check_python_dependency_locks.py
 .\.venv\Scripts\python.exe -m ruff check Backend scripts
 .\.venv\Scripts\python.exe -m ruff format --check Backend scripts
 .\.venv\Scripts\python.exe -m mypy
-.\.venv\Scripts\python.exe scripts\check_backend_test_inventory.py
+.\.venv\Scripts\python.exe scripts\quality\check_backend_test_inventory.py
 .\.venv\Scripts\python.exe -m unittest discover -s Backend -t . -p "test_*.py"
+.\.venv\Scripts\python.exe scripts\security\check_public_repo_boundary.py
+.\.venv\Scripts\python.exe -m unittest scripts.security.test_public_repo_boundary
 Set-Location Frontend-Admin
 npm ci
 npm run lint
@@ -143,6 +147,8 @@ npm run test:browser
 npm run format:check
 npm run build
 ```
+
+Baseline lokal 2026-08-30: 99 backend test pada 16 modul, 7 boundary test, 16 frontend unit test, dan 8 browser flow sintetis lulus. Bukti lokal ini bukan bukti deployment production.
 
 Browser gate memakai Google Chrome lokal dan menjalankan bundle admin melalui FastAPI pada port test `8765`. Seluruh API bisnis diintersep dengan fixture sintetis; SQLite, trace, screenshot, dan hasil Playwright disimpan pada `Frontend-Admin/test-results/` yang di-ignore. Gate ini bukan UAT maupun bukti deployment production.
 
@@ -164,7 +170,7 @@ Dashboard development tersedia di `http://localhost:5173/admin/`. Request `/api`
 Backend:
 
 ```powershell
-python scripts/check_backend_test_inventory.py
+python scripts/quality/check_backend_test_inventory.py
 python -m unittest discover -s Backend -t . -p "test_*.py"
 ```
 
@@ -184,5 +190,5 @@ npm run build
 - Jangan menggunakan contoh secret dan password development untuk server publik.
 - Pertahankan `WEB_CONCURRENCY=1`/`UVICORN_WORKERS=1` selama rate limiter masih in-memory; konfigurasi production akan fail-fast bila worker lebih dari satu.
 - `docs/` dan `deploy/` adalah artefak internal dan tidak boleh dilacak pada repository publik.
-- Jalankan `python scripts/check_public_repo_boundary.py` sebelum commit atau pull request.
+- Jalankan `python scripts/security/check_public_repo_boundary.py` sebelum commit atau pull request.
 - Kebijakan pelaporan kerentanan tersedia di [`SECURITY.md`](SECURITY.md).

@@ -4,7 +4,7 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
-$repositoryRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
+$repositoryRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path
 $requirementsPath = Join-Path $repositoryRoot "requirements-audit.txt"
 $auditTargetPath = Join-Path $repositoryRoot "requirements.txt"
 $venvDirectory = Join-Path $repositoryRoot $VenvPath

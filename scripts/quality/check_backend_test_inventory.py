@@ -5,21 +5,22 @@ from collections import Counter
 
 
 EXPECTED_TEST_COUNTS = {
-    "Backend.test_auth_rbac": 7,
-    "Backend.test_billing": 10,
-    "Backend.test_billing_payments": 5,
-    "Backend.test_database_lifecycle": 17,
-    "Backend.test_domain": 3,
-    "Backend.test_import_admin_safety": 9,
-    "Backend.test_imports": 9,
-    "Backend.test_lookup": 3,
-    "Backend.test_master_data": 6,
-    "Backend.test_operations": 4,
-    "Backend.test_reporting": 3,
-    "Backend.test_security_ops": 9,
-    "Backend.test_service_boundaries": 1,
-    "Backend.test_students": 9,
-    "Backend.test_version": 2,
+    "Backend.tests.test_auth_rbac": 7,
+    "Backend.tests.test_billing": 10,
+    "Backend.tests.test_billing_payments": 5,
+    "Backend.tests.test_database_lifecycle": 17,
+    "Backend.tests.test_domain": 3,
+    "Backend.tests.test_frontend_serving": 1,
+    "Backend.tests.test_import_admin_safety": 9,
+    "Backend.tests.test_imports": 10,
+    "Backend.tests.test_lookup": 3,
+    "Backend.tests.test_master_data": 6,
+    "Backend.tests.test_operations": 4,
+    "Backend.tests.test_reporting": 3,
+    "Backend.tests.test_security_ops": 9,
+    "Backend.tests.test_service_boundaries": 1,
+    "Backend.tests.test_students": 9,
+    "Backend.tests.test_version": 2,
 }
 
 

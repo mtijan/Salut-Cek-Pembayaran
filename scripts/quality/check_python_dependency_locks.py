@@ -4,7 +4,7 @@ import re
 from pathlib import Path
 
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 LOCK_PAIRS = (
     (ROOT / "requirements.in", ROOT / "requirements.txt"),
     (ROOT / "requirements-dev.in", ROOT / "requirements-dev.txt"),

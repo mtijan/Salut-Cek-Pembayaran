@@ -29,6 +29,10 @@ vps.txt
 *.key
 *.p12
 *.pfx
+*.sql
+*.dump
+*.bak
+*.backup
 
 # Runtime data
 uploads/
@@ -42,6 +46,7 @@ database.sqlite
 *.sqlite
 *.sqlite3
 *.db
+*.csv
 
 # Excel workbooks and temporary office files
 *.xls

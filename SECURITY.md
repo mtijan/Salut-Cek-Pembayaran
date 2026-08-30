@@ -21,8 +21,8 @@ Folder `docs/` dan `deploy/` merupakan artefak internal dan sengaja di-ignore. D
 Sebelum commit atau pull request, jalankan:
 
 ```powershell
-python scripts/check_public_repo_boundary.py
-python -m unittest scripts.test_public_repo_boundary
+python scripts/security/check_public_repo_boundary.py
+python -m unittest scripts.security.test_public_repo_boundary
 ```
 
 Jika secret atau data pribadi pernah masuk Git, menghapus file pada commit baru tidak cukup. Lakukan containment, rotasi credential yang relevan, dan koordinasikan pembersihan history dengan seluruh pemilik clone/fork.
