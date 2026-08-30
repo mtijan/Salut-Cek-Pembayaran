@@ -5,7 +5,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from Backend.app.services import (
     create_bill,
@@ -14,7 +14,7 @@ from Backend.app.services import (
     get_financial_summary,
 )
 from db import connect, init_db, migrate_database
-from Backend.test_base import BackendBaseTestCase
+from Backend.tests.test_base import BackendBaseTestCase
 
 
 class ReportingAndAnalyticsTests(BackendBaseTestCase):

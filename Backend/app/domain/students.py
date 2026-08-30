@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 import sqlite3
 
 from Backend.app.domain.common import format_entry_period, rupiah
@@ -13,7 +14,7 @@ def validate_nim_value(value: object) -> str:
     raw = str(value or "").strip()
     if not raw:
         return ""
-    if any(character.isalpha() for character in raw):
+    if not re.fullmatch(r"[\d\s-]+", raw):
         raise ValueError("NIM hanya boleh berisi angka (pemisah spasi atau tanda hubung diperbolehkan).")
     normalized = normalize_nim(raw)
     if not normalized:

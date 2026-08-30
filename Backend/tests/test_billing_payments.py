@@ -18,7 +18,7 @@ from Backend.app.services import (
     update_bill_status,
 )
 from Backend.db import connect, init_db, migrate_database
-from Backend.test_base import BackendBaseTestCase
+from Backend.tests.test_base import BackendBaseTestCase
 
 
 class BillingPaymentTests(BackendBaseTestCase):

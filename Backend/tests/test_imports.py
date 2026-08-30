@@ -6,7 +6,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import server
 from Backend.app import config as app_config
@@ -19,7 +19,7 @@ from Backend.app.services import (
 from import_excel import import_workbook, preview_workbook
 from db import migrate_database
 from fastapi.testclient import TestClient
-from Backend.test_base import BackendBaseTestCase
+from Backend.tests.test_base import BackendBaseTestCase
 
 
 class ImportWorkbookTests(BackendBaseTestCase):
@@ -71,6 +71,50 @@ class ImportWorkbookTests(BackendBaseTestCase):
             amount = conn.execute("select amount from bills where briva = '12345'").fetchone()[0]
             conn.close()
             self.assertEqual(amount, 125000)
+
+    def test_import_restores_soft_deleted_student_with_same_nim(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            temp = Path(temporary_directory)
+            database = temp / "salut.sqlite"
+            migrate_database(database)
+            workbook = temp / "restore-student.xlsx"
+            self._write_workbook(workbook, [("01009", "Nama Setelah Restore", "90001", 100000)])
+
+            conn = sqlite3.connect(database)
+            conn.execute(
+                """
+                insert into students (
+                    id, nim, full_name, name_norm, deleted_at, deleted_by, delete_reason
+                ) values (?, ?, ?, ?, datetime('now'), ?, ?)
+                """,
+                ("student-soft-deleted", "01009", "Nama Lama", "nama lama", "admin-old", "Data lama"),
+            )
+            conn.commit()
+            conn.close()
+
+            result = import_workbook(workbook, database)
+            self.assertEqual(result["created"], 1)
+
+            conn = sqlite3.connect(database)
+            student = conn.execute(
+                """
+                select id, full_name, deleted_at, deleted_by, delete_reason
+                from students
+                where nim = ?
+                """,
+                ("01009",),
+            ).fetchone()
+            student_count = conn.execute("select count(*) from students where nim = ?", ("01009",)).fetchone()[0]
+            bill_student_id = conn.execute("select student_id from bills where briva = ?", ("90001",)).fetchone()[0]
+            conn.close()
+
+            self.assertEqual(student_count, 1)
+            self.assertEqual(student[0], "student-soft-deleted")
+            self.assertEqual(student[1], "Nama Setelah Restore")
+            self.assertIsNone(student[2])
+            self.assertIsNone(student[3])
+            self.assertIsNone(student[4])
+            self.assertEqual(bill_student_id, "student-soft-deleted")
 
     def test_briva_replacement_and_paid_bill_protection(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
@@ -297,12 +341,22 @@ class ImportWorkbookTests(BackendBaseTestCase):
                         "07 Agustus 2026 Pukul 11.59 WIB",
                     ),
                     (
-                        "`",
+                        "ABC-01009",
                         "Data Tidak Valid",
                         "UT Serang/2025-Ganjil",
                         "'081234567892",
                         "FST - Sistem Informasi",
                         "'178100023200890",
+                        1850000,
+                        "07 Agustus 2026 Pukul 11.59 WIB",
+                    ),
+                    (
+                        "01010",
+                        "BRIVA Tidak Valid",
+                        "UT Serang/2025-Ganjil",
+                        "'081234567893",
+                        "FST - Sistem Informasi",
+                        "ABC-178100023200891",
                         1850000,
                         "07 Agustus 2026 Pukul 11.59 WIB",
                     ),
@@ -312,20 +366,27 @@ class ImportWorkbookTests(BackendBaseTestCase):
             preview = preview_workbook(workbook, database)
             self.assertEqual(preview["valid_rows"], 1)
             self.assertEqual(preview["critical_rows"], 0)
-            self.assertEqual(preview["issue_rows"], 1)
+            self.assertEqual(preview["issue_rows"], 2)
             result = import_workbook(workbook, database)
             self.assertEqual(result["created"], 1)
-            self.assertEqual(result["issues"], 1)
+            self.assertEqual(result["issues"], 2)
 
             conn = sqlite3.connect(database)
-            issue = conn.execute("select row_number, note from import_issues").fetchone()
+            issues = conn.execute("select row_number, note from import_issues order by row_number").fetchall()
             conn.close()
-            self.assertEqual(issue, (3, "Baris dilewati karena NIM, nama, BRIVA, atau nominal tidak valid."))
+            self.assertEqual(
+                issues,
+                [
+                    (3, "Baris dilewati karena NIM, nama, BRIVA, atau nominal tidak valid."),
+                    (4, "Baris dilewati karena NIM, nama, BRIVA, atau nominal tidak valid."),
+                ],
+            )
             from Backend.app.services import list_import_issues
 
             stored_issues = list_import_issues(database)
-            self.assertEqual(len(stored_issues), 1)
+            self.assertEqual(len(stored_issues), 2)
             self.assertEqual(stored_issues[0]["row_number"], 3)
+            self.assertEqual(stored_issues[1]["row_number"], 4)
 
 
 if __name__ == "__main__":

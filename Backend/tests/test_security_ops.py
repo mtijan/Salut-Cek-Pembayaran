@@ -7,7 +7,7 @@ from datetime import datetime
 from pathlib import Path
 from unittest import mock
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import server
 from Backend.app import config as app_config
@@ -17,7 +17,7 @@ from Backend.app.services import (
 )
 from db import connect, init_db
 from fastapi.testclient import TestClient
-from Backend.test_base import BackendBaseTestCase
+from Backend.tests.test_base import BackendBaseTestCase
 
 
 class SecurityAndOperationsTests(BackendBaseTestCase):
@@ -94,12 +94,12 @@ class SecurityAndOperationsTests(BackendBaseTestCase):
         self.assertNotIn("'unsafe-inline'", directives["style-src"])
 
     def test_backup_rotation_keeps_daily_weekly_and_monthly_restore_points(self) -> None:
-        from datetime import UTC, timedelta
+        from datetime import timedelta, timezone
         from Backend.backup_sqlite import prune_backups
 
         with tempfile.TemporaryDirectory() as temporary_directory:
             directory = Path(temporary_directory)
-            now = datetime(2026, 8, 22, tzinfo=UTC)
+            now = datetime(2026, 8, 22, tzinfo=timezone.utc)
             for day in range(0, 500, 3):
                 timestamp = now - timedelta(days=day)
                 (directory / f"salut-{timestamp.strftime('%Y%m%dT%H%M%SZ')}.sqlite.zip").touch()
@@ -108,6 +108,9 @@ class SecurityAndOperationsTests(BackendBaseTestCase):
             self.assertGreater(len(removed), 0)
             self.assertLessEqual(len(retained), 14 + 8 + 12)
             self.assertTrue(any("20260822" in path.name for path in retained))
+
+        backup_source = (Path(__file__).resolve().parents[1] / "backup_sqlite.py").read_text(encoding="utf-8")
+        self.assertNotIn("from datetime import UTC", backup_source)
 
     def test_sqlite_backup_can_be_verified_from_archive(self) -> None:
         from Backend.backup_sqlite import backup_database
@@ -123,7 +126,7 @@ class SecurityAndOperationsTests(BackendBaseTestCase):
             verify_backup(archive)
 
     def test_python_systemd_jobs_use_package_module_entrypoints(self) -> None:
-        project_root = Path(__file__).resolve().parents[1]
+        project_root = Path(__file__).resolve().parents[2]
         maintenance_unit_path = project_root / "deploy" / "salut-cek-pembayaran-maintenance.service"
         verify_unit_path = project_root / "deploy" / "salut-cek-pembayaran-backup-verify.service"
         if not maintenance_unit_path.is_file() or not verify_unit_path.is_file():

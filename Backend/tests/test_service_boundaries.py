@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from Backend.app import services
 from Backend.app.services import billing, billing_commands, billing_queries
-from Backend.test_base import BackendBaseTestCase
+from Backend.tests.test_base import BackendBaseTestCase
 
 
 class ServiceBoundaryTests(BackendBaseTestCase):

@@ -12,6 +12,7 @@ import openpyxl
 from openpyxl.utils.cell import get_column_letter
 from openpyxl.worksheet.worksheet import Worksheet
 
+from Backend.app.domain.students import validate_nim_value
 from Backend.db import parse_entry_registration
 from Backend.excel_reader import (
     clean_demographic_value,
@@ -55,32 +56,32 @@ MASTER_TEMPLATE_HEADERS = [
 
 MASTER_SAMPLE_ROWS = [
     [
-        "049530265",
-        "Muhamad Romli",
-        "3603100510860014",
-        "Tangerang",
-        "14 September 2000",
-        "Siti Aminah",
-        "rhomly0496@gmail.com",
-        "082310867195",
+        "000000001",
+        "Mahasiswa Contoh Satu",
+        "0000000000000001",
+        "Kota Contoh",
+        "01 Januari 2000",
+        "Orang Tua Contoh",
+        "mahasiswa.satu@example.test",
+        "000000000001",
         "UNIVERSITAS TERBUKA 2023.1",
         "FEB - Akuntansi",
-        "178100023200085",
+        "000000000000001",
         1850000,
         "22 Januari 2027 Pukul 11.59 WIB",
     ],
     [
-        "049532688",
-        "Ria Anggraeni",
-        "3603115601060002",
-        "Serang",
-        "25 Mei 2001",
-        "Nurjanah",
-        "riaa1390@gmail.com",
-        "0895411921596",
+        "000000002",
+        "Mahasiswa Contoh Dua",
+        "0000000000000002",
+        "Kota Contoh",
+        "02 Februari 2001",
+        "Orang Tua Contoh",
+        "mahasiswa.dua@example.test",
+        "000000000002",
         "UNIVERSITAS TERBUKA 2023.2",
         "FHISIP - Sosiologi",
-        "178100023200060",
+        "000000000000002",
         1850000,
         "22 Januari 2027 Pukul 11.59 WIB",
     ],
@@ -183,7 +184,10 @@ def _record_value(record: dict[str, str], headers: dict[str, str], aliases: str 
 
 
 def _normalize_briva(value: object) -> str:
-    return normalize_nim(value)
+    raw = clean_excel_text(value)
+    if not raw or not re.fullmatch(r"[\d\s-]+", raw):
+        return ""
+    return normalize_nim(raw)
 
 
 def _read_sync_rows(
@@ -198,7 +202,11 @@ def _read_sync_rows(
     skipped_issues: list[dict[str, object]] = []
 
     for record in read_sheet(workbook, layout.data_sheet):
-        nim = normalize_nim(_record_value(record, layout.headers, ("NIM", "Nomor Induk Mahasiswa")))
+        raw_nim = clean_excel_text(_record_value(record, layout.headers, ("NIM", "Nomor Induk Mahasiswa")))
+        try:
+            nim = validate_nim_value(raw_nim)
+        except ValueError:
+            nim = ""
         full_name = normalize_imported_name(
             _record_value(record, layout.headers, ("Nama", "Nama Mahasiswa", "Nama Lengkap"))
         )

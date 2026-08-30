@@ -3,7 +3,7 @@ from __future__ import annotations
 import argparse
 import shutil
 import sqlite3
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 
@@ -16,14 +16,16 @@ def backup_timestamp(path: Path) -> datetime | None:
     if not name.startswith(BACKUP_PREFIX) or not name.endswith(BACKUP_SUFFIX):
         return None
     try:
-        return datetime.strptime(name[len(BACKUP_PREFIX) : -len(BACKUP_SUFFIX)], "%Y%m%dT%H%M%SZ").replace(tzinfo=UTC)
+        return datetime.strptime(name[len(BACKUP_PREFIX) : -len(BACKUP_SUFFIX)], "%Y%m%dT%H%M%SZ").replace(
+            tzinfo=timezone.utc
+        )
     except ValueError:
         return None
 
 
 def prune_backups(destination_dir: Path, now: datetime | None = None) -> list[Path]:
     """Keep 14 daily, 8 weekly, and 12 monthly backup restore points."""
-    now = now or datetime.now(UTC)
+    now = now or datetime.now(timezone.utc)
     backups = [
         (timestamp, path)
         for path in destination_dir.glob("salut-*.sqlite.zip")
@@ -61,7 +63,7 @@ def backup_database(source: Path, destination_dir: Path) -> Path:
         raise FileNotFoundError(f"Database tidak ditemukan: {source}")
 
     destination_dir.mkdir(parents=True, exist_ok=True)
-    timestamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
+    timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     destination = destination_dir / f"salut-{timestamp}.sqlite"
     source_conn = sqlite3.connect(source)
     destination_conn = sqlite3.connect(destination)

@@ -4,9 +4,12 @@ import sys
 import sqlite3
 import tempfile
 import zipfile
+from io import BytesIO
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
+import openpyxl
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import server
 from Backend.app import config as app_config
@@ -18,7 +21,7 @@ from Backend.app.services import (
 from import_excel import import_workbook, preview_workbook
 from db import connect, init_db, migrate_database
 from fastapi.testclient import TestClient
-from Backend.test_base import BackendBaseTestCase
+from Backend.tests.test_base import BackendBaseTestCase
 
 
 class ImportAdminSafetyTests(BackendBaseTestCase):
@@ -211,32 +214,32 @@ class ImportAdminSafetyTests(BackendBaseTestCase):
 
             rows = [
                 (
-                    "049530265",
-                    "MUHAMAD ROMLI",
-                    "3603100510860014",
-                    "Tangerang",
-                    "14 September 2000",
-                    "Siti Aminah",
-                    "rhomly0496@gmail.com",
-                    "082310867195",
+                    "000000001",
+                    "MAHASISWA CONTOH SATU",
+                    "0000000000000001",
+                    "Kota Contoh",
+                    "01 Januari 2000",
+                    "Orang Tua Contoh",
+                    "mahasiswa.satu@example.test",
+                    "000000000001",
                     "UNIVERSITAS TERBUKA 2023.1",
                     "FEB - Akuntansi",
-                    "178100023200085",
+                    "000000000000001",
                     1850000,
                     "22 Januari 2027 Pukul 11.59 WIB",
                 ),
                 (
-                    "049532688",
-                    "RIA ANGGRAENI",
+                    "000000002",
+                    "MAHASISWA CONTOH DUA",
                     "-",
                     "-",
                     "-",
                     "-",
-                    "riaa1390@gmail.com",
-                    "'0895411921596",
+                    "mahasiswa.dua@example.test",
+                    "'000000000002",
                     "UNIVERSITAS TERBUKA 2023.2",
                     "FHISIP - Sosiologi",
-                    "178100023200060",
+                    "000000000000002",
                     1850000,
                     "22 Januari 2027 Pukul 11.59 WIB",
                 ),
@@ -252,10 +255,10 @@ class ImportAdminSafetyTests(BackendBaseTestCase):
 
             conn = sqlite3.connect(database)
             s1 = conn.execute(
-                "select nim, full_name, no_ktp, tempat_lahir, tanggal_lahir, nama_ibu_kandung, email, phone_number, entry_year, entry_semester, entry_period from students where nim = '049530265'"
+                "select nim, full_name, no_ktp, tempat_lahir, tanggal_lahir, nama_ibu_kandung, email, phone_number, entry_year, entry_semester, entry_period from students where nim = '000000001'"
             ).fetchone()
             s2 = conn.execute(
-                "select nim, full_name, no_ktp, tempat_lahir, tanggal_lahir, nama_ibu_kandung, email, phone_number, entry_year, entry_semester, entry_period from students where nim = '049532688'"
+                "select nim, full_name, no_ktp, tempat_lahir, tanggal_lahir, nama_ibu_kandung, email, phone_number, entry_year, entry_semester, entry_period from students where nim = '000000002'"
             ).fetchone()
             conn.close()
 
@@ -263,14 +266,14 @@ class ImportAdminSafetyTests(BackendBaseTestCase):
             self.assertEqual(
                 s1,
                 (
-                    "049530265",
-                    "Muhamad Romli",
-                    "3603100510860014",
-                    "Tangerang",
-                    "14 September 2000",
-                    "Siti Aminah",
-                    "rhomly0496@gmail.com",
-                    "082310867195",
+                    "000000001",
+                    "Mahasiswa Contoh Satu",
+                    "0000000000000001",
+                    "Kota Contoh",
+                    "01 Januari 2000",
+                    "Orang Tua Contoh",
+                    "mahasiswa.satu@example.test",
+                    "000000000001",
                     2023,
                     "ganjil",
                     "2023.1",
@@ -280,14 +283,14 @@ class ImportAdminSafetyTests(BackendBaseTestCase):
             self.assertEqual(
                 s2,
                 (
-                    "049532688",
-                    "Ria Anggraeni",
+                    "000000002",
+                    "Mahasiswa Contoh Dua",
                     None,
                     None,
                     None,
                     None,
-                    "riaa1390@gmail.com",
-                    "0895411921596",
+                    "mahasiswa.dua@example.test",
+                    "000000000002",
                     2023,
                     "genap",
                     "2023.2",
@@ -301,6 +304,14 @@ class ImportAdminSafetyTests(BackendBaseTestCase):
         # Test Template Generator
         template_bytes = generate_master_data_template()
         self.assertTrue(len(template_bytes) > 100)
+        workbook = openpyxl.load_workbook(BytesIO(template_bytes), read_only=True, data_only=True)
+        try:
+            template_rows = list(workbook.active.iter_rows(min_row=2, values_only=True))
+        finally:
+            workbook.close()
+        self.assertEqual(len(template_rows), 2)
+        self.assertTrue(all(str(row[1]).startswith("Mahasiswa Contoh") for row in template_rows))
+        self.assertTrue(all(str(row[6]).endswith("@example.test") for row in template_rows))
 
         with tempfile.TemporaryDirectory() as temporary_directory:
             database = Path(temporary_directory) / "salut.sqlite"

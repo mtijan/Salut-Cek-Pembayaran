@@ -91,7 +91,7 @@ class DatabaseLifecycleTests(unittest.TestCase):
             self.assertEqual([int(row[0]) for row in second_versions], [LATEST_SCHEMA_VERSION])
 
     def test_runtime_modules_do_not_call_init_db(self) -> None:
-        backend_root = Path(__file__).resolve().parent
+        backend_root = Path(__file__).resolve().parents[1]
         violations: list[str] = []
         service_paths: list[Path] = []
         services_dir = backend_root / "app" / "services"
@@ -108,7 +108,7 @@ class DatabaseLifecycleTests(unittest.TestCase):
         self.assertEqual(violations, [])
 
     def test_import_cli_migrates_before_import(self) -> None:
-        source = (Path(__file__).resolve().parent / "import_excel.py").read_text(encoding="utf-8")
+        source = (Path(__file__).resolve().parents[1] / "import_excel.py").read_text(encoding="utf-8")
         tree = ast.parse(source)
         main_function = next(node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name == "main")
         calls = [
@@ -122,7 +122,7 @@ class DatabaseLifecycleTests(unittest.TestCase):
         self.assertLess(call_lines["migrate_database"], call_lines["import_workbook"])
 
     def test_maintenance_bootstraps_before_cleanup(self) -> None:
-        source = (Path(__file__).resolve().parent / "maintenance.py").read_text(encoding="utf-8")
+        source = (Path(__file__).resolve().parents[1] / "maintenance.py").read_text(encoding="utf-8")
         tree = ast.parse(source)
         main_function = next(node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name == "main")
         call_lines = {

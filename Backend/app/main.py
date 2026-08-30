@@ -400,13 +400,17 @@ app.include_router(build_import_router(require_admin, read_json, enforce_rate_li
 
 @app.get("/admin", include_in_schema=False, response_model=None)
 @app.get("/admin/", include_in_schema=False, response_model=None)
-async def admin_page(request: Request) -> FileResponse | RedirectResponse:
+async def admin_page(request: Request) -> FileResponse | RedirectResponse | JSONResponse:
     if request.url.query:
         return RedirectResponse(url="/admin", status_code=303)
     admin_dist_index = config.FRONTEND_DIR / "admin-dist" / "index.html"
     if admin_dist_index.exists():
         return FileResponse(admin_dist_index)
-    return FileResponse(config.FRONTEND_DIR / "admin.html")
+    return error_response(
+        503,
+        "ADMIN_BUNDLE_UNAVAILABLE",
+        "Bundle admin belum tersedia. Jalankan build Frontend-Admin sebelum membuka dashboard.",
+    )
 
 
 @app.get("/{full_path:path}", include_in_schema=False, response_model=None)
@@ -417,7 +421,7 @@ async def frontend(full_path: str) -> FileResponse | JSONResponse:
     if full_path.startswith("admin/"):
         sub_path = full_path[len("admin/") :]
         admin_dist_root = (config.FRONTEND_DIR / "admin-dist").resolve()
-        if admin_dist_root.exists():
+        if (admin_dist_root / "index.html").is_file():
             admin_dist_file = (admin_dist_root / sub_path).resolve()
             try:
                 admin_dist_file.relative_to(admin_dist_root)
@@ -426,6 +430,11 @@ async def frontend(full_path: str) -> FileResponse | JSONResponse:
             except ValueError:
                 pass
             return FileResponse(admin_dist_root / "index.html")
+        return error_response(
+            503,
+            "ADMIN_BUNDLE_UNAVAILABLE",
+            "Bundle admin belum tersedia. Jalankan build Frontend-Admin sebelum membuka dashboard.",
+        )
 
     requested = full_path or "index.html"
     file_path = (config.FRONTEND_DIR / requested).resolve()

@@ -7,7 +7,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import server
 from Backend.app import config as app_config
@@ -22,7 +22,7 @@ from Backend.app.services import (
 from import_excel import import_workbook
 from db import connect, init_db, migrate_database
 from fastapi.testclient import TestClient
-from Backend.test_base import BackendBaseTestCase
+from Backend.tests.test_base import BackendBaseTestCase
 
 
 class BillingAndPaymentTests(BackendBaseTestCase):
@@ -109,6 +109,11 @@ class BillingAndPaymentTests(BackendBaseTestCase):
             self.assertEqual(groups[0]["bills"][0]["due_date"], "2026-08-25")
             self.assertEqual(groups[0]["bills"][0]["due_date_formatted"], "25 Agustus 2026")
 
+            with self.assertRaisesRegex(ValueError, "Format tanggal"):
+                update_bill_due_date(database, [bill_id], "2026-99-99")
+            unchanged = list_imported_bill_groups(database)[0]["bills"][0]
+            self.assertEqual(unchanged["due_date"], "2026-08-25")
+
     def test_admin_bills_pagination_limits_each_page_to_100(self) -> None:
         from Backend.app.security import hash_password
 
@@ -163,11 +168,11 @@ class BillingAndPaymentTests(BackendBaseTestCase):
                 app_config.DB_PATH = original_db_path
 
     def test_bills_page_uses_api_pagination_total(self) -> None:
-        hook_path = Path(__file__).resolve().parents[1] / "Frontend-Admin" / "src" / "hooks" / "useBillsPage.js"
+        hook_path = Path(__file__).resolve().parents[2] / "Frontend-Admin" / "src" / "hooks" / "useBillsPage.js"
         source = (
             hook_path.read_text(encoding="utf-8")
             if hook_path.exists()
-            else (Path(__file__).resolve().parents[1] / "Frontend-Admin" / "src" / "pages" / "BillsPage.jsx").read_text(
+            else (Path(__file__).resolve().parents[2] / "Frontend-Admin" / "src" / "pages" / "BillsPage.jsx").read_text(
                 encoding="utf-8"
             )
         )

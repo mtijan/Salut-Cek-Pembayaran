@@ -79,6 +79,9 @@ def _upsert_student(conn: sqlite3.Connection, row: dict[str, object]) -> str:
         on conflict(nim) do update set
           full_name = excluded.full_name,
           name_norm = excluded.name_norm,
+          deleted_at = null,
+          deleted_by = null,
+          delete_reason = null,
           no_ktp = case when excluded.no_ktp is not null and excluded.no_ktp <> '' then excluded.no_ktp else students.no_ktp end,
           tempat_lahir = case when excluded.tempat_lahir is not null and excluded.tempat_lahir <> '' then excluded.tempat_lahir else students.tempat_lahir end,
           tanggal_lahir = case when excluded.tanggal_lahir is not null and excluded.tanggal_lahir <> '' then excluded.tanggal_lahir else students.tanggal_lahir end,

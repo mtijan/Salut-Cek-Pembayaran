@@ -29,7 +29,7 @@ class OperationsTests(unittest.TestCase):
             disk_capacity_report([Path(".")], threshold_percent=100)
 
     def test_disk_capacity_systemd_unit_uses_package_entrypoint(self) -> None:
-        project_root = Path(__file__).resolve().parents[1]
+        project_root = Path(__file__).resolve().parents[2]
         service_path = project_root / "deploy" / "salut-cek-pembayaran-disk-capacity.service"
         timer_path = project_root / "deploy" / "salut-cek-pembayaran-disk-capacity.timer"
         if not service_path.is_file() or not timer_path.is_file():

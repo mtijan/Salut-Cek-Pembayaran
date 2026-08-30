@@ -458,17 +458,13 @@ def update_bill_due_date(
 ) -> list[sqlite3.Row]:
     if not bill_ids:
         return []
-    due_date_str = str(due_date or "").strip()
-    if due_date_str:
-        parts = due_date_str.split("-")
-        if len(parts) != 3 or not all(p.isdigit() for p in parts):
-            raise ValueError("Format tanggal harus YYYY-MM-DD.")
+    due_date_str = validate_due_date_value(due_date)
 
     with database_transaction(db_path) as conn:
         placeholders = ",".join("?" for _ in bill_ids)
         conn.execute(
             f"update bills set due_date = ?, updated_at = datetime('now') where deleted_at is null and id in ({placeholders})",
-            (due_date_str or None, *bill_ids),
+            (due_date_str, *bill_ids),
         )
         updated = conn.execute(
             f"""

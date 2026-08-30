@@ -7,7 +7,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import server
 from Backend.app import config as app_config
@@ -21,7 +21,7 @@ from Backend.app.services import (
 )
 from db import connect, init_db, migrate_database
 from fastapi.testclient import TestClient
-from Backend.test_base import BackendBaseTestCase
+from Backend.tests.test_base import BackendBaseTestCase
 
 
 class StudentManagementTests(BackendBaseTestCase):
