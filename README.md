@@ -47,28 +47,83 @@ Project ini menggabungkan portal publik yang sederhana dengan dashboard admin be
 
 ## Struktur Project
 
+```text
+Salut-Cek-Pembayaran/
+├── Backend/                     # Backend FastAPI & Arsitektur Clean
+│   ├── app/                     # Aplikasi utama (domain, repositories, routers, services, use_cases)
+│   │   ├── domain/              # Entity models dan validasi domain
+│   │   ├── repositories/        # Abstraksi akses query data
+│   │   ├── routers/             # Router API terisolasi (billing, imports, master_data)
+│   │   ├── services/            # Business service layer & transaksi atomik
+│   │   ├── use_cases/           # Orkestrasi alur bisnis (lookup, reporting)
+│   │   ├── config.py            # Konfigurasi aplikasi & role permissions
+│   │   ├── main.py              # Composition root FastAPI & middleware keamanan
+│   │   └── security.py          # Session & password hashing
+│   ├── importing/               # Parser & analisis validasi import Excel
+│   ├── tests/                   # 20 modul test backend (99 unit/integration tests)
+│   ├── backup_sqlite.py         # Skrip backup SQLite hot
+│   ├── verify_backup.py         # Verifikasi integritas backup SQLite
+│   ├── check_disk_capacity.py   # Pemantau kapasitas storage
+│   ├── maintenance.py           # Pembersihan data operasional berkala
+│   ├── db.py                    # Koneksi, skema, dan migrasi SQLite
+│   ├── schema.sql               # Skema DDL SQLite
+│   ├── excel_reader.py          # Parser OpenXML streaming
+│   ├── import_excel.py          # Pipeline ingestion data
+│   └── server.py                # Development server runner
+├── Frontend/                    # Portal Mahasiswa (Vanilla JS + HTML + CSS) & admin-dist
+├── Frontend-Admin/              # Admin Dashboard SPA (React 19 + Vite 6)
+│   ├── src/                     # Kode sumber aplikasi
+│   │   ├── components/          # Komponen modular per fitur (billing, bills, layout, master, dll.)
+│   │   ├── config/              # Konfigurasi navigasi & aplikasi
+│   │   ├── context/             # Context state autentikasi
+│   │   ├── features/            # Model & logic bisnis per fitur
+│   │   ├── hooks/               # Custom hooks state & lifecycle
+│   │   ├── pages/               # 11 halaman utama dashboard admin
+│   │   ├── services/            # API client HTTP
+│   │   ├── styles/              # CSS modular terstruktur
+│   │   └── utils/               # Format mata uang, tanggal, CSV, dan pagination
+│   └── tests/                   # Suite pengujian frontend
+│       ├── browser/             # E2E browser flows Playwright
+│       └── unit/                # Unit test keamanan & versioning
+├── data/                        # Database & penyimpanan data lokal (di-ignore)
+│   ├── salut.db
+│   └── samples/                 # Sample workbook lokal & data import
+├── deploy/                      # Unit systemd & template konfigurasi Nginx
+├── docs/                        # Dokumentasi internal & rencana remediasi (00-25)
+├── scripts/                     # Skrip penjaminan kualitas, keamanan, dan developer
+│   ├── dev/                     # Utilitas developer lokal
+│   ├── quality/                 # Validasi inventory test & dependensi lock
+│   └── security/                # Pemeriksaan boundary repositori publik & audit
+├── Dockerfile & docker-compose.yml
+├── pyproject.toml & requirements*.txt
+├── README.md & SECURITY.md
+└── VERSION                      # Sumber tunggal versi aplikasi
+```
+
 | Path | Keterangan |
 |---|---|
 | `Backend/app/` | Route FastAPI, konfigurasi, keamanan, dan router API. |
-| `Backend/app/services/` | Modul domain terfokus (system, auth, audit, master data, students, billing) dengan thin shim. |
 | `Backend/app/domain/` | Validasi dan presenter murni per domain mahasiswa/tagihan. |
 | `Backend/app/repositories/` | Akses data terfokus untuk lookup publik dan reporting read-only. |
+| `Backend/app/routers/` | Router factory terisolasi dengan dependency injection. |
+| `Backend/app/services/` | Modul domain terfokus (system, auth, audit, master data, students, billing). |
 | `Backend/app/use_cases/` | Orkestrasi business flow lookup publik serta dashboard/financial reporting. |
+| `Backend/importing/` | Modul ekstraksi workbook dan analisis validasi import spreadsheet. |
+| `Backend/tests/` | Suite test backend per domain beserta compatibility runner. |
 | `Backend/db.py` | Koneksi, skema, dan migrasi SQLite. |
 | `Backend/import_excel.py` | Preview, validasi, dan import workbook. |
-| `Backend/tests/` | Suite test backend per domain beserta compatibility runner. |
-| `Frontend/` | Portal mahasiswa dan bundle admin hasil build. |
-| `Frontend-Admin/` | Source dashboard admin React. |
+| `Frontend/` | Portal mahasiswa dan bundle admin hasil build (`admin-dist/`). |
+| `Frontend-Admin/src/` | Source code murni dashboard admin React. |
 | `Frontend-Admin/src/styles/` | CSS berurutan per ownership: token/base/layout, cards/tables/dialogs, profil, pembayaran, billing, upload, dan halaman data. |
 | `Frontend-Admin/src/hooks/` | Hook bersama dan feature hook untuk copy/master/pagination, report, tagihan, mahasiswa, profil, dan Student 360. |
-| `Frontend-Admin/src/components/reports/` | Filter, statistik, dan tabel feature-specific untuk rekap keuangan admin. |
-| `Frontend-Admin/src/components/bills/` | Statistik, filter, tabel, baris, dan riwayat transaksi halaman tagihan. |
-| `Frontend-Admin/src/components/students/` | Statistik, filter, tabel, baris, dan editor data mahasiswa. |
-| `Frontend-Admin/src/components/student-profile/` | Header, sidebar, navigasi, dan lima tab halaman profil mahasiswa. |
-| `Frontend-Admin/src/components/student-360/` | View biodata, keuangan, dan riwayat pada modal Student 360. |
+| `Frontend-Admin/src/components/` | Komponen modular terorganisir per kelompok domain fitur. |
+| `Frontend-Admin/tests/` | Suite pengujian frontend (unit test di `tests/unit/` dan browser E2E di `tests/browser/`). |
+| `data/samples/` | Direktori lokal terisolasi untuk sampel spreadsheet dan data operasional. |
 | `scripts/quality/` | Inventory test dan pemeriksaan lock dependency untuk CI. |
 | `scripts/security/` | Audit dependency serta boundary path/konten repository publik. |
 | `scripts/dev/` | Utility developer yang opt-in, dry-run, dan membutuhkan target/kredensial eksplisit. |
+| `deploy/` | Unit service/timer systemd dan konfigurasi Nginx untuk deployment. |
+| `docs/` | Dokumentasi arsitektur, API, audit, dan remediasi P0–P3. |
 | `VERSION` | Sumber tunggal versi aplikasi untuk backend dan bundle admin. |
 
 ## Menjalankan di Lokal
