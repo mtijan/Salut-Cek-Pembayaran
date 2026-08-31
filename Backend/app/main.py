@@ -21,6 +21,7 @@ from Backend.app import config
 from Backend.app.openapi import build_custom_openapi
 from Backend.app.rate_limit import RATE_LIMITER
 from Backend.app.responses import error_response, success_response
+from Backend.app.routers.audit import build_audit_router
 from Backend.app.routers.auth import build_auth_router
 from Backend.app.routers.billing import build_billing_router
 from Backend.app.routers.imports import build_import_router
@@ -196,6 +197,7 @@ app.include_router(build_report_router(require_admin, parse_limit))
 app.include_router(build_master_data_router(require_admin, read_json))
 app.include_router(build_import_router(require_admin, read_json, enforce_rate_limit))
 app.include_router(build_user_router(require_admin, read_json))
+app.include_router(build_audit_router(require_admin, parse_limit, parse_offset))
 
 
 @app.get("/admin", include_in_schema=False, response_model=None)

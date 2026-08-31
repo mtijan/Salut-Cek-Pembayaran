@@ -339,6 +339,24 @@ class DatabaseLifecycleTests(unittest.TestCase):
         self.assertIn("import_workbook", call_lines)
         self.assertLess(call_lines["migrate_database"], call_lines["import_workbook"])
 
+    def test_student_and_import_orchestration_delegate_sql_to_repositories(self) -> None:
+        """Keep SQL mutations out of student service, import CLI, and import use case."""
+        backend_root = Path(__file__).resolve().parents[1]
+        boundaries = [
+            backend_root / "app" / "services" / "students.py",
+            backend_root / "app" / "use_cases" / "import_workbook.py",
+            backend_root / "import_excel.py",
+        ]
+        violations: list[str] = []
+        for path in boundaries:
+            tree = ast.parse(path.read_text(encoding="utf-8"))
+            for node in ast.walk(tree):
+                if not isinstance(node, ast.Call) or not isinstance(node.func, ast.Attribute):
+                    continue
+                if node.func.attr in {"execute", "executemany", "executescript"}:
+                    violations.append(f"{path.relative_to(backend_root)}:{node.lineno}")
+        self.assertEqual(violations, [])
+
     def test_maintenance_bootstraps_before_cleanup(self) -> None:
         source = (Path(__file__).resolve().parents[1] / "maintenance.py").read_text(encoding="utf-8")
         tree = ast.parse(source)

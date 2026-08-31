@@ -1,7 +1,7 @@
 """OpenAPI specification generator and schema definitions for Salut Cek Pembayaran.
 
 This module builds a comprehensive, schema-accurate OpenAPI 3.1 specification for all
-27 endpoints and 35 operations, defining exact query parameters, request bodies,
+31 paths and 42 operations, defining exact query parameters, request bodies,
 cookie-based security schemes, and standardized error response models without
 advertising unused 422 HTTPValidationError schemas.
 """
@@ -13,6 +13,9 @@ from typing import Any
 from fastapi import FastAPI
 
 from Backend.app.version import APP_VERSION
+
+EXPECTED_OPENAPI_PATHS = 31
+EXPECTED_OPENAPI_OPERATIONS = 42
 
 
 def build_custom_openapi(app: FastAPI) -> dict[str, Any]:
@@ -1149,6 +1152,61 @@ def build_custom_openapi(app: FastAPI) -> dict[str, Any]:
                 },
             },
         },
+        "/api/admin/audit-logs": {
+            "get": {
+                "tags": ["Audit Logs"],
+                "summary": "List Administrative Audit Logs",
+                "description": (
+                    "List immutable administrative audit entries with sensitive metadata redacted. "
+                    "Requires the dedicated view_audit_logs capability."
+                ),
+                "operationId": "list_admin_audit_logs",
+                "security": sec_cookie,
+                "parameters": [
+                    {
+                        "name": "action",
+                        "in": "query",
+                        "required": False,
+                        "schema": {"type": "string"},
+                    },
+                    {
+                        "name": "entity_type",
+                        "in": "query",
+                        "required": False,
+                        "schema": {"type": "string"},
+                    },
+                    {
+                        "name": "actor_id",
+                        "in": "query",
+                        "required": False,
+                        "schema": {"type": "string"},
+                    },
+                    {
+                        "name": "limit",
+                        "in": "query",
+                        "required": False,
+                        "schema": {"type": "integer", "minimum": 1, "maximum": 200, "default": 50},
+                    },
+                    {
+                        "name": "offset",
+                        "in": "query",
+                        "required": False,
+                        "schema": {"type": "integer", "minimum": 0, "default": 0},
+                    },
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Redacted Audit Log Page",
+                        "content": {
+                            "application/json": {"schema": {"$ref": "#/components/schemas/AuditLogListResponse"}}
+                        },
+                    },
+                    "400": resp_400,
+                    "401": resp_401,
+                    "403": resp_403,
+                },
+            },
+        },
         "/api/admin/users": {
             "get": {
                 "tags": ["User Management"],
@@ -1977,6 +2035,39 @@ def build_custom_openapi(app: FastAPI) -> dict[str, Any]:
                         "new_students": {"type": "integer"},
                         "updated_bills": {"type": "integer"},
                         "new_bills": {"type": "integer"},
+                    },
+                },
+            },
+        },
+        "AuditLogListItem": {
+            "type": "object",
+            "required": ["id", "actor_name", "action", "entity_type", "metadata", "created_at"],
+            "properties": {
+                "id": {"type": "string"},
+                "actor_id": {"type": ["string", "null"]},
+                "actor_name": {"type": "string", "example": "Administrator SALUT"},
+                "actor_role": {"type": ["string", "null"]},
+                "action": {"type": "string", "example": "student.update"},
+                "entity_type": {"type": "string", "example": "student"},
+                "entity_id": {"type": ["string", "null"]},
+                "metadata": {"type": "object", "additionalProperties": True},
+                "created_at": {"type": "string", "example": "2026-08-31 08:00:00"},
+            },
+        },
+        "AuditLogListResponse": {
+            "type": "object",
+            "required": ["success", "data"],
+            "properties": {
+                "success": {"type": "boolean", "example": True},
+                "data": {
+                    "type": "object",
+                    "required": ["audit_logs", "pagination"],
+                    "properties": {
+                        "audit_logs": {
+                            "type": "array",
+                            "items": {"$ref": "#/components/schemas/AuditLogListItem"},
+                        },
+                        "pagination": {"$ref": "#/components/schemas/Pagination"},
                     },
                 },
             },

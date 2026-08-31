@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import sqlite3
-import uuid
 from pathlib import Path
 from typing import cast
 
@@ -54,11 +53,9 @@ def ensure_student(
     norm_prodi = clean_demographic_value(program_study)
     norm_prodi_id = normalize_text(study_program_id) or None
     if norm_prodi_id:
-        sp_row = conn.execute(
-            "select name from study_programs where id = ? or upper(code) = ?", (norm_prodi_id, norm_prodi_id.upper())
-        ).fetchone()
-        if sp_row and not norm_prodi:
-            norm_prodi = str(sp_row["name"])
+        resolved_program_name = StudentRepository(conn).find_study_program_name(norm_prodi_id)
+        if resolved_program_name and not norm_prodi:
+            norm_prodi = resolved_program_name
     elif norm_prodi:
         from Backend.db import resolve_study_program_id
 
@@ -89,93 +86,64 @@ def ensure_student(
     repo = StudentRepository(conn)
     row = repo.find_by_nim(normalized_nim)
     if row:
-        updates = ["full_name = ?", "name_norm = ?", "updated_at = datetime('now')"]
-        params: list[object] = [normalized_name, normalize_name(normalized_name)]
-        if row["deleted_at"] is not None:
-            updates.extend(["deleted_at = null", "deleted_by = null", "delete_reason = null"])
+        optional_fields: dict[str, object] = {}
         if norm_prodi:
-            updates.append("program_study = ?")
-            params.append(norm_prodi)
+            optional_fields["program_study"] = norm_prodi
         if norm_prodi_id:
-            updates.append("study_program_id = ?")
-            params.append(norm_prodi_id)
+            optional_fields["study_program_id"] = norm_prodi_id
         if norm_status is not None:
-            updates.append("academic_status = ?")
-            params.append(norm_status)
+            optional_fields["academic_status"] = norm_status
         if norm_year is not None:
-            updates.append("entry_year = ?")
-            params.append(norm_year)
+            optional_fields["entry_year"] = norm_year
         if norm_sem:
-            updates.append("entry_semester = ?")
-            params.append(norm_sem)
+            optional_fields["entry_semester"] = norm_sem
         if norm_period:
-            updates.append("entry_period = ?")
-            params.append(norm_period)
+            optional_fields["entry_period"] = norm_period
         if norm_email:
-            updates.append("email = ?")
-            params.append(norm_email)
+            optional_fields["email"] = norm_email
         if norm_address:
-            updates.append("address = ?")
-            params.append(norm_address)
+            optional_fields["address"] = norm_address
         if norm_phone:
-            updates.append("phone_number = ?")
-            params.append(norm_phone)
+            optional_fields["phone_number"] = norm_phone
         if norm_ktp:
-            updates.append("no_ktp = ?")
-            params.append(norm_ktp)
+            optional_fields["no_ktp"] = norm_ktp
         if norm_tempat:
-            updates.append("tempat_lahir = ?")
-            params.append(norm_tempat)
+            optional_fields["tempat_lahir"] = norm_tempat
         if norm_tgl:
-            updates.append("tanggal_lahir = ?")
-            params.append(norm_tgl)
+            optional_fields["tanggal_lahir"] = norm_tgl
         if norm_ibu:
-            updates.append("nama_ibu_kandung = ?")
-            params.append(norm_ibu)
+            optional_fields["nama_ibu_kandung"] = norm_ibu
         if norm_reg:
-            updates.append("initial_registration = ?")
-            params.append(norm_reg)
-        params.append(row["id"])
-        conn.execute(f"update students set {', '.join(updates)} where id = ?", params)
-        res = conn.execute("select id, nim, full_name from students where id = ?", (row["id"],)).fetchone()
-        assert res is not None
-        return res
-
-    student_id = f"stu_{uuid.uuid4().hex[:12]}"
-    conn.execute(
-        """
-        insert into students (
-            id, nim, full_name, name_norm,
-            no_ktp, tempat_lahir, tanggal_lahir, nama_ibu_kandung,
-            program_study, study_program_id, academic_status, entry_year, entry_semester, entry_period,
-            email, address, phone_number, initial_registration
+            optional_fields["initial_registration"] = norm_reg
+        return repo.update_or_restore_by_nim(
+            str(row["id"]),
+            full_name=normalized_name,
+            name_norm=normalize_name(normalized_name),
+            deleted=row["deleted_at"] is not None,
+            optional_fields=optional_fields,
         )
-        values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """,
-        (
-            student_id,
-            normalized_nim,
-            normalized_name,
-            normalize_name(normalized_name),
-            norm_ktp,
-            norm_tempat,
-            norm_tgl,
-            norm_ibu,
-            norm_prodi,
-            norm_prodi_id,
-            norm_status or "aktif",
-            norm_year,
-            norm_sem,
-            norm_period,
-            norm_email,
-            norm_address,
-            norm_phone,
-            norm_reg,
-        ),
+
+    return repo.create_profile(
+        {
+            "nim": normalized_nim,
+            "full_name": normalized_name,
+            "name_norm": normalize_name(normalized_name),
+            "no_ktp": norm_ktp,
+            "tempat_lahir": norm_tempat,
+            "tanggal_lahir": norm_tgl,
+            "nama_ibu_kandung": norm_ibu,
+            "program_study": norm_prodi,
+            "study_program_id": norm_prodi_id,
+            "academic_status": norm_status or "aktif",
+            "entry_year": norm_year,
+            "entry_semester": norm_sem,
+            "entry_period": norm_period,
+            "email": norm_email,
+            "address": norm_address,
+            "phone_number": norm_phone,
+            "initial_registration": norm_reg,
+        }
     )
-    res = conn.execute("select id, nim, full_name from students where id = ?", (student_id,)).fetchone()
-    assert res is not None
-    return res
 
 
 def list_students(
@@ -343,37 +311,28 @@ def update_student(
             duplicate = repo.find_duplicate_nim(normalized_nim, exclude_id=student_id)
             if duplicate:
                 raise ValueError("NIM sudah digunakan mahasiswa lain.")
-            conn.execute(
-                """
-                update students
-                set nim = ?, full_name = ?, name_norm = ?, no_ktp = ?, tempat_lahir = ?, tanggal_lahir = ?, nama_ibu_kandung = ?,
-                    program_study = ?, study_program_id = ?, academic_status = ?, entry_year = ?, entry_semester = ?, entry_period = ?,
-                    email = ?, address = ?, phone_number = ?, initial_registration = ?,
-                    updated_at = datetime('now')
-                where id = ?
-                """,
-                (
-                    normalized_nim,
-                    normalized_name,
-                    normalize_name(normalized_name),
-                    no_ktp,
-                    tempat,
-                    tgl,
-                    ibu,
-                    prodi,
-                    prodi_id,
-                    status,
-                    year,
-                    sem,
-                    period,
-                    email,
-                    address,
-                    phone,
-                    reg,
-                    student_id,
-                ),
+            student = repo.update_profile(
+                student_id,
+                {
+                    "nim": normalized_nim,
+                    "full_name": normalized_name,
+                    "name_norm": normalize_name(normalized_name),
+                    "no_ktp": no_ktp,
+                    "tempat_lahir": tempat,
+                    "tanggal_lahir": tgl,
+                    "nama_ibu_kandung": ibu,
+                    "program_study": prodi,
+                    "study_program_id": prodi_id,
+                    "academic_status": status,
+                    "entry_year": year,
+                    "entry_semester": sem,
+                    "entry_period": period,
+                    "email": email,
+                    "address": address,
+                    "phone_number": phone,
+                    "initial_registration": reg,
+                },
             )
-            student = conn.execute("select * from students where id = ?", (student_id,)).fetchone()
             if actor_id:
                 _audit.write_audit(conn, actor_id, "student.update", "student", student_id, {"nim": student["nim"]})
             return student

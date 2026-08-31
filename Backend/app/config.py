@@ -155,5 +155,6 @@ ROLE_PERMISSIONS = {
         "manage_master_data",
         "import",
         "manage_users",
+        "view_audit_logs",
     },
 }

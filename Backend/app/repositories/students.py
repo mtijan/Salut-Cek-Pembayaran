@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import sqlite3
+import uuid
 from typing import cast
 
 from Backend.excel_reader import normalize_text
@@ -60,6 +61,204 @@ class StudentRepository:
             """,
             (nim, exclude_id),
         ).fetchone()
+
+    def find_study_program_name(self, identifier: str) -> str | None:
+        """Resolve a study-program name from its ID or case-insensitive code."""
+        row = self._connection.execute(
+            "select name from study_programs where id = ? or upper(code) = ?",
+            (identifier, identifier.upper()),
+        ).fetchone()
+        return str(row["name"]) if row else None
+
+    def update_or_restore_by_nim(
+        self,
+        student_id: str,
+        *,
+        full_name: str,
+        name_norm: str,
+        deleted: bool,
+        optional_fields: dict[str, object],
+    ) -> sqlite3.Row:
+        """Update an existing NIM profile, restoring a soft-deleted row when needed."""
+        allowed_fields = {
+            "program_study",
+            "study_program_id",
+            "academic_status",
+            "entry_year",
+            "entry_semester",
+            "entry_period",
+            "email",
+            "address",
+            "phone_number",
+            "no_ktp",
+            "tempat_lahir",
+            "tanggal_lahir",
+            "nama_ibu_kandung",
+            "initial_registration",
+        }
+        unknown_fields = set(optional_fields) - allowed_fields
+        if unknown_fields:
+            raise ValueError(f"Kolom profil mahasiswa tidak didukung: {', '.join(sorted(unknown_fields))}")
+
+        assignments = ["full_name = ?", "name_norm = ?", "updated_at = datetime('now')"]
+        params: list[object] = [full_name, name_norm]
+        if deleted:
+            assignments.extend(["deleted_at = null", "deleted_by = null", "delete_reason = null"])
+        for column, value in optional_fields.items():
+            assignments.append(f"{column} = ?")
+            params.append(value)
+        params.append(student_id)
+        self._connection.execute(
+            f"update students set {', '.join(assignments)} where id = ?",
+            params,
+        )
+        row = self._connection.execute(
+            "select id, nim, full_name from students where id = ?",
+            (student_id,),
+        ).fetchone()
+        assert row is not None
+        return row
+
+    def create_profile(self, profile: dict[str, object]) -> sqlite3.Row:
+        """Insert a normalized student profile and return its public identity."""
+        student_id = str(profile.get("id") or f"stu_{uuid.uuid4().hex[:12]}")
+        self._connection.execute(
+            """
+            insert into students (
+                id, nim, full_name, name_norm,
+                no_ktp, tempat_lahir, tanggal_lahir, nama_ibu_kandung,
+                program_study, study_program_id, academic_status, entry_year,
+                entry_semester, entry_period, email, address, phone_number,
+                initial_registration
+            )
+            values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                student_id,
+                profile["nim"],
+                profile["full_name"],
+                profile["name_norm"],
+                profile.get("no_ktp"),
+                profile.get("tempat_lahir"),
+                profile.get("tanggal_lahir"),
+                profile.get("nama_ibu_kandung"),
+                profile.get("program_study"),
+                profile.get("study_program_id"),
+                profile.get("academic_status") or "aktif",
+                profile.get("entry_year"),
+                profile.get("entry_semester"),
+                profile.get("entry_period"),
+                profile.get("email"),
+                profile.get("address"),
+                profile.get("phone_number"),
+                profile.get("initial_registration"),
+            ),
+        )
+        row = self._connection.execute(
+            "select id, nim, full_name from students where id = ?",
+            (student_id,),
+        ).fetchone()
+        assert row is not None
+        return row
+
+    def update_profile(self, student_id: str, profile: dict[str, object]) -> sqlite3.Row:
+        """Replace the editable fields of an active student profile."""
+        self._connection.execute(
+            """
+            update students
+            set nim = ?, full_name = ?, name_norm = ?, no_ktp = ?, tempat_lahir = ?,
+                tanggal_lahir = ?, nama_ibu_kandung = ?, program_study = ?,
+                study_program_id = ?, academic_status = ?, entry_year = ?,
+                entry_semester = ?, entry_period = ?, email = ?, address = ?,
+                phone_number = ?, initial_registration = ?, updated_at = datetime('now')
+            where id = ? and deleted_at is null
+            """,
+            (
+                profile["nim"],
+                profile["full_name"],
+                profile["name_norm"],
+                profile.get("no_ktp"),
+                profile.get("tempat_lahir"),
+                profile.get("tanggal_lahir"),
+                profile.get("nama_ibu_kandung"),
+                profile.get("program_study"),
+                profile.get("study_program_id"),
+                profile.get("academic_status"),
+                profile.get("entry_year"),
+                profile.get("entry_semester"),
+                profile.get("entry_period"),
+                profile.get("email"),
+                profile.get("address"),
+                profile.get("phone_number"),
+                profile.get("initial_registration"),
+                student_id,
+            ),
+        )
+        row = self.find_by_id(student_id)
+        assert row is not None
+        return row
+
+    def upsert_import_profile(self, profile: dict[str, object]) -> str:
+        """Upsert an imported profile while preserving non-empty existing demographics."""
+        student_id = str(profile.get("id") or uuid.uuid4())
+        self._connection.execute(
+            """
+            insert into students (
+                id, nim, full_name, name_norm, no_ktp, tempat_lahir, tanggal_lahir,
+                nama_ibu_kandung, program_study, initial_registration, entry_year,
+                entry_semester, entry_period, phone_number, email, academic_status,
+                updated_at
+            )
+            values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'aktif', datetime('now'))
+            on conflict(nim) do update set
+              full_name = excluded.full_name,
+              name_norm = excluded.name_norm,
+              deleted_at = null,
+              deleted_by = null,
+              delete_reason = null,
+              no_ktp = coalesce(nullif(excluded.no_ktp, ''), students.no_ktp),
+              tempat_lahir = coalesce(nullif(excluded.tempat_lahir, ''), students.tempat_lahir),
+              tanggal_lahir = coalesce(nullif(excluded.tanggal_lahir, ''), students.tanggal_lahir),
+              nama_ibu_kandung = coalesce(nullif(excluded.nama_ibu_kandung, ''), students.nama_ibu_kandung),
+              program_study = coalesce(nullif(excluded.program_study, ''), students.program_study),
+              initial_registration = coalesce(
+                  nullif(excluded.initial_registration, ''), students.initial_registration
+              ),
+              entry_year = coalesce(excluded.entry_year, students.entry_year),
+              entry_semester = coalesce(excluded.entry_semester, students.entry_semester),
+              entry_period = coalesce(excluded.entry_period, students.entry_period),
+              phone_number = coalesce(nullif(excluded.phone_number, ''), students.phone_number),
+              email = coalesce(nullif(excluded.email, ''), students.email),
+              updated_at = datetime('now')
+            """,
+            (
+                student_id,
+                profile["nim"],
+                profile["full_name"],
+                profile["name_norm"],
+                profile.get("no_ktp"),
+                profile.get("tempat_lahir"),
+                profile.get("tanggal_lahir"),
+                profile.get("nama_ibu_kandung"),
+                profile.get("program_study"),
+                profile.get("initial_registration"),
+                profile.get("entry_year"),
+                profile.get("entry_semester"),
+                profile.get("entry_period"),
+                profile.get("phone_number"),
+                profile.get("email"),
+            ),
+        )
+        row = self.find_by_nim(str(profile["nim"]))
+        assert row is not None
+        return str(row["id"])
+
+    def set_study_program(self, student_id: str, study_program_id: str) -> None:
+        """Associate an imported student with a resolved study-program record."""
+        self._connection.execute(
+            "update students set study_program_id = ? where id = ?",
+            (study_program_id, student_id),
+        )
 
     def list_admin(
         self,

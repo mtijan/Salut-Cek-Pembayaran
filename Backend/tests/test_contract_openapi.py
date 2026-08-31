@@ -9,7 +9,9 @@ from typing import Any
 from fastapi.testclient import TestClient
 
 from Backend.app import config as app_config
+from Backend.app import openapi as openapi_module
 from Backend.app.main import app
+from Backend.app.openapi import EXPECTED_OPENAPI_OPERATIONS, EXPECTED_OPENAPI_PATHS
 from Backend.app.security import hash_password
 from Backend.app.version import APP_VERSION
 from Backend.db import connect, database_transaction, init_db, migrate_database
@@ -25,13 +27,13 @@ class ContractOpenAPITests(BackendBaseTestCase):
         self.schema = app.openapi()
 
     def test_openapi_metadata_and_counts(self) -> None:
-        """Verify OpenAPI 3.1 metadata, exact 30 paths, and exact 41 operations."""
+        """Verify OpenAPI 3.1 metadata and its explicit anti-drift counts."""
         self.assertEqual(self.schema["openapi"], "3.1.0")
         self.assertEqual(self.schema["info"]["title"], "Salut Cek Pembayaran")
         self.assertEqual(self.schema["info"]["version"], APP_VERSION)
 
         paths: dict[str, Any] = self.schema["paths"]
-        self.assertEqual(len(paths), 30)
+        self.assertEqual(len(paths), EXPECTED_OPENAPI_PATHS)
 
         total_operations = sum(
             1
@@ -39,7 +41,10 @@ class ContractOpenAPITests(BackendBaseTestCase):
             for method in path_item
             if method in {"get", "post", "patch", "delete", "put"}
         )
-        self.assertEqual(total_operations, 41)
+        self.assertEqual(total_operations, EXPECTED_OPENAPI_OPERATIONS)
+        module_doc = openapi_module.__doc__ or ""
+        self.assertIn(f"{EXPECTED_OPENAPI_PATHS} paths", module_doc)
+        self.assertIn(f"{EXPECTED_OPENAPI_OPERATIONS} operations", module_doc)
 
     def test_openapi_security_schemes(self) -> None:
         """Verify cookieAuth security scheme is configured and applied to protected admin routes."""

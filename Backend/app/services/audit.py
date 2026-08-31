@@ -10,8 +10,106 @@ from pathlib import Path
 
 from Backend.app import config
 from Backend.app.domain.common import rupiah
+from Backend.app.repositories.audit import AuditLogRepository
 from Backend.app.security import digest
 from Backend.db import database_connection, database_transaction
+
+REDACTED_VALUE = "[REDACTED]"
+SENSITIVE_METADATA_KEYS = {
+    "address",
+    "credential",
+    "email",
+    "full_name",
+    "nama_ibu_kandung",
+    "nim",
+    "no_ktp",
+    "password",
+    "phone_number",
+    "secret",
+    "session",
+    "token",
+}
+
+
+def _metadata_key_is_sensitive(key: str) -> bool:
+    normalized_key = key.strip().casefold()
+    sensitive_fragments = (
+        "password",
+        "secret",
+        "token",
+        "credential",
+        "email",
+        "nim",
+        "nik",
+        "ktp",
+        "phone",
+        "address",
+        "nama_ibu",
+    )
+    return normalized_key in SENSITIVE_METADATA_KEYS or any(
+        fragment in normalized_key for fragment in sensitive_fragments
+    )
+
+
+def redact_audit_metadata(value: object, key: str = "") -> object:
+    """Recursively redact known credential and personal-data metadata fields."""
+    if _metadata_key_is_sensitive(key):
+        return REDACTED_VALUE
+    if isinstance(value, dict):
+        return {
+            str(item_key): redact_audit_metadata(item_value, str(item_key)) for item_key, item_value in value.items()
+        }
+    if isinstance(value, list):
+        return [redact_audit_metadata(item) for item in value]
+    return value
+
+
+def _decode_redacted_metadata(raw_metadata: object) -> dict[str, object]:
+    try:
+        decoded = json.loads(str(raw_metadata or "{}"))
+    except (json.JSONDecodeError, TypeError, ValueError):
+        return {}
+    if not isinstance(decoded, dict):
+        return {}
+    redacted = redact_audit_metadata(decoded)
+    return redacted if isinstance(redacted, dict) else {}
+
+
+def list_audit_logs(
+    db_path: str | Path = config.DB_PATH,
+    *,
+    action: str = "",
+    entity_type: str = "",
+    actor_id: str = "",
+    limit: int = 50,
+    offset: int = 0,
+) -> dict[str, object]:
+    """Return a filtered audit page with metadata redacted before serialization."""
+    safe_limit = max(1, min(int(limit), 200))
+    safe_offset = max(0, int(offset))
+    with database_connection(db_path) as conn:
+        rows, total = AuditLogRepository(conn).list_page(
+            action=action,
+            entity_type=entity_type,
+            actor_id=actor_id,
+            limit=safe_limit,
+            offset=safe_offset,
+        )
+    logs = [
+        {
+            "id": str(row["id"]),
+            "actor_id": str(row["actor_id"]) if row["actor_id"] else None,
+            "actor_name": str(row["actor_name"] or "System"),
+            "actor_role": str(row["actor_role"]) if row["actor_role"] else None,
+            "action": str(row["action"]),
+            "entity_type": str(row["entity_type"]),
+            "entity_id": str(row["entity_id"]) if row["entity_id"] else None,
+            "metadata": _decode_redacted_metadata(row["metadata"]),
+            "created_at": str(row["created_at"]),
+        }
+        for row in rows
+    ]
+    return {"audit_logs": logs, "pagination": {"total": total, "limit": safe_limit, "offset": safe_offset}}
 
 
 def write_lookup_log(nim: str, name: str, result_type: str) -> None:
