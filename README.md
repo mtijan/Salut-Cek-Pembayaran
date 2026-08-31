@@ -62,7 +62,8 @@ Salut-Cek-Pembayaran/
 │   ├── importing/               # Parser & analisis validasi import Excel
 │   ├── tests/                   # 20 modul test backend (99 unit/integration tests)
 │   ├── backup_sqlite.py         # Skrip backup SQLite hot
-│   ├── verify_backup.py         # Verifikasi integritas backup SQLite
+│   ├── verify_backup.py         # Verifikasi integrity/schema/restore-smoke backup
+│   ├── due_date_backfill.py     # Dry-run/apply/rollback due date historis
 │   ├── check_disk_capacity.py   # Pemantau kapasitas storage
 │   ├── maintenance.py           # Pembersihan data operasional berkala
 │   ├── db.py                    # Koneksi, skema, dan migrasi SQLite

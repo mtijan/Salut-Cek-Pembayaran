@@ -15,9 +15,12 @@ from fastapi.responses import JSONResponse
 from Backend.app import config
 from Backend.app.responses import error_response, success_response
 from Backend.app.services import (
+    claim_import_preview_for_admin,
     cleanup_stale_imports,
+    consume_import_preview_claim,
     delete_import_preview,
     get_import_preview_for_admin,
+    release_import_preview_claim,
     sanitize_filename,
     store_import_preview,
     write_audit,
@@ -131,6 +134,12 @@ def build_import_router(
         preview_record = get_import_preview_for_admin(import_token, admin)
         if not preview_record:
             return error_response(404, "NOT_FOUND", "File preview import tidak ditemukan.")
+        if preview_record["claim_id"]:
+            return error_response(
+                409,
+                "IMPORT_ALREADY_PROCESSING",
+                "Token import sedang diproses atau sudah digunakan.",
+            )
 
         workbook = Path(str(preview_record["stored_path"])).resolve()
         import_root = config.IMPORT_DIR.resolve()
@@ -161,15 +170,49 @@ def build_import_router(
                     "IMPORT_CONFIRMATION_REQUIRED",
                     "Perubahan nominal atau BRIVA harus dikonfirmasi admin sebelum import disimpan.",
                 )
-            result = import_workbook(
-                workbook,
-                config.DB_PATH,
-                source_file_name=source_file_name,
-                confirm_updates=confirm_updates,
-                actor_id=admin["id"],
-            )
-            workbook.unlink(missing_ok=True)
-            delete_import_preview(import_token)
+
+            claimed_record = claim_import_preview_for_admin(import_token, admin)
+            if not claimed_record:
+                return error_response(
+                    409,
+                    "IMPORT_ALREADY_PROCESSING",
+                    "Token import sedang diproses atau sudah digunakan.",
+                )
+
+            claim_id = str(claimed_record["claim_id"])
+            try:
+                result = import_workbook(
+                    workbook,
+                    config.DB_PATH,
+                    source_file_name=source_file_name,
+                    confirm_updates=confirm_updates,
+                    actor_id=admin["id"],
+                )
+            except Exception:
+                try:
+                    released = release_import_preview_claim(import_token, claim_id)
+                except Exception:
+                    logger.exception("Failed to release import claim %s for token %s", claim_id, import_token)
+                else:
+                    if not released:
+                        logger.error("Failed to release import claim %s for token %s", claim_id, import_token)
+                raise
+
+            try:
+                consumed = consume_import_preview_claim(import_token, claim_id)
+            except Exception:
+                consumed = False
+                logger.exception("Failed to consume import claim %s for token %s", claim_id, import_token)
+            if consumed:
+                try:
+                    workbook.unlink(missing_ok=True)
+                except OSError:
+                    logger.exception("Failed to remove committed import workbook for token %s", import_token)
+            else:
+                logger.error(
+                    "Committed import token %s remains claimed; retaining workbook for expiry cleanup",
+                    import_token,
+                )
             return success_response(result)
         except ValueError as exc:
             return error_response(400, "IMPORT_VALIDATION_FAILED", str(exc))

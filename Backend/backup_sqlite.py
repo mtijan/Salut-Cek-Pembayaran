@@ -22,12 +22,13 @@ def backup_timestamp(path: Path) -> datetime | None:
     name = path.name
     if not name.startswith(BACKUP_PREFIX) or not name.endswith(BACKUP_SUFFIX):
         return None
-    try:
-        return datetime.strptime(name[len(BACKUP_PREFIX) : -len(BACKUP_SUFFIX)], "%Y%m%dT%H%M%SZ").replace(
-            tzinfo=timezone.utc
-        )
-    except ValueError:
-        return None
+    timestamp_text = name[len(BACKUP_PREFIX) : -len(BACKUP_SUFFIX)]
+    for timestamp_format in ("%Y%m%dT%H%M%S%fZ", "%Y%m%dT%H%M%SZ"):
+        try:
+            return datetime.strptime(timestamp_text, timestamp_format).replace(tzinfo=timezone.utc)
+        except ValueError:
+            continue
+    return None
 
 
 def prune_backups(destination_dir: Path, now: datetime | None = None) -> list[Path]:
@@ -71,7 +72,7 @@ def backup_database(source: Path, destination_dir: Path) -> Path:
         raise FileNotFoundError(f"Database tidak ditemukan: {source}")
 
     destination_dir.mkdir(parents=True, exist_ok=True)
-    timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
     destination = destination_dir / f"salut-{timestamp}.sqlite"
     source_conn = sqlite3.connect(source)
     destination_conn = sqlite3.connect(destination)

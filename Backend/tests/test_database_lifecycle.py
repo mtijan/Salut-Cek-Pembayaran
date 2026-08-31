@@ -13,11 +13,13 @@ import openpyxl
 from Backend.app import services
 from Backend.db import (
     LATEST_SCHEMA_VERSION,
+    MIGRATIONS,
     connect,
     database_connection,
     database_transaction,
     init_db,
     migrate_database,
+    migrate_bills_for_duplicate_briva,
 )
 from Backend.import_excel import import_workbook
 
@@ -89,6 +91,188 @@ class DatabaseLifecycleTests(unittest.TestCase):
                 ]
             self.assertEqual(first_versions, second_versions)
             self.assertEqual([int(row[0]) for row in second_versions], [LATEST_SCHEMA_VERSION])
+
+    def test_version_two_database_adds_import_preview_claim_columns(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            database = Path(temporary_directory) / "salut.sqlite"
+            conn = sqlite3.connect(database)
+            try:
+                conn.executescript(
+                    """
+                    create table schema_migrations (
+                      version integer primary key,
+                      applied_at text not null default (datetime('now'))
+                    );
+                    insert into schema_migrations (version) values (2);
+                    create table import_previews (
+                      token text primary key,
+                      admin_id text not null,
+                      file_name text not null,
+                      stored_path text not null,
+                      expires_at text not null,
+                      created_at text not null default (datetime('now'))
+                    );
+                    """
+                )
+                conn.commit()
+            finally:
+                conn.close()
+
+            migrate_database(database)
+
+            with database_connection(database) as migrated:
+                columns = {str(row["name"]) for row in migrated.execute("pragma table_info(import_previews)")}
+                version = migrated.execute("select max(version) from schema_migrations").fetchone()[0]
+            self.assertEqual(version, LATEST_SCHEMA_VERSION)
+            self.assertIn("claim_id", columns)
+            self.assertIn("claimed_at", columns)
+
+    def test_future_schema_version_fails_fast_without_mutating_data(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            database = Path(temporary_directory) / "salut.sqlite"
+            migrate_database(database)
+            with database_transaction(database) as conn:
+                conn.execute(
+                    "insert into students (id, nim, full_name, name_norm) values (?, ?, ?, ?)",
+                    ("future-student", "910099", "Future Schema", "future schema"),
+                )
+                conn.execute("delete from schema_migrations")
+                conn.execute("insert into schema_migrations (version) values (?)", (LATEST_SCHEMA_VERSION + 1,))
+
+            with self.assertRaisesRegex(RuntimeError, "lebih baru"):
+                migrate_database(database)
+
+            with database_connection(database) as conn:
+                version = conn.execute("select max(version) from schema_migrations").fetchone()[0]
+                student = conn.execute("select full_name from students where id = 'future-student'").fetchone()[0]
+            self.assertEqual(version, LATEST_SCHEMA_VERSION + 1)
+            self.assertEqual(student, "Future Schema")
+
+    def test_failed_versioned_migration_rolls_back_schema_and_data(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            database = Path(temporary_directory) / "salut.sqlite"
+            migrate_database(database)
+            with database_transaction(database) as conn:
+                conn.execute(
+                    "insert into students (id, nim, full_name, name_norm) values (?, ?, ?, ?)",
+                    ("migration-student", "910098", "Before Failure", "before failure"),
+                )
+                conn.execute("drop table due_date_backfill_changes")
+                conn.execute("drop table due_date_backfill_runs")
+                conn.execute("delete from schema_migrations")
+                conn.execute("insert into schema_migrations (version) values (3)")
+
+            def failing_migration(conn: sqlite3.Connection) -> None:
+                conn.execute("update students set full_name = 'Mutated' where id = 'migration-student'")
+                conn.execute("drop index idx_students_nim")
+                conn.execute("create table migration_failure_probe (id integer)")
+                raise RuntimeError("simulated migration failure")
+
+            with mock.patch.dict(MIGRATIONS, {4: failing_migration}):
+                with self.assertRaisesRegex(RuntimeError, "simulated migration failure"):
+                    migrate_database(database)
+
+            with database_connection(database) as conn:
+                version = conn.execute("select max(version) from schema_migrations").fetchone()[0]
+                name = conn.execute("select full_name from students where id = 'migration-student'").fetchone()[0]
+                index_exists = conn.execute(
+                    "select 1 from sqlite_master where type = 'index' and name = 'idx_students_nim'"
+                ).fetchone()
+                probe_exists = conn.execute(
+                    "select 1 from sqlite_master where type = 'table' and name = 'migration_failure_probe'"
+                ).fetchone()
+            self.assertEqual(version, 3)
+            self.assertEqual(name, "Before Failure")
+            self.assertIsNotNone(index_exists)
+            self.assertIsNone(probe_exists)
+
+    def test_bill_rebuild_preserves_extra_columns_indexes_triggers_and_data(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            database = Path(temporary_directory) / "legacy.sqlite"
+            conn = connect(database)
+            try:
+                conn.execute("pragma foreign_keys = off")
+                conn.executescript(
+                    """
+                    create table students (id text primary key);
+                    create table bills (
+                      id text primary key,
+                      student_id text not null,
+                      briva text not null unique,
+                      amount integer not null,
+                      paid_amount integer not null default 0,
+                      period text not null,
+                      bill_type text not null,
+                      status text not null default 'unpaid',
+                      payment_method text not null default 'BRIVA',
+                      instructions text not null,
+                      due_date text,
+                      source_file text not null,
+                      deleted_at text,
+                      custom_note text default 'preserved',
+                      external_ref text unique,
+                      created_at text not null default (datetime('now')),
+                      updated_at text not null default (datetime('now'))
+                    );
+                    create table bill_trigger_events (bill_id text);
+                    create index idx_bills_custom_note on bills(custom_note);
+                    create trigger bills_custom_update after update on bills
+                    begin
+                      insert into bill_trigger_events (bill_id) values (new.id);
+                    end;
+                    insert into students (id) values ('legacy-student');
+                    insert into bills
+                      (id, student_id, briva, amount, paid_amount, period, bill_type, instructions,
+                       due_date, source_file, deleted_at, custom_note, external_ref)
+                    values
+                      ('legacy-bill', 'legacy-student', '990099', 100000, 25000, '2026.1', 'UKT',
+                       'Bayar', '07 Agustus 2026', 'legacy.xlsx', '2026-01-01', 'keep-me', 'legacy-ref');
+                    """
+                )
+                with conn:
+                    migrate_bills_for_duplicate_briva(conn)
+
+                columns = {str(row["name"]) for row in conn.execute("pragma table_info(bills)")}
+                row = conn.execute(
+                    "select paid_amount, due_date, deleted_at, custom_note, source_row_number from bills"
+                ).fetchone()
+                index_exists = conn.execute(
+                    "select 1 from sqlite_master where type = 'index' and name = 'idx_bills_custom_note'"
+                ).fetchone()
+                trigger_exists = conn.execute(
+                    "select 1 from sqlite_master where type = 'trigger' and name = 'bills_custom_update'"
+                ).fetchone()
+                with conn:
+                    conn.execute("update bills set custom_note = 'updated' where id = 'legacy-bill'")
+                    conn.execute(
+                        """
+                        insert into bills
+                          (id, student_id, briva, amount, period, bill_type, instructions, source_file)
+                        values ('same-briva', 'legacy-student', '990099', 100000, '2026.1', 'UKT', 'Bayar', 'new.xlsx')
+                        """
+                    )
+                with self.assertRaises(sqlite3.IntegrityError):
+                    with conn:
+                        conn.execute(
+                            """
+                            insert into bills
+                              (id, student_id, briva, amount, period, bill_type, instructions, source_file, external_ref)
+                            values
+                              ('duplicate-ref', 'legacy-student', '990100', 100000, '2026.1', 'UKT',
+                               'Bayar', 'duplicate.xlsx', 'legacy-ref')
+                            """
+                        )
+                trigger_events = conn.execute("select count(*) from bill_trigger_events").fetchone()[0]
+            finally:
+                conn.close()
+
+            self.assertTrue(
+                {"paid_amount", "deleted_at", "custom_note", "external_ref", "source_row_number"} <= columns
+            )
+            self.assertEqual(tuple(row), (25000, "07 Agustus 2026", "2026-01-01", "keep-me", None))
+            self.assertIsNotNone(index_exists)
+            self.assertIsNotNone(trigger_exists)
+            self.assertEqual(trigger_events, 1)
 
     def test_runtime_modules_do_not_call_init_db(self) -> None:
         backend_root = Path(__file__).resolve().parents[1]

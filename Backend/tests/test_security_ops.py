@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import sys
+import sqlite3
 import tempfile
 import unittest
+import zipfile
 from datetime import datetime
 from pathlib import Path
 from unittest import mock
@@ -15,7 +17,7 @@ from Backend.app.version import APP_VERSION
 from Backend.app.services import (
     validate_runtime_configuration,
 )
-from db import connect, init_db
+from db import LATEST_SCHEMA_VERSION, connect, init_db
 from fastapi.testclient import TestClient
 from Backend.tests.test_base import BackendBaseTestCase
 
@@ -123,7 +125,36 @@ class SecurityAndOperationsTests(BackendBaseTestCase):
             init_db(conn)
             conn.close()
             archive = backup_database(database, directory / "backups")
-            verify_backup(archive)
+            report = verify_backup(archive)
+            self.assertEqual(report["schema_version"], LATEST_SCHEMA_VERSION)
+            self.assertEqual(report["restore_smoke"], "ok")
+
+    def test_backup_verification_rejects_incomplete_application_schema(self) -> None:
+        from Backend.verify_backup import verify_backup
+
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            directory = Path(temporary_directory)
+            database = directory / "incomplete.sqlite"
+            conn = sqlite3.connect(database)
+            conn.execute("create table schema_migrations (version integer primary key)")
+            conn.execute("insert into schema_migrations (version) values (?)", (LATEST_SCHEMA_VERSION,))
+            conn.commit()
+            conn.close()
+            archive = directory / "incomplete.sqlite.zip"
+            with zipfile.ZipFile(archive, "w") as zip_file:
+                zip_file.write(database, database.name)
+            with self.assertRaisesRegex(RuntimeError, "Schema backup tidak lengkap"):
+                verify_backup(archive)
+
+    def test_backup_verification_rejects_nested_archive_member(self) -> None:
+        from Backend.verify_backup import verify_backup
+
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            archive = Path(temporary_directory) / "nested.sqlite.zip"
+            with zipfile.ZipFile(archive, "w") as zip_file:
+                zip_file.writestr("../nested.sqlite", b"not-a-database")
+            with self.assertRaisesRegex(ValueError, "tepat satu file SQLite"):
+                verify_backup(archive)
 
     def test_python_systemd_jobs_use_package_module_entrypoints(self) -> None:
         project_root = Path(__file__).resolve().parents[2]

@@ -33,6 +33,10 @@ files = [
   "Backend/app/services",
   "Backend/app/use_cases",
   "Backend/app/version.py",
+  "Backend/backup_sqlite.py",
+  "Backend/db.py",
+  "Backend/due_date_backfill.py",
   "Backend/importing",
   "Backend/import_excel.py",
+  "Backend/verify_backup.py",
 ]

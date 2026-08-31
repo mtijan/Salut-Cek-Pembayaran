@@ -1,7 +1,7 @@
 """SQLite database connectivity, schema initialization, and migration management.
 
 This module provides SQLite connection factories, connection/transaction context managers,
-schema version migrations (v1 to v2), entry registration period parsing, and study program resolution.
+schema version migrations (v1 to v4), entry registration period parsing, and study program resolution.
 """
 
 from __future__ import annotations
@@ -11,12 +11,12 @@ import re
 import sqlite3
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Iterator
+from typing import Callable, Iterator
 
 BASE_DIR = Path(__file__).resolve().parent
 DEFAULT_DB_PATH = BASE_DIR / "data" / "salut.sqlite"
 SCHEMA_PATH = BASE_DIR / "schema.sql"
-LATEST_SCHEMA_VERSION = 2
+LATEST_SCHEMA_VERSION = 4
 
 
 def resolve_db_path(db_path: str | Path = DEFAULT_DB_PATH) -> Path:
@@ -74,34 +74,83 @@ def init_db(conn: sqlite3.Connection) -> None:
         row = None
 
     current_version = int(row["version"]) if row else 0
-    if current_version >= LATEST_SCHEMA_VERSION:
+    if current_version > LATEST_SCHEMA_VERSION:
+        raise RuntimeError(
+            f"Database schema version {current_version} lebih baru dari versi aplikasi {LATEST_SCHEMA_VERSION}."
+        )
+    if current_version == LATEST_SCHEMA_VERSION:
         return
 
-    with conn:
-        if current_version < 1:
-            conn.executescript(SCHEMA_PATH.read_text(encoding="utf-8"))
-            migrate_bills_for_duplicate_briva(conn)
-            migrate_bills_for_due_date(conn)
-            migrate_bills_for_paid_amount(conn)
-            migrate_students_for_profile(conn)
-            migrate_soft_delete(conn)
-            migrate_master_data_and_student_siakad(conn)
-            migrate_students_for_master_data(conn)
-            migrate_payment_transactions(conn)
-            conn.execute(
-                "create index if not exists idx_bills_source_file_row on bills(source_file, source_row_number)"
-            )
-            conn.execute("create index if not exists idx_students_academic_status on students(academic_status)")
-            conn.execute("create index if not exists idx_students_entry_year on students(entry_year)")
-            conn.execute("create index if not exists idx_students_study_program_id on students(study_program_id)")
-            conn.execute("create index if not exists idx_students_no_ktp on students(no_ktp)")
-            conn.execute("create index if not exists idx_students_email on students(email)")
-            conn.execute("create index if not exists idx_students_phone on students(phone_number)")
-            conn.execute("create index if not exists idx_students_entry_period on students(entry_period)")
-        if current_version < 2:
-            migrate_payment_transaction_append_only(conn)
-        conn.execute("pragma journal_mode = WAL")
-        conn.execute("insert or replace into schema_migrations (version) values (?)", (LATEST_SCHEMA_VERSION,))
+    for target_version in range(current_version + 1, LATEST_SCHEMA_VERSION + 1):
+        migration = MIGRATIONS.get(target_version)
+        if migration is None:
+            raise RuntimeError(f"Migration schema version {target_version} tidak tersedia.")
+        foreign_keys_enabled = bool(conn.execute("pragma foreign_keys").fetchone()[0])
+        if target_version == 1 and foreign_keys_enabled:
+            conn.execute("pragma foreign_keys = off")
+        try:
+            with conn:
+                migration(conn)
+                if target_version == 1:
+                    violations = conn.execute("pragma foreign_key_check").fetchall()
+                    if violations:
+                        raise RuntimeError("Migration schema v1 menghasilkan pelanggaran foreign key.")
+                conn.execute("delete from schema_migrations")
+                conn.execute("insert into schema_migrations (version) values (?)", (target_version,))
+        finally:
+            if target_version == 1 and foreign_keys_enabled:
+                conn.execute("pragma foreign_keys = on")
+
+    conn.execute("pragma journal_mode = WAL")
+
+
+def _execute_sql_script(conn: sqlite3.Connection, script: str) -> None:
+    """Execute a SQL script statement-by-statement without implicit transaction commits."""
+    statement = ""
+    for line in script.splitlines(keepends=True):
+        statement += line
+        if sqlite3.complete_statement(statement):
+            if statement.strip():
+                conn.execute(statement)
+            statement = ""
+    if statement.strip():
+        raise RuntimeError("Schema SQL berakhir dengan statement yang tidak lengkap.")
+
+
+def migrate_schema_v1(conn: sqlite3.Connection) -> None:
+    """Bootstrap the application schema and normalize databases without a version marker."""
+    _execute_sql_script(conn, SCHEMA_PATH.read_text(encoding="utf-8"))
+    migrate_bills_for_duplicate_briva(conn)
+    migrate_bills_for_due_date(conn)
+    migrate_bills_for_paid_amount(conn)
+    migrate_students_for_profile(conn)
+    migrate_soft_delete(conn)
+    migrate_master_data_and_student_siakad(conn)
+    migrate_students_for_master_data(conn)
+    migrate_payment_transactions(conn)
+    conn.execute("create index if not exists idx_bills_source_file_row on bills(source_file, source_row_number)")
+    conn.execute("create index if not exists idx_students_academic_status on students(academic_status)")
+    conn.execute("create index if not exists idx_students_entry_year on students(entry_year)")
+    conn.execute("create index if not exists idx_students_study_program_id on students(study_program_id)")
+    conn.execute("create index if not exists idx_students_no_ktp on students(no_ktp)")
+    conn.execute("create index if not exists idx_students_email on students(email)")
+    conn.execute("create index if not exists idx_students_phone on students(phone_number)")
+    conn.execute("create index if not exists idx_students_entry_period on students(entry_period)")
+
+
+def migrate_schema_v2(conn: sqlite3.Connection) -> None:
+    """Install append-only protection for the payment transaction ledger."""
+    migrate_payment_transaction_append_only(conn)
+
+
+def migrate_schema_v3(conn: sqlite3.Connection) -> None:
+    """Add ownership fields for atomic import-preview claims."""
+    migrate_import_preview_claims(conn)
+
+
+def migrate_schema_v4(conn: sqlite3.Connection) -> None:
+    """Add reversible due-date backfill run and change ledgers."""
+    migrate_due_date_backfill_ledger(conn)
 
 
 def _table_sql(conn: sqlite3.Connection, table: str) -> str:
@@ -111,6 +160,11 @@ def _table_sql(conn: sqlite3.Connection, table: str) -> str:
 
 def _table_columns(conn: sqlite3.Connection, table: str) -> set[str]:
     return {str(row["name"]) for row in conn.execute(f"pragma table_info({table})").fetchall()}
+
+
+def _quote_identifier(identifier: str) -> str:
+    """Quote a SQLite identifier sourced from schema metadata."""
+    return '"' + identifier.replace('"', '""') + '"'
 
 
 def parse_entry_registration(initial_registration: object) -> tuple[int | None, str | None, str | None]:
@@ -165,6 +219,51 @@ def migrate_payment_transaction_append_only(conn: sqlite3.Connection) -> None:
           select raise(abort, 'payment_transactions is append-only');
         end;
         """
+    )
+
+
+def migrate_import_preview_claims(conn: sqlite3.Connection) -> None:
+    """Add durable ownership fields used by atomic import-token claims."""
+    columns = _table_columns(conn, "import_previews")
+    if "claim_id" not in columns:
+        conn.execute("alter table import_previews add column claim_id text")
+    if "claimed_at" not in columns:
+        conn.execute("alter table import_previews add column claimed_at text")
+
+
+def migrate_due_date_backfill_ledger(conn: sqlite3.Connection) -> None:
+    """Create durable metadata needed for measured and reversible due-date backfills."""
+    conn.execute(
+        """
+        create table if not exists due_date_backfill_runs (
+          id text primary key,
+          status text not null check (status in ('applied', 'rolled_back')),
+          backup_archive text not null,
+          rollback_backup_archive text,
+          candidate_count integer not null,
+          normalized_count integer not null,
+          unresolved_count integer not null,
+          created_at text not null default (datetime('now')),
+          rolled_back_at text
+        )
+        """
+    )
+    conn.execute(
+        """
+        create table if not exists due_date_backfill_changes (
+          run_id text not null references due_date_backfill_runs(id) on delete restrict,
+          bill_id text not null references bills(id) on delete restrict,
+          old_due_date text not null,
+          new_due_date text not null,
+          old_updated_at text not null,
+          new_updated_at text not null,
+          applied_at text not null default (datetime('now')),
+          primary key (run_id, bill_id)
+        )
+        """
+    )
+    conn.execute(
+        "create index if not exists idx_due_date_backfill_changes_bill_id on due_date_backfill_changes(bill_id)"
     )
 
 
@@ -382,47 +481,61 @@ def migrate_bills_for_duplicate_briva(conn: sqlite3.Connection) -> None:
     if not needs_source_row and not needs_drop_briva_unique:
         return
 
-    conn.execute("pragma foreign_keys = off")
-    try:
-        conn.execute("drop table if exists bills_new")
-        conn.execute(
+    index_names_to_skip: set[str] = set()
+    unique_constraints: list[list[str]] = []
+    for index in conn.execute("pragma index_list(bills)").fetchall():
+        quoted_index = _quote_identifier(str(index["name"]))
+        index_columns = [str(row["name"]) for row in conn.execute(f"pragma index_info({quoted_index})")]
+        if int(index["unique"]):
+            if index_columns == ["briva"]:
+                index_names_to_skip.add(str(index["name"]))
+            elif str(index["origin"]) == "u":
+                unique_constraints.append(index_columns)
+    schema_objects = [
+        row
+        for row in conn.execute(
             """
-            create table bills_new (
-              id text primary key,
-              student_id text not null references students(id) on delete cascade,
-              briva text not null,
-              amount integer not null,
-              period text not null,
-              bill_type text not null,
-              status text not null default 'unpaid',
-              payment_method text not null default 'BRIVA',
-              instructions text not null,
-              due_date text,
-              source_file text not null,
-              source_row_number integer,
-              created_at text not null default (datetime('now')),
-              updated_at text not null default (datetime('now'))
-            )
+            select name, type, sql
+            from sqlite_master
+            where tbl_name = 'bills' and type in ('index', 'trigger') and sql is not null
+            order by type, name
             """
-        )
-        source_row_expression = "source_row_number" if not needs_source_row else "null"
-        due_date_expression = "due_date" if "due_date" in columns else "null"
-        conn.execute(
-            f"""
-            insert into bills_new
-              (id, student_id, briva, amount, period, bill_type, status, payment_method,
-               instructions, due_date, source_file, source_row_number, created_at, updated_at)
-            select id, student_id, briva, amount, period, bill_type, status, payment_method,
-                   instructions, {due_date_expression}, source_file, {source_row_expression}, created_at, updated_at
-            from bills
-            """
-        )
-        conn.execute("drop table bills")
-        conn.execute("alter table bills_new rename to bills")
-        conn.execute("create index if not exists idx_bills_student_id on bills(student_id)")
-        conn.execute("create index if not exists idx_bills_source_file_row on bills(source_file, source_row_number)")
-    finally:
-        conn.execute("pragma foreign_keys = on")
+        ).fetchall()
+        if str(row["name"]) not in index_names_to_skip
+    ]
+
+    table_info = conn.execute("pragma table_info(bills)").fetchall()
+    definitions: list[str] = []
+    existing_names: list[str] = []
+    for column in table_info:
+        name = str(column["name"])
+        existing_names.append(name)
+        definition = f"{_quote_identifier(name)} {str(column['type'] or 'text')}"
+        if int(column["pk"]):
+            definition += " primary key"
+        if int(column["notnull"]):
+            definition += " not null"
+        if column["dflt_value"] is not None:
+            definition += f" default ({column['dflt_value']})"
+        if name == "student_id":
+            definition += " references students(id) on delete cascade"
+        definitions.append(definition)
+    if needs_source_row:
+        definitions.append("source_row_number integer")
+    definitions.extend(
+        f"unique ({', '.join(_quote_identifier(name) for name in constraint)})" for constraint in unique_constraints
+    )
+
+    conn.execute("drop table if exists bills_new")
+    conn.execute(f"create table bills_new ({', '.join(definitions)})")
+    quoted_columns = ", ".join(_quote_identifier(name) for name in existing_names)
+    conn.execute(f"insert into bills_new ({quoted_columns}) select {quoted_columns} from bills")
+    conn.execute("drop table bills")
+    conn.execute("alter table bills_new rename to bills")
+    for schema_object in schema_objects:
+        conn.execute(str(schema_object["sql"]))
+    conn.execute("create index if not exists idx_bills_student_id on bills(student_id)")
+    conn.execute("create index if not exists idx_bills_source_file_row on bills(source_file, source_row_number)")
 
 
 def migrate_soft_delete(conn: sqlite3.Connection) -> None:
@@ -513,3 +626,11 @@ def migrate_payment_transactions(conn: sqlite3.Connection) -> None:
     conn.execute("create index if not exists idx_pt_student_id on payment_transactions(student_id)")
     conn.execute("create index if not exists idx_pt_payment_date on payment_transactions(payment_date)")
     conn.execute("create index if not exists idx_pt_created_at on payment_transactions(created_at)")
+
+
+MIGRATIONS: dict[int, Callable[[sqlite3.Connection], None]] = {
+    1: migrate_schema_v1,
+    2: migrate_schema_v2,
+    3: migrate_schema_v3,
+    4: migrate_schema_v4,
+}

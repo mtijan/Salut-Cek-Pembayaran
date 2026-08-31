@@ -3,9 +3,12 @@ from __future__ import annotations
 import sys
 import sqlite3
 import tempfile
+import threading
 import zipfile
+from concurrent.futures import ThreadPoolExecutor
 from io import BytesIO
 from pathlib import Path
+from unittest import mock
 
 import openpyxl
 
@@ -127,6 +130,207 @@ class ImportAdminSafetyTests(BackendBaseTestCase):
                 self.assertEqual(res.status_code, 404)
                 self.assertTrue(workbook.exists())
             finally:
+                app_config.DB_PATH = original_db_path
+                app_config.IMPORT_DIR = original_import_dir
+
+    def test_admin_import_commit_claim_allows_exactly_one_concurrent_request(self) -> None:
+        from Backend.app.security import hash_password
+        from Backend.app.services import store_import_preview
+
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            temp = Path(temporary_directory)
+            database = temp / "salut.sqlite"
+            imports = temp / "imports"
+            imports.mkdir()
+            token = "imp_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+            workbook = imports / f"{token}_concurrent.xlsx"
+            self._write_workbook(workbook, [("01013", "Concurrent Import", "81313", 100000)])
+
+            conn = connect(database)
+            init_db(conn)
+            with conn:
+                conn.execute(
+                    "insert into admin_users (id, email, password_hash, role) values (?, ?, ?, ?)",
+                    ("admin-concurrent", "concurrent@imp.test", hash_password("Password123!"), "admin"),
+                )
+            conn.close()
+
+            original_db_path = app_config.DB_PATH
+            original_import_dir = app_config.IMPORT_DIR
+            app_config.DB_PATH = database
+            app_config.IMPORT_DIR = imports
+            clients: list[TestClient] = []
+            try:
+                store_import_preview(token, "admin-concurrent", "concurrent.xlsx", workbook)
+                clients = [TestClient(server.app), TestClient(server.app)]
+                for client in clients:
+                    login = client.post(
+                        "/api/admin/login",
+                        json={"email": "concurrent@imp.test", "password": "Password123!"},
+                    )
+                    self.assertEqual(login.status_code, 200)
+
+                preflight_barrier = threading.Barrier(2)
+                import_calls = 0
+                import_lock = threading.Lock()
+
+                def preview_side_effect(*_args: object, **_kwargs: object) -> dict[str, object]:
+                    preflight_barrier.wait(timeout=5)
+                    return {"critical_rows": 0, "requires_update_confirmation": False}
+
+                def import_side_effect(*_args: object, **_kwargs: object) -> dict[str, int]:
+                    nonlocal import_calls
+                    with import_lock:
+                        import_calls += 1
+                    return {"created": 1, "updated": 0}
+
+                with (
+                    mock.patch("Backend.app.routers.imports.preview_workbook", side_effect=preview_side_effect),
+                    mock.patch("Backend.app.routers.imports.import_workbook", side_effect=import_side_effect),
+                    ThreadPoolExecutor(max_workers=2) as executor,
+                ):
+                    futures = [
+                        executor.submit(client.post, "/api/admin/import/commit", json={"import_token": token})
+                        for client in clients
+                    ]
+                    responses = [future.result(timeout=10) for future in futures]
+
+                self.assertEqual(sorted(response.status_code for response in responses), [200, 409])
+                conflict = next(response for response in responses if response.status_code == 409)
+                self.assertEqual(conflict.json()["error"]["code"], "IMPORT_ALREADY_PROCESSING")
+                self.assertEqual(import_calls, 1)
+                self.assertFalse(workbook.exists())
+                verify = sqlite3.connect(database)
+                try:
+                    self.assertEqual(
+                        verify.execute("select count(*) from import_previews where token = ?", (token,)).fetchone()[0],
+                        0,
+                    )
+                finally:
+                    verify.close()
+            finally:
+                for client in clients:
+                    client.close()
+                app_config.DB_PATH = original_db_path
+                app_config.IMPORT_DIR = original_import_dir
+
+    def test_import_claim_authorization_super_admin_and_expiry(self) -> None:
+        from Backend.app.services import (
+            claim_import_preview_for_admin,
+            release_import_preview_claim,
+            store_import_preview,
+        )
+
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            temp = Path(temporary_directory)
+            database = temp / "salut.sqlite"
+            workbook = temp / "claim.xlsx"
+            workbook.touch()
+            conn = connect(database)
+            init_db(conn)
+            with conn:
+                conn.executemany(
+                    "insert into admin_users (id, email, password_hash, role) values (?, ?, '', ?)",
+                    [
+                        ("claim-owner", "owner@claim.test", "admin"),
+                        ("claim-other", "other@claim.test", "admin"),
+                        ("claim-super", "super@claim.test", "super_admin"),
+                    ],
+                )
+                admins = {
+                    row["id"]: row
+                    for row in conn.execute("select id, role from admin_users where id like 'claim-%'").fetchall()
+                }
+            conn.close()
+
+            original_db_path = app_config.DB_PATH
+            app_config.DB_PATH = database
+            try:
+                token = "imp_cccccccccccccccccccccccccccccccc"
+                store_import_preview(token, "claim-owner", "claim.xlsx", workbook)
+                self.assertIsNone(claim_import_preview_for_admin(token, admins["claim-other"]))
+                super_claim = claim_import_preview_for_admin(token, admins["claim-super"])
+                self.assertIsNotNone(super_claim)
+                assert super_claim is not None
+                self.assertTrue(release_import_preview_claim(token, str(super_claim["claim_id"])))
+
+                expire = sqlite3.connect(database)
+                try:
+                    expire.execute(
+                        "update import_previews set expires_at = datetime('now', '-1 second') where token = ?",
+                        (token,),
+                    )
+                    expire.commit()
+                finally:
+                    expire.close()
+                self.assertIsNone(claim_import_preview_for_admin(token, admins["claim-owner"]))
+            finally:
+                app_config.DB_PATH = original_db_path
+
+    def test_failed_import_releases_claim_for_safe_retry(self) -> None:
+        from Backend.app.security import hash_password
+        from Backend.app.services import store_import_preview
+
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            temp = Path(temporary_directory)
+            database = temp / "salut.sqlite"
+            imports = temp / "imports"
+            imports.mkdir()
+            token = "imp_dddddddddddddddddddddddddddddddd"
+            workbook = imports / f"{token}_retry.xlsx"
+            self._write_workbook(workbook, [("01014", "Retry Import", "81414", 100000)])
+
+            conn = connect(database)
+            init_db(conn)
+            with conn:
+                conn.execute(
+                    "insert into admin_users (id, email, password_hash, role) values (?, ?, ?, ?)",
+                    ("admin-retry", "retry@imp.test", hash_password("Password123!"), "admin"),
+                )
+            conn.close()
+
+            original_db_path = app_config.DB_PATH
+            original_import_dir = app_config.IMPORT_DIR
+            app_config.DB_PATH = database
+            app_config.IMPORT_DIR = imports
+            client: TestClient | None = None
+            try:
+                store_import_preview(token, "admin-retry", "retry.xlsx", workbook)
+                client = TestClient(server.app)
+                client.post("/api/admin/login", json={"email": "retry@imp.test", "password": "Password123!"})
+                preview = {"critical_rows": 0, "requires_update_confirmation": False}
+                with (
+                    mock.patch("Backend.app.routers.imports.preview_workbook", return_value=preview),
+                    mock.patch(
+                        "Backend.app.routers.imports.import_workbook",
+                        side_effect=ValueError("simulated import failure"),
+                    ),
+                ):
+                    failed = client.post("/api/admin/import/commit", json={"import_token": token})
+                self.assertEqual(failed.status_code, 400)
+                self.assertTrue(workbook.exists())
+                verify = sqlite3.connect(database)
+                try:
+                    claim = verify.execute(
+                        "select claim_id, claimed_at from import_previews where token = ?", (token,)
+                    ).fetchone()
+                finally:
+                    verify.close()
+                self.assertEqual(claim, (None, None))
+
+                with (
+                    mock.patch("Backend.app.routers.imports.preview_workbook", return_value=preview),
+                    mock.patch(
+                        "Backend.app.routers.imports.import_workbook",
+                        return_value={"created": 1, "updated": 0},
+                    ),
+                ):
+                    retried = client.post("/api/admin/import/commit", json={"import_token": token})
+                self.assertEqual(retried.status_code, 200)
+                self.assertFalse(workbook.exists())
+            finally:
+                if client:
+                    client.close()
                 app_config.DB_PATH = original_db_path
                 app_config.IMPORT_DIR = original_import_dir
 

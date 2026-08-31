@@ -11,7 +11,7 @@ from Backend.app.services import (
     create_student,
     list_students,
 )
-from db import connect, init_db, migrate_database
+from db import LATEST_SCHEMA_VERSION, connect, init_db, migrate_database
 from Backend.tests.test_base import BackendBaseTestCase
 
 
@@ -37,7 +37,7 @@ class MasterDataTests(BackendBaseTestCase):
             conn = connect(database)
             init_db(conn)
             version = conn.execute("select max(version) as version from schema_migrations").fetchone()["version"]
-            self.assertEqual(version, 2)
+            self.assertEqual(version, LATEST_SCHEMA_VERSION)
             conn.execute("delete from study_programs where id = ?", ("sp_hkum",))
             conn.commit()
             conn.close()

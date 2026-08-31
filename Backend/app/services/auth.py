@@ -25,7 +25,9 @@ def store_import_preview(token: str, admin_id: str, file_name: str, stored_path:
               admin_id = excluded.admin_id,
               file_name = excluded.file_name,
               stored_path = excluded.stored_path,
-              expires_at = excluded.expires_at
+              expires_at = excluded.expires_at,
+              claim_id = null,
+              claimed_at = null
             """,
             (token, admin_id, file_name, str(stored_path), f"+{config.IMPORT_RETENTION_SECONDS} seconds"),
         )
@@ -36,7 +38,7 @@ def get_import_preview_for_admin(token: str, admin: sqlite3.Row) -> sqlite3.Row 
     with database_connection(config.DB_PATH) as conn:
         row = conn.execute(
             """
-            select token, admin_id, file_name, stored_path, expires_at
+            select token, admin_id, file_name, stored_path, expires_at, claim_id, claimed_at
             from import_previews
             where token = ?
               and expires_at > datetime('now')
@@ -45,6 +47,57 @@ def get_import_preview_for_admin(token: str, admin: sqlite3.Row) -> sqlite3.Row 
             (token, admin["role"], admin["id"]),
         ).fetchone()
     return row
+
+
+def claim_import_preview_for_admin(token: str, admin: sqlite3.Row) -> sqlite3.Row | None:
+    """Atomically claim one active preview for an authorized import request."""
+    claim_id = uuid.uuid4().hex
+    with database_transaction(config.DB_PATH) as conn:
+        cursor = conn.execute(
+            """
+            update import_previews
+            set claim_id = ?, claimed_at = datetime('now')
+            where token = ?
+              and expires_at > datetime('now')
+              and claim_id is null
+              and (? = 'super_admin' or admin_id = ?)
+            """,
+            (claim_id, token, admin["role"], admin["id"]),
+        )
+        if cursor.rowcount != 1:
+            return None
+        return conn.execute(
+            """
+            select token, admin_id, file_name, stored_path, expires_at, claim_id, claimed_at
+            from import_previews
+            where token = ? and claim_id = ?
+            """,
+            (token, claim_id),
+        ).fetchone()
+
+
+def release_import_preview_claim(token: str, claim_id: str) -> bool:
+    """Release only the matching claim so a failed import can be retried safely."""
+    with database_transaction(config.DB_PATH) as conn:
+        cursor = conn.execute(
+            """
+            update import_previews
+            set claim_id = null, claimed_at = null
+            where token = ? and claim_id = ?
+            """,
+            (token, claim_id),
+        )
+    return cursor.rowcount == 1
+
+
+def consume_import_preview_claim(token: str, claim_id: str) -> bool:
+    """Delete only the matching claimed token after its import has committed."""
+    with database_transaction(config.DB_PATH) as conn:
+        cursor = conn.execute(
+            "delete from import_previews where token = ? and claim_id = ?",
+            (token, claim_id),
+        )
+    return cursor.rowcount == 1
 
 
 def delete_import_preview(token: str) -> None:

@@ -105,6 +105,8 @@ create table if not exists import_previews (
   file_name text not null,
   stored_path text not null,
   expires_at text not null,
+  claim_id text,
+  claimed_at text,
   created_at text not null default (datetime('now'))
 );
 
@@ -142,6 +144,29 @@ create table if not exists schema_migrations (
   applied_at text not null default (datetime('now'))
 );
 
+create table if not exists due_date_backfill_runs (
+  id text primary key,
+  status text not null check (status in ('applied', 'rolled_back')),
+  backup_archive text not null,
+  rollback_backup_archive text,
+  candidate_count integer not null,
+  normalized_count integer not null,
+  unresolved_count integer not null,
+  created_at text not null default (datetime('now')),
+  rolled_back_at text
+);
+
+create table if not exists due_date_backfill_changes (
+  run_id text not null references due_date_backfill_runs(id) on delete restrict,
+  bill_id text not null references bills(id) on delete restrict,
+  old_due_date text not null,
+  new_due_date text not null,
+  old_updated_at text not null,
+  new_updated_at text not null,
+  applied_at text not null default (datetime('now')),
+  primary key (run_id, bill_id)
+);
+
 create table if not exists payment_transactions (
   id text primary key,
   bill_id text not null references bills(id) on delete cascade,
@@ -166,6 +191,7 @@ create index if not exists idx_bills_student_id on bills(student_id);
 create index if not exists idx_lookup_logs_created_at on lookup_logs(created_at);
 create index if not exists idx_import_previews_admin_id on import_previews(admin_id);
 create index if not exists idx_import_previews_expires_at on import_previews(expires_at);
+create index if not exists idx_due_date_backfill_changes_bill_id on due_date_backfill_changes(bill_id);
 create index if not exists idx_admin_sessions_token_hash on admin_sessions(token_hash);
 create index if not exists idx_admin_sessions_expires_at on admin_sessions(expires_at);
 create index if not exists idx_audit_logs_created_at on audit_logs(created_at);
