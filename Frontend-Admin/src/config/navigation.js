@@ -4,6 +4,7 @@ import {
   Layers,
   LayoutDashboard,
   Receipt,
+  ShieldCheck,
   UploadCloud,
   Users,
 } from 'lucide-react';
@@ -16,4 +17,11 @@ export const NAV_ITEMS = [
   { id: 'files', label: 'Data File Import', kicker: 'Riwayat Import', icon: Layers },
   { id: 'upload', label: 'Upload File', kicker: 'Upload Excel', icon: UploadCloud },
   { id: 'master', label: 'Master Data', kicker: 'Master Data Akademik', icon: Database },
+  {
+    id: 'users',
+    label: 'Kelola Admin',
+    kicker: 'Manajemen Pengguna',
+    icon: ShieldCheck,
+    permission: 'manage_users',
+  },
 ];

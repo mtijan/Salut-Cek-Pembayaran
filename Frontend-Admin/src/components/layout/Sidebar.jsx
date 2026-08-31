@@ -12,12 +12,14 @@ export default function Sidebar({
   isCollapsed = false,
   onToggleCollapse,
 }) {
-  const { logout } = useAuth();
+  const { logout, can } = useAuth();
 
   const handleNavClick = (id) => {
     setActiveView(id);
     if (onClose) onClose();
   };
+
+  const visibleNavItems = NAV_ITEMS.filter((item) => !item.permission || can(item.permission));
 
   return (
     <>
@@ -52,7 +54,7 @@ export default function Sidebar({
         </div>
 
         <nav className="sidebar-nav">
-          {NAV_ITEMS.map((item) => {
+          {visibleNavItems.map((item) => {
             const Icon = item.icon;
             const isActive = activeView === item.id;
             return (

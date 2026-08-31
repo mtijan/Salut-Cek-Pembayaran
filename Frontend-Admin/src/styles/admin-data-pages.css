@@ -643,3 +643,199 @@ progress.micro-progress-bar-semantic::-moz-progress-bar {
   font-size: 13px;
   color: var(--muted);
 }
+
+/* ==========================================
+   USER MANAGEMENT (USERS PAGE)
+   ========================================== */
+
+.users-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+}
+
+.users-header-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin: 0;
+  color: #1e293b;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.users-header-desc {
+  margin: 4px 0 0;
+  color: #64748b;
+  font-size: 0.875rem;
+}
+
+.users-filter-card {
+  margin-bottom: 1.5rem;
+  padding: 1rem;
+}
+
+.users-filter-row {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.users-search-box {
+  position: relative;
+  flex: 1 1 300px;
+}
+
+.users-search-icon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #94a3b8;
+}
+
+.users-search-input {
+  padding-left: 36px;
+}
+
+.users-table-card {
+  overflow: hidden;
+}
+
+.users-toast-success {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 9999;
+  padding: 12px 20px;
+  border-radius: 8px;
+  background: #10b981;
+  color: #fff;
+  font-weight: 500;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.users-toast-error {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 9999;
+  padding: 12px 20px;
+  border-radius: 8px;
+  background: #ef4444;
+  color: #fff;
+  font-weight: 500;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.role-badge {
+  display: inline-block;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.role-badge-super_admin {
+  color: #6366f1;
+  background: #eef2ff;
+}
+
+.role-badge-admin {
+  color: #2563eb;
+  background: #eff6ff;
+}
+
+.role-badge-admin_akademik {
+  color: #059669;
+  background: #ecfdf5;
+}
+
+.role-badge-admin_keuangan {
+  color: #d97706;
+  background: #fffbeb;
+}
+
+.role-badge-viewer {
+  color: #64748b;
+  background: #f1f5f9;
+}
+
+.status-active-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: #059669;
+  font-size: 0.825rem;
+  font-weight: 500;
+}
+
+.status-inactive-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: #dc2626;
+  font-size: 0.825rem;
+  font-weight: 500;
+}
+
+.users-actions-group {
+  display: inline-flex;
+  gap: 6px;
+}
+
+.modal-desc-text {
+  font-size: 0.9rem;
+  color: #4b5563;
+  margin-bottom: 1rem;
+}
+
+.modal-title-icon {
+  margin-right: 8px;
+  vertical-align: middle;
+}
+
+.btn-icon-gap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.alert-icon-row {
+  margin-bottom: 1.5rem;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cell-bold-title {
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.cell-subtext {
+  font-size: 0.825rem;
+  color: #64748b;
+}
+
+.cell-right {
+  text-align: right;
+}
+
+.cell-centered-padded {
+  padding: 32px;
+  text-align: center;
+  color: #64748b;
+}
+
+.spinner-centered {
+  margin: 0 auto 8px;
+  width: 24px;
+  height: 24px;
+  border: 2px solid #e2e8f0;
+  border-top-color: #6366f1;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
