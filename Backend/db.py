@@ -1,7 +1,7 @@
 """SQLite database connectivity, schema initialization, and migration management.
 
 This module provides SQLite connection factories, connection/transaction context managers,
-schema version migrations (v1 to v4), entry registration period parsing, and study program resolution.
+schema version migrations (v1 to v5), entry registration period parsing, and study program resolution.
 """
 
 from __future__ import annotations
@@ -16,7 +16,7 @@ from typing import Callable, Iterator
 BASE_DIR = Path(__file__).resolve().parent
 DEFAULT_DB_PATH = BASE_DIR / "data" / "salut.sqlite"
 SCHEMA_PATH = BASE_DIR / "schema.sql"
-LATEST_SCHEMA_VERSION = 4
+LATEST_SCHEMA_VERSION = 5
 
 
 def resolve_db_path(db_path: str | Path = DEFAULT_DB_PATH) -> Path:
@@ -153,6 +153,11 @@ def migrate_schema_v4(conn: sqlite3.Connection) -> None:
     migrate_due_date_backfill_ledger(conn)
 
 
+def migrate_schema_v5(conn: sqlite3.Connection) -> None:
+    """Complete legacy v4 backfill ledgers with timestamp snapshots."""
+    migrate_due_date_backfill_updated_at_ledger(conn)
+
+
 def _table_sql(conn: sqlite3.Connection, table: str) -> str:
     row = conn.execute("select sql from sqlite_master where type = 'table' and name = ?", (table,)).fetchone()
     return str(row["sql"] or "") if row else ""
@@ -265,6 +270,20 @@ def migrate_due_date_backfill_ledger(conn: sqlite3.Connection) -> None:
     conn.execute(
         "create index if not exists idx_due_date_backfill_changes_bill_id on due_date_backfill_changes(bill_id)"
     )
+
+
+def migrate_due_date_backfill_updated_at_ledger(conn: sqlite3.Connection) -> None:
+    """Add timestamp snapshots missing from the first deployed v4 ledger shape.
+
+    Empty-string defaults intentionally make legacy rows fail the rollback concurrency
+    guard instead of pretending an exact historical ``updated_at`` value is known.
+    New backfill runs always write explicit, precise values into both columns.
+    """
+    columns = _table_columns(conn, "due_date_backfill_changes")
+    if "old_updated_at" not in columns:
+        conn.execute("alter table due_date_backfill_changes add column old_updated_at text not null default ''")
+    if "new_updated_at" not in columns:
+        conn.execute("alter table due_date_backfill_changes add column new_updated_at text not null default ''")
 
 
 def migrate_bills_for_due_date(conn: sqlite3.Connection) -> None:
@@ -633,4 +652,5 @@ MIGRATIONS: dict[int, Callable[[sqlite3.Connection], None]] = {
     2: migrate_schema_v2,
     3: migrate_schema_v3,
     4: migrate_schema_v4,
+    5: migrate_schema_v5,
 }

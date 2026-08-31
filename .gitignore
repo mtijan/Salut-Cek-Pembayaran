@@ -45,6 +45,8 @@ Backend/data/*.txt
 database.sqlite
 *.sqlite
 *.sqlite3
+*.sqlite-wal
+*.sqlite-shm
 *.db
 *.csv
 

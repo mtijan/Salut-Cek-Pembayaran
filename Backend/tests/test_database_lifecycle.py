@@ -127,6 +127,40 @@ class DatabaseLifecycleTests(unittest.TestCase):
             self.assertIn("claim_id", columns)
             self.assertIn("claimed_at", columns)
 
+    def test_legacy_version_four_backfill_ledger_is_completed_by_version_five(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            database = Path(temporary_directory) / "salut.sqlite"
+            migrate_database(database)
+            with database_transaction(database) as conn:
+                conn.execute("drop table due_date_backfill_changes")
+                conn.execute(
+                    """
+                    create table due_date_backfill_changes (
+                      run_id text not null references due_date_backfill_runs(id) on delete restrict,
+                      bill_id text not null references bills(id) on delete restrict,
+                      old_due_date text not null,
+                      new_due_date text not null,
+                      applied_at text not null default (datetime('now')),
+                      primary key (run_id, bill_id)
+                    )
+                    """
+                )
+                conn.execute("create index idx_due_date_backfill_changes_bill_id on due_date_backfill_changes(bill_id)")
+                conn.execute("delete from schema_migrations")
+                conn.execute("insert into schema_migrations (version) values (4)")
+
+            migrate_database(database)
+
+            with database_connection(database) as migrated:
+                columns = {
+                    str(row["name"]): (bool(row["notnull"]), row["dflt_value"])
+                    for row in migrated.execute("pragma table_info(due_date_backfill_changes)")
+                }
+                version = migrated.execute("select max(version) from schema_migrations").fetchone()[0]
+            self.assertEqual(version, LATEST_SCHEMA_VERSION)
+            self.assertEqual(columns["old_updated_at"], (True, "''"))
+            self.assertEqual(columns["new_updated_at"], (True, "''"))
+
     def test_future_schema_version_fails_fast_without_mutating_data(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
             database = Path(temporary_directory) / "salut.sqlite"

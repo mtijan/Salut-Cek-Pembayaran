@@ -26,6 +26,8 @@ class PublicRepositoryBoundaryTests(unittest.TestCase):
             ".env",
             "./.env.production",
             "Backend/data/production.sqlite",
+            "Backend/data/production.sqlite-wal",
+            "Backend/data/production.sqlite-shm",
             "Backend/data/imports/upload.bin",
             "Backend/data/import-result.txt",
             "backups/latest.zip",

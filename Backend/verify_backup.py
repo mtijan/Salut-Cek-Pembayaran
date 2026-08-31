@@ -61,9 +61,14 @@ def verify_application_schema(connection: sqlite3.Connection) -> int:
             "bill_id",
             "old_due_date",
             "new_due_date",
-            "old_updated_at",
-            "new_updated_at",
         }
+    if version >= 5:
+        required_columns["due_date_backfill_changes"].update(
+            {
+                "old_updated_at",
+                "new_updated_at",
+            }
+        )
 
     for table, expected_columns in required_columns.items():
         _require_schema_object(connection, "table", table)

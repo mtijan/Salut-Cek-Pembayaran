@@ -8,7 +8,7 @@ EXPECTED_TEST_COUNTS = {
     "Backend.tests.test_auth_rbac": 7,
     "Backend.tests.test_billing": 10,
     "Backend.tests.test_billing_payments": 5,
-    "Backend.tests.test_database_lifecycle": 21,
+    "Backend.tests.test_database_lifecycle": 22,
     "Backend.tests.test_domain": 3,
     "Backend.tests.test_due_date_backfill": 4,
     "Backend.tests.test_frontend_serving": 1,

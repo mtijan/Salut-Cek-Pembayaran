@@ -40,6 +40,8 @@ SENSITIVE_SUFFIXES = {
     ".pfx",
     ".sqlite",
     ".sqlite3",
+    ".sqlite-shm",
+    ".sqlite-wal",
     ".sql",
     ".xls",
     ".xlsb",
