@@ -11,10 +11,15 @@ RUN npm run build
 # Stage 2: Production Runtime
 FROM python:3.11-slim AS runtime
 
+ARG RELEASE_ID=unknown
+
 WORKDIR /app
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1
+    PYTHONUNBUFFERED=1 \
+    RELEASE_ID=${RELEASE_ID}
+
+LABEL org.opencontainers.image.revision=${RELEASE_ID}
 
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt

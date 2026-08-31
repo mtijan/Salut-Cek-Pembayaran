@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-import sys
 import sqlite3
+import sys
 import tempfile
 import unittest
 import zipfile
@@ -55,6 +55,38 @@ class SecurityAndOperationsTests(BackendBaseTestCase):
                 ):
                     with self.assertRaisesRegex(RuntimeError, "hanya aman untuk satu worker"):
                         validate_runtime_configuration()
+
+    def test_production_runtime_configuration_rejects_invalid_limiter_capacity(self) -> None:
+        with (
+            mock.patch.object(app_config, "APP_ENV", "production"),
+            mock.patch.object(app_config, "PROCESS_WORKERS", 1),
+            mock.patch.object(app_config, "RATE_LIMIT_MAX_BUCKETS", 0),
+        ):
+            with self.assertRaisesRegex(RuntimeError, "RATE_LIMIT_MAX_BUCKETS"):
+                validate_runtime_configuration(has_existing_admins=True)
+
+    def test_production_runtime_configuration_requires_git_release_identity(self) -> None:
+        for release_id in ("", "unknown", "release-label"):
+            with self.subTest(release_id=release_id):
+                with (
+                    mock.patch.object(app_config, "APP_ENV", "production"),
+                    mock.patch.object(app_config, "PROCESS_WORKERS", 1),
+                    mock.patch.object(app_config, "RATE_LIMIT_MAX_BUCKETS", 10_000),
+                    mock.patch.object(app_config, "RELEASE_ID", release_id),
+                ):
+                    with self.assertRaisesRegex(RuntimeError, "RELEASE_ID"):
+                        validate_runtime_configuration(has_existing_admins=True)
+
+        with (
+            mock.patch.object(app_config, "APP_ENV", "production"),
+            mock.patch.object(app_config, "PROCESS_WORKERS", 1),
+            mock.patch.object(app_config, "RATE_LIMIT_MAX_BUCKETS", 10_000),
+            mock.patch.object(app_config, "RELEASE_ID", "566127f"),
+            mock.patch.object(app_config, "LOOKUP_HASH_SECRET", "0123456789abcdef0123456789abcdef"),
+            mock.patch.object(app_config, "ADMIN_BOOTSTRAP_EMAIL", ""),
+            mock.patch.object(app_config, "ADMIN_BOOTSTRAP_PASSWORD", ""),
+        ):
+            validate_runtime_configuration(has_existing_admins=True)
 
     def test_public_health_does_not_leak_counts(self) -> None:
         client = TestClient(server.app)
@@ -170,9 +202,17 @@ class SecurityAndOperationsTests(BackendBaseTestCase):
         self.assertNotIn("python /opt/salut-cek-pembayaran/Backend/maintenance.py", maintenance_unit)
         self.assertNotIn("python3 /opt/salut-cek-pembayaran/Backend/verify_backup.py", verify_unit)
 
+    def test_docker_release_identity_is_required_at_build_and_runtime(self) -> None:
+        project_root = Path(__file__).resolve().parents[2]
+        dockerfile = (project_root / "Dockerfile").read_text(encoding="utf-8")
+        compose = (project_root / "docker-compose.yml").read_text(encoding="utf-8")
+        environment_example = (project_root / ".env.docker.example").read_text(encoding="utf-8")
 
-if __name__ == "__main__":
-    unittest.main()
+        self.assertIn("ARG RELEASE_ID=unknown", dockerfile)
+        self.assertIn("RELEASE_ID=${RELEASE_ID}", dockerfile)
+        self.assertIn("org.opencontainers.image.revision=${RELEASE_ID}", dockerfile)
+        self.assertEqual(compose.count("RELEASE_ID: ${RELEASE_ID:?Set RELEASE_ID"), 2)
+        self.assertIn("RELEASE_ID=", environment_example)
 
 
 if __name__ == "__main__":

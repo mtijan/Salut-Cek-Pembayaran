@@ -13,16 +13,12 @@ class BackendBaseTestCase(unittest.TestCase):
         super().setUp()
         from Backend.app.rate_limit import RATE_LIMITER
 
-        with RATE_LIMITER._lock:
-            RATE_LIMITER._entries.clear()
-            RATE_LIMITER._windows.clear()
+        RATE_LIMITER.reset()
 
     def tearDown(self) -> None:
         from Backend.app.rate_limit import RATE_LIMITER
 
-        with RATE_LIMITER._lock:
-            RATE_LIMITER._entries.clear()
-            RATE_LIMITER._windows.clear()
+        RATE_LIMITER.reset()
         super().tearDown()
 
     @staticmethod

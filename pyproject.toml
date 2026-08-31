@@ -36,6 +36,7 @@ files = [
   "Backend/app/version.py",
   "Backend/admin_cli.py",
   "Backend/backup_sqlite.py",
+  "Backend/check_disk_capacity.py",
   "Backend/db.py",
   "Backend/due_date_backfill.py",
   "Backend/importing",

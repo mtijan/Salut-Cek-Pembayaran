@@ -30,6 +30,7 @@ def _configured_worker_count() -> int:
 
 
 PROCESS_WORKERS = _configured_worker_count()
+RATE_LIMIT_MAX_BUCKETS = int(os.environ.get("RATE_LIMIT_MAX_BUCKETS", "10000"))
 DB_PATH = resolve_db_path(os.environ.get("DATABASE_URL", DEFAULT_DB_PATH))
 LOOKUP_HASH_SECRET = os.environ.get("LOOKUP_HASH_SECRET", "")
 ADMIN_BOOTSTRAP_EMAIL = os.environ.get("ADMIN_BOOTSTRAP_EMAIL", "").strip().casefold()

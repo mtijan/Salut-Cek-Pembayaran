@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 import sqlite3
 import time
 import uuid
@@ -10,6 +11,9 @@ from pathlib import Path
 from Backend.app import config
 from Backend.app.security import hash_password
 from Backend.db import database_connection, database_transaction, migrate_database
+
+
+GIT_RELEASE_ID_PATTERN = re.compile(r"^[0-9a-f]{7,40}$")
 
 
 def _has_existing_admins(db_path: Path | str = config.DB_PATH) -> bool:
@@ -27,9 +31,13 @@ def validate_runtime_configuration(has_existing_admins: bool | None = None) -> N
         return
     if config.PROCESS_WORKERS != 1:
         raise RuntimeError(
-            "Rate limiter in-memory hanya aman untuk satu worker. "
-            "Gunakan WEB_CONCURRENCY=1/UVICORN_WORKERS=1 atau implementasikan shared limiter sebelum scale-out."
+            "Rate limiter bounded in-memory hanya aman untuk satu worker dan tidak mendukung scale-out. "
+            "Gunakan WEB_CONCURRENCY=1/UVICORN_WORKERS=1 sampai shared store disetujui sebelum scale-out."
         )
+    if config.RATE_LIMIT_MAX_BUCKETS < 1:
+        raise RuntimeError("RATE_LIMIT_MAX_BUCKETS wajib lebih besar dari nol.")
+    if not GIT_RELEASE_ID_PATTERN.fullmatch(config.RELEASE_ID):
+        raise RuntimeError("RELEASE_ID production wajib berupa Git revision 7-40 karakter heksadesimal.")
 
     if has_existing_admins is None:
         has_existing_admins = _has_existing_admins(config.DB_PATH)

@@ -3,6 +3,7 @@ from __future__ import annotations
 import sys
 import tempfile
 import unittest
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from unittest import mock
 
@@ -23,6 +24,65 @@ class AuthAndRBACTests(BackendBaseTestCase):
         self.assertIsNone(limiter.check("lookup", "127.0.0.1", 2, 60))
         self.assertIsNone(limiter.check("lookup", "127.0.0.1", 2, 60))
         self.assertIsNotNone(limiter.check("lookup", "127.0.0.1", 2, 60))
+
+    def test_rate_limiter_hashes_identifiers_and_resets_all_state(self) -> None:
+        limiter = RateLimiter()
+        limiter.check("login", "127.0.0.1:operator@example.test", 2, 60)
+
+        stored_keys = " ".join(limiter._entries)
+        self.assertNotIn("127.0.0.1", stored_keys)
+        self.assertNotIn("operator@example.test", stored_keys)
+
+        limiter.reset()
+        self.assertEqual(limiter._entries, {})
+        self.assertEqual(limiter._windows, {})
+        self.assertEqual(limiter._expirations, [])
+
+    def test_rate_limiter_bounds_active_buckets_and_recovers_after_expiry(self) -> None:
+        current_time = [0.0]
+        limiter = RateLimiter(max_buckets=1, clock=lambda: current_time[0])
+
+        self.assertIsNone(limiter.check("lookup", "client-a", 2, 60))
+        self.assertEqual(limiter.check("lookup", "client-b", 2, 60), 60)
+
+        current_time[0] = 61.0
+        self.assertIsNone(limiter.check("lookup", "client-b", 2, 60))
+        self.assertEqual(len(limiter._entries), 1)
+
+    def test_rate_limiter_does_not_scan_all_active_buckets(self) -> None:
+        class NonIterableDict(dict[str, object]):
+            def __iter__(self):
+                raise AssertionError("active bucket scan is not allowed")
+
+            def items(self):
+                raise AssertionError("active bucket scan is not allowed")
+
+        limiter = RateLimiter()
+        limiter._entries = NonIterableDict()
+        self.assertIsNone(limiter.check("lookup", "client-a", 2, 60))
+        self.assertIsNone(limiter.check("lookup", "client-b", 2, 60))
+
+    def test_rate_limiter_bounds_stale_expiry_records(self) -> None:
+        limiter = RateLimiter(max_buckets=1, clock=lambda: 0.0)
+        for window_seconds in range(1, 200):
+            limiter.check("lookup", "client-a", 500, window_seconds)
+        self.assertLessEqual(len(limiter._expirations), 64)
+
+    def test_rate_limiter_enforces_quota_under_concurrency(self) -> None:
+        limiter = RateLimiter(clock=lambda: 0.0)
+        with ThreadPoolExecutor(max_workers=8) as executor:
+            results = list(executor.map(lambda _: limiter.check("lookup", "client-a", 10, 60), range(25)))
+        self.assertEqual(results.count(None), 10)
+        self.assertEqual(sum(result is not None for result in results), 15)
+
+    def test_rate_limiter_rejects_invalid_configuration(self) -> None:
+        with self.assertRaisesRegex(ValueError, "bucket"):
+            RateLimiter(max_buckets=0)
+        limiter = RateLimiter()
+        with self.assertRaisesRegex(ValueError, "Scope"):
+            limiter.check("", "client", 1, 60)
+        with self.assertRaisesRegex(ValueError, "Limit"):
+            limiter.check("lookup", "client", 0, 60)
 
     def test_viewer_cannot_import(self) -> None:
         self.assertNotIn("import", ROLE_PERMISSIONS["viewer"])

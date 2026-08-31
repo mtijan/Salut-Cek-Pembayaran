@@ -135,7 +135,7 @@ def parse_offset(request: Request) -> int:
 
 
 def enforce_rate_limit(scope: str, key: str, limit: int, window_seconds: int) -> int | None:
-    """Enforce in-memory sliding window rate limit for given scope and key."""
+    """Enforce the bounded single-worker sliding-window rate limit."""
     return RATE_LIMITER.check(scope, key, limit, window_seconds)
 
 

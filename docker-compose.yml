@@ -3,6 +3,8 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        RELEASE_ID: ${RELEASE_ID:?Set RELEASE_ID to the approved Git revision}
     container_name: salut-app
     restart: unless-stopped
     ports:
@@ -11,12 +13,14 @@ services:
       APP_ENV: ${APP_ENV:-production}
       PORT: "8000"
       WEB_CONCURRENCY: ${WEB_CONCURRENCY:-1}
+      RELEASE_ID: ${RELEASE_ID:?Set RELEASE_ID to the approved Git revision}
       DATABASE_URL: /app/Backend/data/salut.sqlite
       IMPORT_DIR: /app/Backend/data/imports
       LOOKUP_HASH_SECRET: ${LOOKUP_HASH_SECRET:?Set LOOKUP_HASH_SECRET in the root .env file}
       ADMIN_BOOTSTRAP_EMAIL: ${ADMIN_BOOTSTRAP_EMAIL:?Set ADMIN_BOOTSTRAP_EMAIL in the root .env file}
       ADMIN_BOOTSTRAP_PASSWORD: ${ADMIN_BOOTSTRAP_PASSWORD:?Set ADMIN_BOOTSTRAP_PASSWORD in the root .env file}
       TRUST_PROXY_HEADERS: ${TRUST_PROXY_HEADERS:-false}
+      RATE_LIMIT_MAX_BUCKETS: ${RATE_LIMIT_MAX_BUCKETS:-10000}
     volumes:
       - salut_data:/app/Backend/data
 

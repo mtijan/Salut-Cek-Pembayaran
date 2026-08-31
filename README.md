@@ -60,7 +60,7 @@ Salut-Cek-Pembayaran/
 │   │   ├── main.py              # Composition root FastAPI & middleware keamanan
 │   │   └── security.py          # Session & password hashing
 │   ├── importing/               # Parser & analisis validasi import Excel
-│   ├── tests/                   # 20 modul test backend (99 unit/integration tests)
+│   ├── tests/                   # 21 modul test backend (155 unit/integration tests)
 │   ├── backup_sqlite.py         # Skrip backup SQLite hot
 │   ├── verify_backup.py         # Verifikasi integrity/schema/restore-smoke backup
 │   ├── due_date_backfill.py     # Dry-run/apply/rollback due date historis
@@ -90,7 +90,7 @@ Salut-Cek-Pembayaran/
 │   ├── salut.db
 │   └── samples/                 # Sample workbook lokal & data import
 ├── deploy/                      # Unit systemd & template konfigurasi Nginx
-├── docs/                        # Dokumentasi internal & rencana remediasi (00-25)
+├── docs/                        # Dokumentasi internal & rencana remediasi (00-26)
 ├── scripts/                     # Skrip penjaminan kualitas, keamanan, dan developer
 │   ├── dev/                     # Utilitas developer lokal
 │   ├── quality/                 # Validasi inventory test & dependensi lock
@@ -244,7 +244,7 @@ npm run build
 - Gunakan data sintetis ketika mendemonstrasikan aplikasi.
 - Ganti kredensial bootstrap bila workspace digunakan bersama.
 - Jangan menggunakan contoh secret dan password development untuk server publik.
-- Pertahankan `WEB_CONCURRENCY=1`/`UVICORN_WORKERS=1` selama rate limiter masih in-memory; konfigurasi production akan fail-fast bila worker lebih dari satu.
+- Pertahankan `WEB_CONCURRENCY=1`/`UVICORN_WORKERS=1`; limiter bounded in-memory adalah keputusan topology saat ini dan production fail-fast bila worker lebih dari satu. Shared store wajib diputuskan sebelum scale-out.
 - `docs/` dan `deploy/` adalah artefak internal dan tidak boleh dilacak pada repository publik.
 - Jalankan `python scripts/security/check_public_repo_boundary.py` sebelum commit atau pull request.
 - Kebijakan pelaporan kerentanan tersedia di [`SECURITY.md`](SECURITY.md).
