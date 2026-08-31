@@ -1,5 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { billsApi, studentsApi, masterApi } from '../services/api';
+import { billsApi } from '../services/billsApi';
+import { studentsApi } from '../services/studentsApi';
+import { masterApi } from '../services/masterApi';
 import { useToast } from '../components/common/Toast';
 import { useCopyFeedback } from './useCopyFeedback';
 import {

@@ -8,7 +8,7 @@ import {
   FileSpreadsheet,
   RefreshCw,
 } from 'lucide-react';
-import { dashboardApi } from '../services/api';
+import { dashboardApi } from '../services/dashboardApi';
 import { useToast } from '../components/common/Toast';
 
 export default function DashboardPage({ setActiveView }) {

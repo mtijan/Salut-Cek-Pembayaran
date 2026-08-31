@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useToast } from '../components/common/Toast';
-import { billsApi } from '../services/api';
+import { billsApi } from '../services/billsApi';
 import { useCopyFeedback } from './useCopyFeedback';
 import { useMasterOptions } from './useMasterOptions';
 import { usePagination } from './usePagination';

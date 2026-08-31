@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { importApi } from '../services/api';
+import { importApi } from '../services/importApi';
 import { useToast } from '../components/common/Toast';
 
 /**

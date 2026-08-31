@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { masterApi } from '../services/api';
+import { masterApi } from '../services/masterApi';
 import { useToast } from '../components/common/Toast';
 
 /**

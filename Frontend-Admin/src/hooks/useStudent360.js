@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useToast } from '../components/common/Toast';
-import { studentsApi } from '../services/api';
+import { studentsApi } from '../services/studentsApi';
 import { useCopyFeedback } from './useCopyFeedback';
 
 export function useStudent360({ isOpen, onClose, studentId }) {

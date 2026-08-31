@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useToast } from '../components/common/Toast';
-import { masterApi } from '../services/api';
+import { masterApi } from '../services/masterApi';
 
 export function useMasterOptions(errorMessage) {
   const { showToast } = useToast();

@@ -1,6 +1,6 @@
 import React from 'react';
 import { UploadCloud, FileSpreadsheet, RefreshCw, Download } from 'lucide-react';
-import { templateApi } from '../../services/api';
+import { templateApi } from '../../services/masterApi';
 
 /**
  * Step 1 UploadPage: dropzone + file picker + template download.

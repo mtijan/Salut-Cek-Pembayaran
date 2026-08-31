@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useToast } from '../components/common/Toast';
-import { masterApi, studentsApi } from '../services/api';
+import { studentsApi } from '../services/studentsApi';
+import { masterApi } from '../services/masterApi';
 import { useCopyFeedback } from './useCopyFeedback';
 
 const emptyStudent = {

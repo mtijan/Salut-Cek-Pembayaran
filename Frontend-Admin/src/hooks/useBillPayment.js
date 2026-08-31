@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { billsApi } from '../services/api';
+import { billsApi } from '../services/billsApi';
 import { useToast } from '../components/common/Toast';
 import { useCopyFeedback } from './useCopyFeedback';
 import { toLocalDateInputValue } from '../utils/date';
