@@ -1,16 +1,19 @@
 import React from 'react';
+import { Tag, CalendarRange } from 'lucide-react';
 
 export default function BillIdentityFields({ formData, setFormData, periods = [] }) {
   return (
     <>
       {/* Bill Type */}
-      <div>
+      <div className="bill-field-group">
         <label className="bill-field-label">
-          Jenis Tagihan <span className="bill-req-star">*</span>
+          <Tag size={14} className="field-label-icon" />
+          <span>Jenis Tagihan</span>
+          <span className="bill-req-star">*</span>
         </label>
-        <div className="flex-row-gap-8">
+        <div className="bill-dynamic-input-stack">
           <select
-            className="form-control flex-1"
+            className="form-control bill-select-control"
             value={formData.bill_type_mode}
             onChange={(e) => setFormData((prev) => ({ ...prev, bill_type_mode: e.target.value }))}
           >
@@ -23,8 +26,8 @@ export default function BillIdentityFields({ formData, setFormData, periods = []
           {formData.bill_type_mode === 'Custom' && (
             <input
               type="text"
-              className="form-control flex-1"
-              placeholder="Nama jenis tagihan..."
+              className="form-control mt-2"
+              placeholder="Ketikkan nama jenis tagihan..."
               value={formData.custom_bill_type}
               onChange={(e) =>
                 setFormData((prev) => ({ ...prev, custom_bill_type: e.target.value }))
@@ -36,13 +39,15 @@ export default function BillIdentityFields({ formData, setFormData, periods = []
       </div>
 
       {/* Academic Period */}
-      <div>
+      <div className="bill-field-group">
         <label className="bill-field-label">
-          Periode Tagihan <span className="bill-req-star">*</span>
+          <CalendarRange size={14} className="field-label-icon" />
+          <span>Periode Tagihan</span>
+          <span className="bill-req-star">*</span>
         </label>
-        <div className="flex-row-gap-8">
+        <div className="bill-dynamic-input-stack">
           <select
-            className="form-control flex-1"
+            className="form-control bill-select-control"
             value={formData.period_mode === 'custom' ? 'custom' : formData.period}
             onChange={(e) => {
               const val = e.target.value;
@@ -63,7 +68,7 @@ export default function BillIdentityFields({ formData, setFormData, periods = []
           {formData.period_mode === 'custom' && (
             <input
               type="text"
-              className="form-control flex-1"
+              className="form-control mt-2"
               placeholder="Contoh: 2026.1 atau 20261"
               value={formData.custom_period}
               onChange={(e) => setFormData((prev) => ({ ...prev, custom_period: e.target.value }))}

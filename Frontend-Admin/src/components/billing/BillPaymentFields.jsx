@@ -1,5 +1,5 @@
 import React from 'react';
-import { Check, Copy } from 'lucide-react';
+import { Check, Copy, CreditCard, Calendar, Activity, Coins } from 'lucide-react';
 
 export default function BillPaymentFields({
   formData,
@@ -16,9 +16,11 @@ export default function BillPaymentFields({
   return (
     <>
       {/* Total Amount */}
-      <div>
+      <div className="bill-field-group">
         <label className="bill-field-label">
-          Total Nominal Tagihan (Rp) <span className="bill-req-star">*</span>
+          <Coins size={14} className="field-label-icon" />
+          <span>Total Nominal Tagihan</span>
+          <span className="bill-req-star">*</span>
         </label>
         <div className="bill-currency-input-container">
           <span className="bill-currency-prefix-tag">Rp</span>
@@ -27,62 +29,22 @@ export default function BillPaymentFields({
             className="form-control bill-currency-field"
             value={formData.amount}
             onChange={handleAmountChange}
-            placeholder="Contoh: 1500000"
+            placeholder="Contoh: 1850000"
             min="1"
             required
           />
         </div>
       </div>
 
-      {/* BRIVA */}
-      <div>
-        <label className="bill-field-label">
-          Nomor Rekening BRIVA <span className="bill-req-star">*</span>
-        </label>
-        <div className="flex-row-gap-6">
-          <input
-            type="text"
-            className="form-control flex-1 font-mono-600"
-            value={formData.briva}
-            onChange={(e) => setFormData((prev) => ({ ...prev, briva: e.target.value }))}
-            placeholder="Contoh: 178100012345"
-            required
-          />
-          {formData.briva && (
-            <button
-              type="button"
-              onClick={() => onCopyBriva(formData.briva, 'BRIVA')}
-              className="btn btn-secondary btn-copy-briva"
-              title="Salin BRIVA"
-            >
-              {copiedKey === 'BRIVA' ? (
-                <Check size={15} className="icon-primary" />
-              ) : (
-                <Copy size={15} />
-              )}
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* Due Date */}
-      <div>
-        <label className="bill-field-label">Batas Pembayaran / Jatuh Tempo</label>
-        <input
-          type="date"
-          className="form-control"
-          value={formData.due_date}
-          onChange={(e) => setFormData((prev) => ({ ...prev, due_date: e.target.value }))}
-        />
-      </div>
-
       {/* Status */}
-      <div>
+      <div className="bill-field-group">
         <label className="bill-field-label">
-          Status Pembayaran <span className="bill-req-star">*</span>
+          <Activity size={14} className="field-label-icon" />
+          <span>Status Pembayaran</span>
+          <span className="bill-req-star">*</span>
         </label>
         <select
-          className="form-control bill-status-select"
+          className="form-control bill-select-control bill-status-select"
           value={formData.status}
           onChange={(e) => handleStatusChange(e.target.value)}
         >
@@ -92,9 +54,59 @@ export default function BillPaymentFields({
         </select>
       </div>
 
+      {/* BRIVA */}
+      <div className="bill-field-group">
+        <label className="bill-field-label">
+          <CreditCard size={14} className="field-label-icon" />
+          <span>Nomor Rekening BRIVA</span>
+          <span className="bill-req-star">*</span>
+        </label>
+        <div className="bill-input-btn-wrap">
+          <input
+            type="text"
+            className="form-control font-mono font-semibold"
+            value={formData.briva}
+            onChange={(e) => setFormData((prev) => ({ ...prev, briva: e.target.value }))}
+            placeholder="Contoh: 178100023200085"
+            required
+          />
+          {formData.briva && (
+            <button
+              type="button"
+              onClick={() => onCopyBriva(formData.briva, 'BRIVA')}
+              className="btn btn-secondary btn-copy-input"
+              title="Salin BRIVA"
+            >
+              {copiedKey === 'BRIVA' ? (
+                <Check size={14} color="var(--success)" />
+              ) : (
+                <Copy size={14} />
+              )}
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Due Date */}
+      <div className="bill-field-group">
+        <label className="bill-field-label">
+          <Calendar size={14} className="field-label-icon" />
+          <span>Batas Pembayaran / Jatuh Tempo</span>
+        </label>
+        <input
+          type="date"
+          className="form-control"
+          value={formData.due_date}
+          onChange={(e) => setFormData((prev) => ({ ...prev, due_date: e.target.value }))}
+        />
+      </div>
+
       {/* Paid Amount */}
-      <div>
-        <label className="bill-field-label">Nominal Sudah Terbayar (Rp)</label>
+      <div className="bill-field-full-col">
+        <label className="bill-field-label">
+          <Coins size={14} className="field-label-icon" />
+          <span>Nominal Sudah Terbayar (Rp)</span>
+        </label>
         <div className="bill-currency-input-container">
           <span className="bill-currency-prefix-tag">Rp</span>
           <input
@@ -113,7 +125,7 @@ export default function BillPaymentFields({
             ? 'Masukkan nominal cicilan yang sudah dibayarkan mahasiswa'
             : formData.status === 'paid'
               ? 'Otomatis bernilai penuh sesuai total tagihan'
-              : 'Bernilai 0 saat status Belum Lunas'}
+              : 'Bernilai Rp 0 saat status Belum Lunas'}
         </div>
       </div>
     </>

@@ -1,15 +1,13 @@
 import React from 'react';
-import { Check, Copy, CreditCard } from 'lucide-react';
-
-const formatRupiah = (val) => {
-  const num = Number(val) || 0;
-  return new Intl.NumberFormat('id-ID', {
-    style: 'currency',
-    currency: 'IDR',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(num);
-};
+import {
+  Check,
+  Copy,
+  CreditCard,
+  GraduationCap,
+  ShieldCheck,
+  FileSpreadsheet,
+} from 'lucide-react';
+import { formatRupiah } from '../../utils/currency';
 
 /**
  * Kolom kiri BillEditPage.
@@ -36,28 +34,28 @@ export default function BillSummaryCard({
   return (
     <div className="bill-summary-col">
       {/* Student Identity Card */}
-      <div className="bill-id-card">
+      <div className="panel-card bill-id-card">
         <div className="bill-id-header">
           <div className="bill-avatar-badge">
             {(formData.full_name || 'M').charAt(0).toUpperCase()}
           </div>
           <div className="flex-1 min-w-0">
-            <h3 className="bill-student-name-heading">
+            <h3 className="bill-student-name-heading text-truncate">
               {formData.full_name || (isCreate ? 'Pilih Mahasiswa' : 'Nama Mahasiswa')}
             </h3>
             <div className="bill-nim-subrow">
-              <span className="bill-nim-text">{formData.nim || '-'}</span>
+              <span className="bill-nim-text mono-font">{formData.nim || '-'}</span>
               {formData.nim && (
                 <button
                   type="button"
                   onClick={() => onCopyNim(formData.nim, 'NIM')}
-                  className="bill-copy-btn-inline"
+                  className="copy-btn-inline"
                   title="Salin NIM"
                 >
                   {copiedKey === 'NIM' ? (
-                    <Check size={13} className="icon-primary" />
+                    <Check size={12} color="var(--success)" />
                   ) : (
-                    <Copy size={13} />
+                    <Copy size={12} />
                   )}
                 </button>
               )}
@@ -67,22 +65,31 @@ export default function BillSummaryCard({
 
         <div className="bill-info-list">
           <div className="bill-info-item">
-            <span className="bill-info-label">Program Studi</span>
+            <span className="bill-info-label">
+              <GraduationCap size={13} className="info-icon-inline" />
+              Program Studi
+            </span>
             <span className="bill-info-value">
               {studentData.study_program_name || studentData.prodi_name || '-'}
             </span>
           </div>
           <div className="bill-info-item">
-            <span className="bill-info-label">Status Akademik</span>
+            <span className="bill-info-label">
+              <ShieldCheck size={13} className="info-icon-inline" />
+              Status Akademik
+            </span>
             <span
-              className={`bill-academic-badge ${studentData.academic_status === 'aktif' ? 'aktif' : 'nonaktif'}`}
+              className={`badge badge-sm ${studentData.academic_status === 'aktif' ? 'badge-success' : 'badge-warning'}`}
             >
               {studentData.academic_status || 'Aktif'}
             </span>
           </div>
           <div className="bill-info-item">
-            <span className="bill-info-label">Sumber Entri</span>
-            <span className="bill-info-value">
+            <span className="bill-info-label">
+              <FileSpreadsheet size={13} className="info-icon-inline" />
+              Sumber Entri
+            </span>
+            <span className="bill-info-value mono-font cell-xs">
               {billData.source_file || (isCreate ? 'Manual Admin' : 'Manual')}
             </span>
           </div>
@@ -90,9 +97,9 @@ export default function BillSummaryCard({
       </div>
 
       {/* Financial Summary Card */}
-      <div className="bill-calc-summary-card">
+      <div className="panel-card bill-calc-summary-card">
         <h4 className="bill-calc-title">
-          <CreditCard size={16} className="icon-primary" />
+          <CreditCard size={16} className="text-brand" />
           <span>Ringkasan Saldo Tagihan</span>
         </h4>
 
@@ -117,17 +124,15 @@ export default function BillSummaryCard({
           </div>
 
           {/* Progress Bar */}
-          <div>
+          <div className="bill-progress-wrap">
             <div className="bill-progress-header">
               <span>Progres Pelunasan</span>
-              <span className="font-semibold">{percentPaid}%</span>
+              <span className="font-bold">{percentPaid}%</span>
             </div>
             <div className="bill-progress-track">
-              <progress
-                className={`bill-progress-semantic ${formData.status === 'paid' ? 'paid' : 'partial'}`}
-                value={clampedPercent}
-                max={100}
-                aria-label={`Progres pelunasan ${percentPaid}%`}
+              <div
+                className={`bill-progress-fill ${formData.status === 'paid' ? 'paid' : 'partial'}`}
+                style={{ width: `${clampedPercent}%` }}
               />
             </div>
           </div>
@@ -135,16 +140,16 @@ export default function BillSummaryCard({
           <div className="bill-status-footer-row">
             <span className="text-muted">Status Saat Ini</span>
             <span
-              className={`bill-status-pill ${
+              className={`badge badge-sm ${
                 formData.status === 'paid'
-                  ? 'paid'
+                  ? 'badge-success'
                   : formData.status === 'partial'
-                    ? 'partial'
-                    : 'unpaid'
+                    ? 'badge-warning'
+                    : 'badge-danger'
               }`}
             >
               {formData.status === 'paid'
-                ? 'LUNAS'
+                ? 'LUNAS (PAID)'
                 : formData.status === 'partial'
                   ? 'BAYAR SEBAGIAN'
                   : 'BELUM LUNAS'}

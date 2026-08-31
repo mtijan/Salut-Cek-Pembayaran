@@ -1,5 +1,16 @@
 import React from 'react';
-import { ArrowLeft, User, RefreshCw, Check, Copy, Calendar } from 'lucide-react';
+import {
+  ArrowLeft,
+  User,
+  RefreshCw,
+  Check,
+  Copy,
+  Calendar,
+  CreditCard,
+  Phone,
+  GraduationCap,
+  Wifi,
+} from 'lucide-react';
 import { useBillPayment } from '../hooks/useBillPayment';
 import PaymentForm from '../components/billing/PaymentForm';
 import PaymentHistoryTable from '../components/billing/PaymentHistoryTable';
@@ -16,6 +27,10 @@ export default function BillPaymentPage({ billId, navigateTo }) {
       </div>
     );
   }
+
+  const percentPaid =
+    p.totalAmount > 0 ? Math.round((p.currentPaid / p.totalAmount) * 100) : 0;
+  const clampedPercent = Math.min(100, Math.max(0, percentPaid));
 
   return (
     <div className="payment-page-container">
@@ -108,15 +123,21 @@ export default function BillPaymentPage({ billId, navigateTo }) {
 
             <div className="payment-quick-info">
               <div className="info-row">
-                <span className="label">Program Studi</span>
+                <span className="label">
+                  <GraduationCap size={13} className="info-icon-inline" />
+                  Program Studi
+                </span>
                 <span className="val">
                   {p.student.study_program_name || p.bill.study_program_name || '-'}
                 </span>
               </div>
               {p.student.phone_number && (
                 <div className="info-row">
-                  <span className="label">No. WhatsApp</span>
-                  <span className="val">{p.student.phone_number}</span>
+                  <span className="label">
+                    <Phone size={13} className="info-icon-inline" />
+                    No. WhatsApp
+                  </span>
+                  <span className="val mono-font">{p.student.phone_number}</span>
                 </div>
               )}
               {p.student.academic_status && (
@@ -134,10 +155,26 @@ export default function BillPaymentPage({ billId, navigateTo }) {
 
           {/* Bill Summary & Outstanding Balance Card */}
           <div className="panel-card payment-balance-card">
-            <div className="card-sub-title">Detail Tagihan &amp; Sisa Tunggakan</div>
+            <div className="card-sub-title-row">
+              <CreditCard size={15} className="text-brand" />
+              <span className="card-sub-title">Detail Tagihan &amp; Sisa Tunggakan</span>
+            </div>
 
+            {/* Virtual BRIVA Banking Card */}
             <div className="briva-spotlight-box">
-              <div className="briva-spotlight-label">Nomor BRIVA Pembayaran</div>
+              <div className="briva-card-top-row">
+                <div className="briva-card-brand">
+                  <span className="briva-bank-title">BANK BRI</span>
+                  <span className="briva-badge-type">{p.bill.bill_type || 'BRIVA'}</span>
+                </div>
+                <div className="briva-card-signals">
+                  <Wifi size={18} className="briva-signal-icon" />
+                </div>
+              </div>
+
+              <div className="briva-chip-sim-icon" />
+
+              <div className="briva-spotlight-label">Nomor Rekening BRIVA</div>
               <div className="briva-spotlight-val-row">
                 <span className="briva-spotlight-val">{p.bill.briva || '-'}</span>
                 {p.bill.briva && (
@@ -151,17 +188,22 @@ export default function BillPaymentPage({ billId, navigateTo }) {
                   </button>
                 )}
               </div>
+
               <div className="briva-spotlight-meta">
-                <span>
-                  Periode: <strong>{p.bill.period || '-'}</strong>
-                </span>
-                <span>•</span>
-                <span>
-                  Jenis: <strong>{p.bill.bill_type || '-'}</strong>
-                </span>
+                <div className="briva-meta-item">
+                  <span className="briva-meta-label">Periode</span>
+                  <span className="briva-meta-val">{p.bill.period || '-'}</span>
+                </div>
+                <div className="briva-meta-item text-right">
+                  <span className="briva-meta-label">Nama Akun</span>
+                  <span className="briva-meta-val text-truncate max-w-120">
+                    {p.student.full_name || p.bill.student_name || 'Mahasiswa'}
+                  </span>
+                </div>
               </div>
             </div>
 
+            {/* Balance Metrics */}
             <div className="balance-metrics-grid">
               <div className="balance-item">
                 <span className="label">Total Tagihan</span>
@@ -173,6 +215,21 @@ export default function BillPaymentPage({ billId, navigateTo }) {
               </div>
             </div>
 
+            {/* Progress Repayment Bar */}
+            <div className="payment-progress-wrap">
+              <div className="payment-progress-labels">
+                <span>Progres Pelunasan</span>
+                <span className="font-bold">{percentPaid}%</span>
+              </div>
+              <div className="payment-progress-track">
+                <div
+                  className="payment-progress-bar-fill"
+                  style={{ width: `${clampedPercent}%` }}
+                />
+              </div>
+            </div>
+
+            {/* Outstanding Balance Hero Display */}
             <div className="outstanding-hero-box">
               <span className="out-label">SISA TAGIHAN (OUTSTANDING)</span>
               <span className="out-val">{formatRupiah(p.remainingAmount)}</span>
@@ -180,9 +237,8 @@ export default function BillPaymentPage({ billId, navigateTo }) {
                 <span
                   className={`badge badge-status-lg ${p.bill.status === 'paid' ? 'badge-success' : p.bill.status === 'partial' ? 'badge-warning' : 'badge-danger'}`}
                 >
-                  Status Tagihan:{' '}
                   {p.bill.status === 'paid'
-                    ? 'LUNAS'
+                    ? 'LUNAS (PAID)'
                     : p.bill.status === 'partial'
                       ? 'BAYAR SEBAGIAN (CICILAN)'
                       : 'BELUM DIBAYAR'}
@@ -225,7 +281,9 @@ export default function BillPaymentPage({ billId, navigateTo }) {
             submitting={p.submitting}
             numericPayment={p.numericPayment}
             newRemaining={p.newRemaining}
+            willBePaid={p.willBePaid}
             handleModeChange={p.handleModeChange}
+            handleQuickAmount={p.handleQuickAmount}
             handleSubmitPayment={p.handleSubmitPayment}
           />
 

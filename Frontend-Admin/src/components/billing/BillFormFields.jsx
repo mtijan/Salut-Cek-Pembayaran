@@ -1,5 +1,5 @@
 import React from 'react';
-import { AlertCircle, RefreshCw, Save } from 'lucide-react';
+import { AlertCircle, RefreshCw, Save, FileEdit, PlusCircle, FileText } from 'lucide-react';
 import BillStudentField from './BillStudentField';
 import BillIdentityFields from './BillIdentityFields';
 import BillPaymentFields from './BillPaymentFields';
@@ -28,19 +28,24 @@ export default function BillFormFields({
   canManage,
 }) {
   return (
-    <div className="bill-form-main-card">
+    <div className="panel-card bill-form-main-card">
       <form onSubmit={onSubmit}>
         {/* Form Header */}
         <div className="bill-form-top-bar">
-          <div>
-            <h3 className="bill-form-title">
-              {isCreate ? 'Formulir Tagihan Baru' : 'Formulir Edit Data Tagihan'}
-            </h3>
-            <p className="bill-form-desc">
-              Lengkapi seluruh informasi tagihan dengan teliti untuk sinkronisasi sistem keuangan.
-            </p>
+          <div className="flex-row-gap-12">
+            <div className="icon-badge-brand">
+              {isCreate ? <PlusCircle size={20} /> : <FileEdit size={20} />}
+            </div>
+            <div>
+              <h3 className="bill-form-title">
+                {isCreate ? 'Formulir Tagihan Baru' : 'Formulir Edit Data Tagihan'}
+              </h3>
+              <p className="bill-form-desc">
+                Lengkapi seluruh informasi tagihan dengan teliti untuk sinkronisasi sistem keuangan.
+              </p>
+            </div>
           </div>
-          <span className={`bill-form-mode-badge ${isCreate ? 'create' : 'edit'}`}>
+          <span className={`badge ${isCreate ? 'badge-info' : 'badge-success'}`}>
             {isCreate ? 'Mode Buat Baru' : 'Mode Perbarui'}
           </span>
         </div>
@@ -88,9 +93,13 @@ export default function BillFormFields({
 
           {/* Instructions */}
           <div className="bill-field-full-col">
-            <label className="bill-field-label">Petunjuk Pembayaran / Catatan</label>
+            <label className="bill-field-label">
+              <FileText size={14} className="field-label-icon" />
+              <span>Petunjuk Pembayaran / Catatan</span>
+              <span className="field-optional-tag">(Opsional)</span>
+            </label>
             <textarea
-              className="form-control w-full-box"
+              className="form-control w-full-box bill-textarea"
               rows={3}
               value={formData.instructions}
               onChange={(e) => setFormData((prev) => ({ ...prev, instructions: e.target.value }))}

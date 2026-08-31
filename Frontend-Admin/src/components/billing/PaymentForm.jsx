@@ -1,5 +1,10 @@
 import React from 'react';
-import { CreditCard, CheckCircle2, AlertCircle, Layers, Save } from 'lucide-react';
+import {
+  CreditCard,
+  AlertCircle,
+  Save,
+  Sparkles,
+} from 'lucide-react';
 import PaymentTransactionFields from './PaymentTransactionFields';
 import PaymentSettledState from './PaymentSettledState';
 import { formatRupiah } from '../../utils/currency';
@@ -33,12 +38,14 @@ export default function PaymentForm({
   handleQuickAmount,
   handleSubmitPayment,
 }) {
+  const currentNum = Number(paymentAmount) || 0;
+
   return (
     <div className="panel-card payment-form-card">
       <div className="payment-form-header">
-        <div className="flex-row-gap-8">
+        <div className="flex-row-gap-12">
           <div className="icon-badge-brand">
-            <CreditCard size={18} />
+            <CreditCard size={20} />
           </div>
           <div>
             <h3 className="payment-header-title">Formulir Pembayaran Tagihan</h3>
@@ -55,7 +62,7 @@ export default function PaymentForm({
         <form onSubmit={handleSubmitPayment} className="payment-form-body">
           {formError && (
             <div className="alert-box alert-danger modal-alert-danger">
-              <AlertCircle size={17} />
+              <AlertCircle size={18} className="flex-shrink-0" />
               <span>{formError}</span>
             </div>
           )}
@@ -67,10 +74,17 @@ export default function PaymentForm({
               className={`mode-btn ${paymentMode === 'full' ? 'is-active' : ''}`}
               onClick={() => handleModeChange('full')}
             >
-              <CheckCircle2 size={16} />
-              <div>
-                <div className="mode-title">Pelunasan Penuh (Lunas)</div>
-                <div className="mode-sub">Bayar seluruh sisa {formatRupiah(remainingAmount)}</div>
+              <div className="mode-radio-circle">
+                <div className="mode-radio-dot" />
+              </div>
+              <div className="mode-content-wrap">
+                <div className="mode-title-row">
+                  <span className="mode-title">Pelunasan Penuh (Lunas)</span>
+                  <span className="badge badge-xs badge-success">Direkomendasikan</span>
+                </div>
+                <div className="mode-sub">
+                  Bayar seluruh sisa tagihan: <strong>{formatRupiah(remainingAmount)}</strong>
+                </div>
               </div>
             </button>
 
@@ -79,22 +93,27 @@ export default function PaymentForm({
               className={`mode-btn ${paymentMode === 'partial' ? 'is-active' : ''}`}
               onClick={() => handleModeChange('partial')}
             >
-              <Layers size={16} />
-              <div>
-                <div className="mode-title">Bayar Sebagian (Cicilan)</div>
+              <div className="mode-radio-circle">
+                <div className="mode-radio-dot" />
+              </div>
+              <div className="mode-content-wrap">
+                <div className="mode-title-row">
+                  <span className="mode-title">Bayar Sebagian (Cicilan)</span>
+                  <span className="badge badge-xs badge-neutral">Fleksibel</span>
+                </div>
                 <div className="mode-sub">Masukkan nominal pembayaran bertahap</div>
               </div>
             </button>
           </div>
 
           {/* Nominal Input */}
-          <div className="form-group mt-3">
+          <div className="form-group nominal-input-group">
             <label className="payment-nominal-label">
-              <span>
-                Nominal Pembayaran Transaksi Ini (Rp) <span className="text-danger">*</span>
+              <span className="nominal-label-text">
+                Nominal Pembayaran Transaksi Ini <span className="text-danger">*</span>
               </span>
-              <span className="text-emerald font-semibold">
-                Sisa Saat Ini: {formatRupiah(remainingAmount)}
+              <span className="nominal-balance-pill">
+                Sisa Saat Ini: <strong>{formatRupiah(remainingAmount)}</strong>
               </span>
             </label>
             <div className="currency-input-wrap">
@@ -104,7 +123,8 @@ export default function PaymentForm({
                 value={paymentAmount}
                 onChange={(e) => {
                   setPaymentAmount(e.target.value);
-                  if (Number(e.target.value) === remainingAmount) {
+                  const val = Number(e.target.value);
+                  if (val === remainingAmount) {
                     handleModeChange('full');
                   } else {
                     handleModeChange('partial');
@@ -121,13 +141,18 @@ export default function PaymentForm({
             {/* Quick Chips */}
             <div className="quick-chips-row">
               <span className="chips-label">Pilihan Cepat:</span>
-              <button type="button" className="chip-btn" onClick={() => handleModeChange('full')}>
-                Sisa Penuh ({formatRupiah(remainingAmount)})
+              <button
+                type="button"
+                className={`chip-btn ${currentNum === remainingAmount ? 'is-active' : ''}`}
+                onClick={() => handleModeChange('full')}
+              >
+                <Sparkles size={12} className="chip-icon" />
+                <span>Sisa Penuh ({formatRupiah(remainingAmount)})</span>
               </button>
               {remainingAmount > 1000000 && (
                 <button
                   type="button"
-                  className="chip-btn"
+                  className={`chip-btn ${currentNum === 1000000 ? 'is-active' : ''}`}
                   onClick={() => handleQuickAmount(1000000)}
                 >
                   Rp 1.000.000
@@ -136,7 +161,7 @@ export default function PaymentForm({
               {remainingAmount > 500000 && (
                 <button
                   type="button"
-                  className="chip-btn"
+                  className={`chip-btn ${currentNum === 500000 ? 'is-active' : ''}`}
                   onClick={() => handleQuickAmount(500000)}
                 >
                   Rp 500.000
@@ -145,7 +170,7 @@ export default function PaymentForm({
               {remainingAmount > 250000 && (
                 <button
                   type="button"
-                  className="chip-btn"
+                  className={`chip-btn ${currentNum === 250000 ? 'is-active' : ''}`}
                   onClick={() => handleQuickAmount(250000)}
                 >
                   Rp 250.000
@@ -157,21 +182,21 @@ export default function PaymentForm({
           {/* Live Calculation */}
           <div className="live-calc-box">
             <div className="calc-item">
-              <span className="calc-label">Sisa Sebelumnya:</span>
+              <span className="calc-label">Sisa Sebelumnya</span>
               <span className="calc-val">{formatRupiah(remainingAmount)}</span>
             </div>
             <div className="calc-sep">-</div>
             <div className="calc-item">
-              <span className="calc-label">Bayar Sekarang:</span>
+              <span className="calc-label">Bayar Sekarang</span>
               <span className="calc-val text-emerald font-bold">
                 {formatRupiah(numericPayment)}
               </span>
             </div>
             <div className="calc-sep">=</div>
             <div className="calc-item">
-              <span className="calc-label">Sisa Tagihan Baru:</span>
+              <span className="calc-label">Sisa Tagihan Baru</span>
               <span
-                className={`calc-val font-bold ${newRemaining > 0 ? 'text-danger' : 'text-success'}`}
+                className={`calc-val font-bold ${newRemaining > 0 ? 'text-amber' : 'text-emerald'}`}
               >
                 {formatRupiah(newRemaining)}
               </span>
@@ -194,7 +219,7 @@ export default function PaymentForm({
             setNotes={setNotes}
           />
 
-          <div className="form-actions-bar mt-3">
+          <div className="form-actions-bar mt-4">
             <button
               type="submit"
               className="btn btn-primary btn-large btn-submit-payment"

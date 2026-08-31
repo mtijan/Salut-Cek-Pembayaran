@@ -1,4 +1,5 @@
 import React from 'react';
+import { Calculator } from 'lucide-react';
 import { formatRupiah } from '../../utils/currency';
 
 export default function BillCalculationPreview({
@@ -13,11 +14,19 @@ export default function BillCalculationPreview({
         formData.status === 'paid' ? 'paid' : formData.status === 'partial' ? 'partial' : 'unpaid'
       }`}
     >
-      <div>
-        <div className="bill-calc-title">Kalkulasi Sisa Tagihan Real-Time</div>
+      <div className="bill-calc-left-col">
+        <div className="bill-calc-title-row">
+          <Calculator size={14} className="text-muted" />
+          <span className="bill-calc-title">Kalkulasi Sisa Tagihan Real-Time</span>
+        </div>
         <div className="bill-calc-math">
-          {formatRupiah(totalAmountNum)} - {formatRupiah(paidAmountNum)} ={' '}
-          <span className={remainingAmountNum > 0 ? 'text-amber' : 'text-emerald'}>
+          <span>{formatRupiah(totalAmountNum)}</span>
+          <span className="calc-math-op">-</span>
+          <span>{formatRupiah(paidAmountNum)}</span>
+          <span className="calc-math-op">=</span>
+          <span
+            className={`font-bold ${remainingAmountNum > 0 ? 'text-amber' : 'text-emerald'}`}
+          >
             {formatRupiah(remainingAmountNum)}
           </span>
         </div>
@@ -26,16 +35,16 @@ export default function BillCalculationPreview({
       <div className="bill-calc-status-row">
         <span className="bill-calc-status-label">Status Akhir:</span>
         <span
-          className={`bill-status-pill ${
+          className={`badge badge-sm ${
             formData.status === 'paid'
-              ? 'paid'
+              ? 'badge-success'
               : formData.status === 'partial'
-                ? 'partial'
-                : 'unpaid'
+                ? 'badge-warning'
+                : 'badge-danger'
           }`}
         >
           {formData.status === 'paid'
-            ? 'LUNAS'
+            ? 'LUNAS (PAID)'
             : formData.status === 'partial'
               ? 'BAYAR SEBAGIAN'
               : 'BELUM LUNAS'}
