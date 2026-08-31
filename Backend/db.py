@@ -385,16 +385,8 @@ def migrate_master_data_and_student_siakad(conn: sqlite3.Connection) -> None:
 
 
 DEFAULT_STUDY_PROGRAMS: list[tuple[str, str, str, str, str, list[str]]] = [
+    # FHISIP (Fakultas Hukum, Ilmu Sosial, dan Ilmu Politik)
     ("sp_hkum", "HKUM", "S1 Ilmu Hukum", "S1", "FHISIP", ["ilmu hukum", "hukum"]),
-    ("sp_manj", "MANJ", "S1 Manajemen", "S1", "FEB", ["manajemen", "managemen"]),
-    ("sp_akkp", "AKKP", "S1 Akuntansi Keuangan Publik", "S1", "FEB", ["akuntansi keuangan publik"]),
-    ("sp_akun", "AKUN", "S1 Akuntansi", "S1", "FEB", ["akuntansi"]),
-    ("sp_agri", "AGRI", "S1 Agribisnis", "S1", "FEB", ["agribisnis"]),
-    ("sp_ekpb", "EKPB", "S1 Ekonomi Pembangunan", "S1", "FEB", ["ekonomi pembangunan"]),
-    ("sp_eksy", "EKSY", "S1 Ekonomi Syariah", "S1", "FEB", ["ekonomi syariah"]),
-    ("sp_kwir", "KWIR", "S1 Kewirausahaan", "S1", "FEB", ["kewirausahaan"]),
-    ("sp_pari", "PARI", "S1 Pariwisata", "S1", "FEB", ["pariwisata"]),
-    ("sp_pajk", "PAJK", "S1 Perpajakan", "S1", "FEB", ["perpajakan"]),
     ("sp_komu", "KOMU", "S1 Ilmu Komunikasi", "S1", "FHISIP", ["ilmu komunikasi", "komunikasi"]),
     ("sp_ipem", "IPEM", "S1 Ilmu Pemerintahan", "S1", "FHISIP", ["ilmu pemerintahan", "pemerintahan"]),
     (
@@ -403,15 +395,35 @@ DEFAULT_STUDY_PROGRAMS: list[tuple[str, str, str, str, str, list[str]]] = [
         "S1 Ilmu Administrasi Negara",
         "S1",
         "FHISIP",
-        ["ilmu administrasi negara", "administrasi negara"],
+        ["ilmu administrasi negara", "administrasi negara", "ilmu administrasi publik", "administrasi publik"],
     ),
-    ("sp_admb", "ADMB", "S1 Administrasi Bisnis", "S1", "FHISIP", ["administrasi bisnis"]),
+    ("sp_admb", "ADMB", "S1 Administrasi Bisnis", "S1", "FHISIP", ["administrasi bisnis", "ilmu administrasi bisnis"]),
     ("sp_sosi", "SOSI", "S1 Sosiologi", "S1", "FHISIP", ["sosiologi"]),
     ("sp_sing", "SING", "S1 Sastra Inggris", "S1", "FHISIP", ["sastra inggris"]),
-    ("sp_pgsd", "PGSD", "S1 PGSD", "S1", "FKIP", ["pgsd"]),
-    ("sp_paud", "PAUD", "S1 PGPAUD", "S1", "FKIP", ["pgpaud", "paud"]),
+    (
+        "sp_ipus",
+        "IPUS",
+        "S1 Perpustakaan dan Sains Informasi",
+        "S1",
+        "FHISIP",
+        ["perpustakaan dan sains informasi", "ilmu perpustakaan", "perpustakaan"],
+    ),
+    ("sp_pajk", "PAJK", "S1 Perpajakan", "S1", "FHISIP", ["perpajakan", "pajak"]),
+
+    # FEB (Fakultas Ekonomi dan Bisnis)
+    ("sp_manj", "MANJ", "S1 Manajemen", "S1", "FEB", ["manajemen", "managemen"]),
+    ("sp_akun", "AKUN", "S1 Akuntansi", "S1", "FEB", ["akuntansi"]),
+    ("sp_akkp", "AKKP", "S1 Akuntansi Keuangan Publik", "S1", "FEB", ["akuntansi keuangan publik"]),
+    ("sp_ekpb", "EKPB", "S1 Ekonomi Pembangunan", "S1", "FEB", ["ekonomi pembangunan"]),
+    ("sp_eksy", "EKSY", "S1 Ekonomi Syariah", "S1", "FEB", ["ekonomi syariah"]),
+    ("sp_pari", "PARI", "S1 Pariwisata", "S1", "FEB", ["pariwisata"]),
+    ("sp_kwir", "KWIR", "S1 Kewirausahaan", "S1", "FEB", ["kewirausahaan"]),
+
+    # FKIP (Fakultas Keguruan dan Ilmu Pendidikan)
+    ("sp_pgsd", "PGSD", "S1 PGSD", "S1", "FKIP", ["pgsd", "pendidikan guru sekolah dasar"]),
+    ("sp_paud", "PAUD", "S1 PGPAUD", "S1", "FKIP", ["pgpaud", "paud", "pendidikan guru pendidikan anak usia dini"]),
     ("sp_pgai", "PGAI", "S1 PAI", "S1", "FKIP", ["pai", "pendidikan agama islam"]),
-    ("sp_ppkn", "PPKN", "S1 PPKN", "S1", "FKIP", ["ppkn"]),
+    ("sp_ppkn", "PPKN", "S1 PPKN", "S1", "FKIP", ["ppkn", "pendidikan pancasila dan kewarganegaraan"]),
     (
         "sp_pbin",
         "PBIN",
@@ -421,15 +433,121 @@ DEFAULT_STUDY_PROGRAMS: list[tuple[str, str, str, str, str, list[str]]] = [
         ["pendidikan bahasa dan sastra indonesia", "pendidikan bahasa indonesia"],
     ),
     ("sp_pbig", "PBIG", "S1 Pendidikan Bahasa Inggris", "S1", "FKIP", ["pendidikan bahasa inggris"]),
-    ("sp_pbio", "PBIO", "S1 Pendidikan Biologi", "S1", "FKIP", ["pendidikan biologi"]),
-    ("sp_peko", "PEKO", "S1 Pendidikan Ekonomi", "S1", "FKIP", ["pendidikan ekonomi"]),
-    ("sp_pfis", "PFIS", "S1 Pendidikan Fisika", "S1", "FKIP", ["pendidikan fisika"]),
     ("sp_pmat", "PMAT", "S1 Pendidikan Matematika", "S1", "FKIP", ["pendidikan matematika", "pendidikan matematikan"]),
+    ("sp_pbio", "PBIO", "S1 Pendidikan Biologi", "S1", "FKIP", ["pendidikan biologi"]),
+    ("sp_pfis", "PFIS", "S1 Pendidikan Fisika", "S1", "FKIP", ["pendidikan fisika"]),
+    ("sp_pkim", "PKIM", "S1 Pendidikan Kimia", "S1", "FKIP", ["pendidikan kimia"]),
+    ("sp_peko", "PEKO", "S1 Pendidikan Ekonomi", "S1", "FKIP", ["pendidikan ekonomi"]),
     ("sp_tpen", "TPEN", "S1 Teknologi Pendidikan", "S1", "FKIP", ["teknologi pendidikan"]),
+    ("sp_ppgg", "PPGG", "Profesi Guru (PPG)", "Profesi", "FKIP", ["pendidikan profesi guru", "ppg", "profesi guru"]),
+
+    # FST (Fakultas Sains dan Teknologi)
     ("sp_sifo", "SIFO", "S1 Sistem Informasi", "S1", "FST", ["sistem informasi"]),
+    ("sp_sdat", "SDAT", "S1 Sains Data", "S1", "FST", ["sains data", "data science"]),
+    ("sp_stat", "STAT", "S1 Statistika", "S1", "FST", ["statistika", "statistik"]),
+    ("sp_mate", "MATE", "S1 Matematika", "S1", "FST", ["matematika"]),
     ("sp_biol", "BIOL", "S1 Biologi", "S1", "FST", ["biologi"]),
     ("sp_tpan", "TPAN", "S1 Teknologi Pangan", "S1", "FST", ["teknologi pangan"]),
-    ("sp_mate", "MATE", "S1 Matematika", "S1", "FST", ["matematika"]),
+    ("sp_agri", "AGRI", "S1 Agribisnis", "S1", "FST", ["agribisnis"]),
+    (
+        "sp_pwkt",
+        "PWKT",
+        "S1 Perencanaan Wilayah dan Kota",
+        "S1",
+        "FST",
+        ["perencanaan wilayah dan kota", "pwk", "planologi"],
+    ),
+
+    # SV (Sekolah Vokasi)
+    ("sp_dpaj", "DPAJ", "D3 Perpajakan", "D3", "SV", ["d3 perpajakan", "diploma perpajakan", "perpajakan d3"]),
+    ("sp_dkar", "DKAR", "D4 Kearsipan", "D4", "SV", ["d4 kearsipan", "kearsipan", "kearsipan d4"]),
+    (
+        "sp_dtin",
+        "DTIN",
+        "D3 Teknologi Informasi",
+        "D3",
+        "SV",
+        ["d3 teknologi informasi", "teknologi informasi d3"],
+    ),
+    (
+        "sp_dabd",
+        "DABD",
+        "D4 Akuntansi Bisnis Digital",
+        "D4",
+        "SV",
+        ["akuntansi bisnis digital", "d4 akuntansi bisnis digital"],
+    ),
+    ("sp_dmlg", "DMLG", "D4 Manajemen Logistik", "D4", "SV", ["manajemen logistik", "d4 manajemen logistik"]),
+    ("sp_dpen", "DPEN", "D3 Penyiaran", "D3", "SV", ["d3 penyiaran", "penyiaran", "broadcast journalism"]),
+
+    # SPs (Sekolah Pascasarjana)
+    ("sp_s2mm", "MMS2", "S2 Magister Manajemen", "S2", "SPs", ["magister manajemen", "s2 manajemen", "mm"]),
+    (
+        "sp_s2ap",
+        "MAPS",
+        "S2 Magister Administrasi Publik",
+        "S2",
+        "SPs",
+        ["magister administrasi publik", "s2 administrasi publik", "map"],
+    ),
+    (
+        "sp_s2pd",
+        "MPDR",
+        "S2 Magister Pendidikan Dasar",
+        "S2",
+        "SPs",
+        ["magister pendidikan dasar", "s2 pendidikan dasar", "mpdr"],
+    ),
+    (
+        "sp_s2pm",
+        "MPMT",
+        "S2 Magister Pendidikan Matematika",
+        "S2",
+        "SPs",
+        ["magister pendidikan matematika", "s2 pendidikan matematika", "mpmat"],
+    ),
+    (
+        "sp_s2pb",
+        "MPBI",
+        "S2 Magister Pendidikan Bahasa Inggris",
+        "S2",
+        "SPs",
+        ["magister pendidikan bahasa inggris", "s2 pendidikan bahasa inggris", "mpbi"],
+    ),
+    (
+        "sp_s2pa",
+        "MPAD",
+        "S2 Magister Pendidikan Anak Usia Dini",
+        "S2",
+        "SPs",
+        ["magister pendidikan anak usia dini", "s2 paud", "mpad"],
+    ),
+    (
+        "sp_s2sl",
+        "MSLK",
+        "S2 Magister Studi Lingkungan",
+        "S2",
+        "SPs",
+        ["magister studi lingkungan", "s2 studi lingkungan", "msl"],
+    ),
+    (
+        "sp_s2mp",
+        "MMPK",
+        "S2 Magister Manajemen Perikanan",
+        "S2",
+        "SPs",
+        ["magister manajemen perikanan", "s2 manajemen perikanan", "mmp"],
+    ),
+    ("sp_s2hk", "MHUM", "S2 Magister Hukum", "S2", "SPs", ["magister hukum", "s2 hukum", "magister ilmu hukum"]),
+    ("sp_s3dm", "DIM3", "S3 Doktor Ilmu Manajemen", "S3", "SPs", ["doktor ilmu manajemen", "s3 manajemen", "dim"]),
+    (
+        "sp_s3dp",
+        "DAP3",
+        "S3 Doktor Administrasi Publik",
+        "S3",
+        "SPs",
+        ["doktor administrasi publik", "s3 administrasi publik", "dap"],
+    ),
 ]
 
 
@@ -438,7 +556,7 @@ def resolve_study_program_id(conn: sqlite3.Connection, raw_program: str | None) 
     if not raw_program or not str(raw_program).strip():
         return None
     raw_clean = re.sub(r"\s+", " ", str(raw_program)).strip()
-    fac_match = re.match(r"^(FEB|FHISIP|FKIP|FST)\s*[-–—]\s*(.*)$", raw_clean, flags=re.IGNORECASE)
+    fac_match = re.match(r"^(FEB|FHISIP|FKIP|FST|SV|SPS|SPPS|VOKASI|PASCASARJANA)\s*[-–—]\s*(.*)$", raw_clean, flags=re.IGNORECASE)
     faculty = fac_match.group(1).upper() if fac_match else ""
     prodi_name = fac_match.group(2).strip().lower() if fac_match else raw_clean.lower()
 

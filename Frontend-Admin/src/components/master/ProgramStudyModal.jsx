@@ -30,7 +30,7 @@ export default function ProgramStudyModal({
               <input
                 type="text"
                 className="form-control"
-                placeholder="Contoh: 311 (Ilmu Hukum)"
+                placeholder="Contoh: HKUM (Ilmu Hukum)"
                 value={form.code}
                 onChange={(e) => setForm({ ...form, code: e.target.value })}
                 required
@@ -57,7 +57,9 @@ export default function ProgramStudyModal({
                 <option value="D3">Diploma 3 (D3)</option>
                 <option value="D4">Diploma 4 (D4)</option>
                 <option value="S1">Sarjana (S1)</option>
+                <option value="Profesi">Profesi</option>
                 <option value="S2">Magister (S2)</option>
+                <option value="S3">Doktor (S3)</option>
               </select>
             </div>
             <div className="form-group">
