@@ -42,7 +42,10 @@ export default function BillStudentField({
                 {studentData.full_name || formData.full_name || 'Nama Mahasiswa'}
               </div>
               <div className="readonly-student-meta">
-                <span>NIM: <strong className="font-mono">{studentData.nim || formData.nim || '-'}</strong></span>
+                <span>
+                  NIM:{' '}
+                  <strong className="font-mono">{studentData.nim || formData.nim || '-'}</strong>
+                </span>
                 <span className="crumb-sep">•</span>
                 <span>{studentData.study_program_name || 'Program Studi'}</span>
               </div>

@@ -24,9 +24,7 @@ export default function BillCalculationPreview({
           <span className="calc-math-op">-</span>
           <span>{formatRupiah(paidAmountNum)}</span>
           <span className="calc-math-op">=</span>
-          <span
-            className={`font-bold ${remainingAmountNum > 0 ? 'text-amber' : 'text-emerald'}`}
-          >
+          <span className={`font-bold ${remainingAmountNum > 0 ? 'text-amber' : 'text-emerald'}`}>
             {formatRupiah(remainingAmountNum)}
           </span>
         </div>

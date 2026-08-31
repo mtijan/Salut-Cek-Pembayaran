@@ -39,7 +39,9 @@
   padding: 22px;
   background: #ffffff;
   border-radius: var(--radius-lg);
-  box-shadow: 0 4px 20px -2px rgba(15, 76, 58, 0.06), 0 2px 6px -1px rgba(0, 0, 0, 0.04);
+  box-shadow:
+    0 4px 20px -2px rgba(15, 76, 58, 0.06),
+    0 2px 6px -1px rgba(0, 0, 0, 0.04);
   border: 1px solid var(--line);
 }
 
@@ -95,7 +97,9 @@
   padding: 22px;
   background: #ffffff;
   border-radius: var(--radius-lg);
-  box-shadow: 0 4px 20px -2px rgba(15, 76, 58, 0.06), 0 2px 6px -1px rgba(0, 0, 0, 0.04);
+  box-shadow:
+    0 4px 20px -2px rgba(15, 76, 58, 0.06),
+    0 2px 6px -1px rgba(0, 0, 0, 0.04);
   border: 1px solid var(--line);
 }
 
@@ -354,7 +358,9 @@
   padding: 26px;
   background: #ffffff;
   border-radius: var(--radius-lg);
-  box-shadow: 0 4px 20px -2px rgba(15, 76, 58, 0.06), 0 2px 6px -1px rgba(0, 0, 0, 0.04);
+  box-shadow:
+    0 4px 20px -2px rgba(15, 76, 58, 0.06),
+    0 2px 6px -1px rgba(0, 0, 0, 0.04);
   border: 1px solid var(--line);
 }
 
@@ -745,7 +751,9 @@
   padding: 22px;
   background: #ffffff;
   border-radius: var(--radius-lg);
-  box-shadow: 0 4px 20px -2px rgba(15, 76, 58, 0.06), 0 2px 6px -1px rgba(0, 0, 0, 0.04);
+  box-shadow:
+    0 4px 20px -2px rgba(15, 76, 58, 0.06),
+    0 2px 6px -1px rgba(0, 0, 0, 0.04);
   border: 1px solid var(--line);
 }
 

@@ -28,8 +28,7 @@ export default function BillPaymentPage({ billId, navigateTo }) {
     );
   }
 
-  const percentPaid =
-    p.totalAmount > 0 ? Math.round((p.currentPaid / p.totalAmount) * 100) : 0;
+  const percentPaid = p.totalAmount > 0 ? Math.round((p.currentPaid / p.totalAmount) * 100) : 0;
   const clampedPercent = Math.min(100, Math.max(0, percentPaid));
 
   return (
@@ -222,9 +221,11 @@ export default function BillPaymentPage({ billId, navigateTo }) {
                 <span className="font-bold">{percentPaid}%</span>
               </div>
               <div className="payment-progress-track">
-                <div
-                  className="payment-progress-bar-fill"
-                  style={{ width: `${clampedPercent}%` }}
+                <progress
+                  className={`bill-progress-semantic ${p.bill.status === 'paid' ? '' : 'partial'}`}
+                  value={clampedPercent}
+                  max={100}
+                  aria-label={`Progres pelunasan ${percentPaid}%`}
                 />
               </div>
             </div>

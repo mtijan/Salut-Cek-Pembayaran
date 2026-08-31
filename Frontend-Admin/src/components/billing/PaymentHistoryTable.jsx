@@ -97,9 +97,13 @@ export default function PaymentHistoryTable({ transactions = [] }) {
                   </div>
                 </td>
                 <td>
-                  <span className="badge badge-sm badge-neutral">{tx.payment_method || 'BRIVA'}</span>
+                  <span className="badge badge-sm badge-neutral">
+                    {tx.payment_method || 'BRIVA'}
+                  </span>
                   {tx.reference_number && (
-                    <div className="mono-font cell-xs text-muted mt-1">Ref: {tx.reference_number}</div>
+                    <div className="mono-font cell-xs text-muted mt-1">
+                      Ref: {tx.reference_number}
+                    </div>
                   )}
                 </td>
                 <td className="cell-notes">{tx.notes || '-'}</td>

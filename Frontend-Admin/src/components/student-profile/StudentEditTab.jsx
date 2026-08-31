@@ -42,7 +42,8 @@ export function StudentEditTab({ editError, form, onCancel, onChange, onSubmit, 
               <span>Edit Biodata &amp; Informasi Mahasiswa</span>
             </h3>
             <p className="student-edit-header-desc">
-              Perbarui data kependudukan, program studi, status akademik, dan kontak mahasiswa secara terstruktur.
+              Perbarui data kependudukan, program studi, status akademik, dan kontak mahasiswa
+              secara terstruktur.
             </p>
           </div>
         </div>
@@ -63,7 +64,9 @@ export function StudentEditTab({ editError, form, onCancel, onChange, onSubmit, 
                   <UserCheck size={18} />
                 </div>
                 <div className="student-edit-section-titles">
-                  <h4 className="student-edit-section-title">1. Data Identitas &amp; Kependudukan</h4>
+                  <h4 className="student-edit-section-title">
+                    1. Data Identitas &amp; Kependudukan
+                  </h4>
                   <p className="student-edit-section-subtitle">
                     Identitas pokok mahasiswa sesuai dokumen kependudukan resmi (KTP / KK)
                   </p>

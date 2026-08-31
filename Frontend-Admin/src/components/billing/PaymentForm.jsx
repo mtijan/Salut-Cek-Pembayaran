@@ -1,10 +1,5 @@
 import React from 'react';
-import {
-  CreditCard,
-  AlertCircle,
-  Save,
-  Sparkles,
-} from 'lucide-react';
+import { CreditCard, AlertCircle, Save, Sparkles } from 'lucide-react';
 import PaymentTransactionFields from './PaymentTransactionFields';
 import PaymentSettledState from './PaymentSettledState';
 import { formatRupiah } from '../../utils/currency';

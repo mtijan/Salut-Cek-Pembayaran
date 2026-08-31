@@ -409,7 +409,6 @@ DEFAULT_STUDY_PROGRAMS: list[tuple[str, str, str, str, str, list[str]]] = [
         ["perpustakaan dan sains informasi", "ilmu perpustakaan", "perpustakaan"],
     ),
     ("sp_pajk", "PAJK", "S1 Perpajakan", "S1", "FHISIP", ["perpajakan", "pajak"]),
-
     # FEB (Fakultas Ekonomi dan Bisnis)
     ("sp_manj", "MANJ", "S1 Manajemen", "S1", "FEB", ["manajemen", "managemen"]),
     ("sp_akun", "AKUN", "S1 Akuntansi", "S1", "FEB", ["akuntansi"]),
@@ -418,7 +417,6 @@ DEFAULT_STUDY_PROGRAMS: list[tuple[str, str, str, str, str, list[str]]] = [
     ("sp_eksy", "EKSY", "S1 Ekonomi Syariah", "S1", "FEB", ["ekonomi syariah"]),
     ("sp_pari", "PARI", "S1 Pariwisata", "S1", "FEB", ["pariwisata"]),
     ("sp_kwir", "KWIR", "S1 Kewirausahaan", "S1", "FEB", ["kewirausahaan"]),
-
     # FKIP (Fakultas Keguruan dan Ilmu Pendidikan)
     ("sp_pgsd", "PGSD", "S1 PGSD", "S1", "FKIP", ["pgsd", "pendidikan guru sekolah dasar"]),
     ("sp_paud", "PAUD", "S1 PGPAUD", "S1", "FKIP", ["pgpaud", "paud", "pendidikan guru pendidikan anak usia dini"]),
@@ -440,7 +438,6 @@ DEFAULT_STUDY_PROGRAMS: list[tuple[str, str, str, str, str, list[str]]] = [
     ("sp_peko", "PEKO", "S1 Pendidikan Ekonomi", "S1", "FKIP", ["pendidikan ekonomi"]),
     ("sp_tpen", "TPEN", "S1 Teknologi Pendidikan", "S1", "FKIP", ["teknologi pendidikan"]),
     ("sp_ppgg", "PPGG", "Profesi Guru (PPG)", "Profesi", "FKIP", ["pendidikan profesi guru", "ppg", "profesi guru"]),
-
     # FST (Fakultas Sains dan Teknologi)
     ("sp_sifo", "SIFO", "S1 Sistem Informasi", "S1", "FST", ["sistem informasi"]),
     ("sp_sdat", "SDAT", "S1 Sains Data", "S1", "FST", ["sains data", "data science"]),
@@ -457,7 +454,6 @@ DEFAULT_STUDY_PROGRAMS: list[tuple[str, str, str, str, str, list[str]]] = [
         "FST",
         ["perencanaan wilayah dan kota", "pwk", "planologi"],
     ),
-
     # SV (Sekolah Vokasi)
     ("sp_dpaj", "DPAJ", "D3 Perpajakan", "D3", "SV", ["d3 perpajakan", "diploma perpajakan", "perpajakan d3"]),
     ("sp_dkar", "DKAR", "D4 Kearsipan", "D4", "SV", ["d4 kearsipan", "kearsipan", "kearsipan d4"]),
@@ -479,7 +475,6 @@ DEFAULT_STUDY_PROGRAMS: list[tuple[str, str, str, str, str, list[str]]] = [
     ),
     ("sp_dmlg", "DMLG", "D4 Manajemen Logistik", "D4", "SV", ["manajemen logistik", "d4 manajemen logistik"]),
     ("sp_dpen", "DPEN", "D3 Penyiaran", "D3", "SV", ["d3 penyiaran", "penyiaran", "broadcast journalism"]),
-
     # SPs (Sekolah Pascasarjana)
     ("sp_s2mm", "MMS2", "S2 Magister Manajemen", "S2", "SPs", ["magister manajemen", "s2 manajemen", "mm"]),
     (
@@ -556,7 +551,9 @@ def resolve_study_program_id(conn: sqlite3.Connection, raw_program: str | None) 
     if not raw_program or not str(raw_program).strip():
         return None
     raw_clean = re.sub(r"\s+", " ", str(raw_program)).strip()
-    fac_match = re.match(r"^(FEB|FHISIP|FKIP|FST|SV|SPS|SPPS|VOKASI|PASCASARJANA)\s*[-–—]\s*(.*)$", raw_clean, flags=re.IGNORECASE)
+    fac_match = re.match(
+        r"^(FEB|FHISIP|FKIP|FST|SV|SPS|SPPS|VOKASI|PASCASARJANA)\s*[-–—]\s*(.*)$", raw_clean, flags=re.IGNORECASE
+    )
     faculty = fac_match.group(1).upper() if fac_match else ""
     prodi_name = fac_match.group(2).strip().lower() if fac_match else raw_clean.lower()
 

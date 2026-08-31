@@ -1,12 +1,5 @@
 import React from 'react';
-import {
-  Check,
-  Copy,
-  CreditCard,
-  GraduationCap,
-  ShieldCheck,
-  FileSpreadsheet,
-} from 'lucide-react';
+import { Check, Copy, CreditCard, GraduationCap, ShieldCheck, FileSpreadsheet } from 'lucide-react';
 import { formatRupiah } from '../../utils/currency';
 
 /**
@@ -130,9 +123,11 @@ export default function BillSummaryCard({
               <span className="font-bold">{percentPaid}%</span>
             </div>
             <div className="bill-progress-track">
-              <div
-                className={`bill-progress-fill ${formData.status === 'paid' ? 'paid' : 'partial'}`}
-                style={{ width: `${clampedPercent}%` }}
+              <progress
+                className={`bill-progress-semantic ${formData.status === 'paid' ? '' : 'partial'}`}
+                value={clampedPercent}
+                max={100}
+                aria-label={`Progres pelunasan ${percentPaid}%`}
               />
             </div>
           </div>

@@ -462,7 +462,7 @@ test('bill payment flow: partial payment, live calculation, submit transaksi dan
   // Fill reference & notes
   await page.getByPlaceholder('Contoh: REF-20260825-9988').fill('REF-SYNTH-001');
   await page
-    .getByPlaceholder('Contoh: Cicilan ke-1 biaya UKT semester genap')
+    .getByPlaceholder('Contoh: Cicilan ke-1 biaya UKT semester ganjil')
     .fill('Cicilan pertama');
 
   // Submit payment
