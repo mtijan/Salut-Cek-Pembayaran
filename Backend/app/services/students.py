@@ -1,4 +1,4 @@
-"""Students slice – ensure_student, list, get_detail, create, update, delete."""
+"""Students slice – ensure_student, list, get_detail, create, update, delete with repository delegation."""
 
 from __future__ import annotations
 
@@ -8,9 +8,10 @@ from pathlib import Path
 from typing import cast
 
 from Backend.app import config
-from Backend.app.domain.billing import bill_row_to_dict, joined_bill_select, summarize_payment_status
+from Backend.app.domain.billing import bill_row_to_dict, summarize_payment_status
 from Backend.app.domain.common import rupiah
 from Backend.app.domain.students import student_row_to_dict, validate_academic_status, validate_nim_value
+from Backend.app.repositories.students import StudentRepository
 from Backend.app.services import audit as _audit
 from Backend.app.services.audit import list_payment_transactions
 from Backend.db import connect, database_connection, parse_entry_registration
@@ -85,13 +86,8 @@ def ensure_student(
     norm_sem = clean_demographic_value(entry_semester) or parsed_sem
     norm_period = clean_demographic_value(entry_period) or parsed_period
 
-    # NIM is unique for the lifetime of the database.  If a previously
-    # soft-deleted student is imported/created again, restore that same record
-    # instead of attempting a second INSERT (which would violate the unique
-    # constraint and leaves operators with no recovery path).
-    row = conn.execute(
-        "select id, nim, full_name, deleted_at from students where nim = ?", (normalized_nim,)
-    ).fetchone()
+    repo = StudentRepository(conn)
+    row = repo.find_by_nim(normalized_nim)
     if row:
         updates = ["full_name = ?", "name_norm = ?", "updated_at = datetime('now')"]
         params: list[object] = [normalized_name, normalize_name(normalized_name)]
@@ -141,7 +137,9 @@ def ensure_student(
             params.append(norm_reg)
         params.append(row["id"])
         conn.execute(f"update students set {', '.join(updates)} where id = ?", params)
-        return conn.execute("select id, nim, full_name from students where id = ?", (row["id"],)).fetchone()
+        res = conn.execute("select id, nim, full_name from students where id = ?", (row["id"],)).fetchone()
+        assert res is not None
+        return res
 
     student_id = f"stu_{uuid.uuid4().hex[:12]}"
     conn.execute(
@@ -175,7 +173,9 @@ def ensure_student(
             norm_reg,
         ),
     )
-    return conn.execute("select id, nim, full_name from students where id = ?", (student_id,)).fetchone()
+    res = conn.execute("select id, nim, full_name from students where id = ?", (student_id,)).fetchone()
+    assert res is not None
+    return res
 
 
 def list_students(
@@ -189,105 +189,28 @@ def list_students(
     sort_by: str = "",
 ) -> list[dict[str, object]]:
     """List active students filtered by search term, study program, academic status, and entry cohort."""
-    search = normalize_text(query)
-    limit = max(1, min(int(limit or 2000), 5000))
-    params: list[object] = []
-    where_clauses = ["s.deleted_at is null"]
-    if search:
-        where_clauses.append(
-            "(s.nim like ? or s.full_name like ? or s.program_study like ? or sp.name like ? or sp.code like ? or s.no_ktp like ? or s.email like ? or s.phone_number like ?)"
-        )
-        params.extend(
-            [
-                f"%{search}%",
-                f"%{search}%",
-                f"%{search}%",
-                f"%{search}%",
-                f"%{search}%",
-                f"%{search}%",
-                f"%{search}%",
-                f"%{search}%",
-            ]
-        )
-    if study_program_id:
-        where_clauses.append(
-            "(s.study_program_id = ? or sp.code = ? or lower(s.program_study) = lower(?) or lower(sp.name) = lower(?))"
-        )
-        params.extend(
-            [study_program_id.strip(), study_program_id.strip(), study_program_id.strip(), study_program_id.strip()]
-        )
-    if academic_status:
-        where_clauses.append("s.academic_status = ?")
-        params.append(academic_status.lower().strip())
-    if entry_year is not None and str(entry_year).isdigit():
-        where_clauses.append("s.entry_year = ?")
-        params.append(int(entry_year))
-    if entry_period:
-        where_clauses.append("(s.entry_period = ? or s.initial_registration like ?)")
-        params.extend([entry_period.strip(), f"%{entry_period.strip()}%"])
-
-    order_by = "order by s.nim asc"
-    if sort_by == "entry_period_asc":
-        order_by = "order by s.entry_period asc nulls last, s.nim asc"
-    elif sort_by == "entry_period_desc":
-        order_by = "order by s.entry_period desc nulls last, s.nim asc"
-    elif sort_by == "name_asc":
-        order_by = "order by s.full_name asc"
-    elif sort_by == "updated_at_desc":
-        order_by = "order by s.updated_at desc"
-
-    where = "where " + " and ".join(where_clauses)
     with database_connection(db_path) as conn:
-        rows = conn.execute(
-            f"""
-            select s.id, s.nim, s.full_name, s.no_ktp, s.tempat_lahir, s.tanggal_lahir, s.nama_ibu_kandung,
-                   s.program_study, s.study_program_id, s.academic_status,
-                   s.entry_year, s.entry_semester, s.entry_period,
-                   s.email, s.address, s.phone_number, s.initial_registration,
-                   sp.name as study_program_name, sp.code as study_program_code,
-                   count(b.id) as bill_count, coalesce(sum(b.amount), 0) as total_amount
-            from students s
-            left join study_programs sp on sp.id = s.study_program_id
-            left join bills b on b.student_id = s.id and b.deleted_at is null
-            {where}
-            group by s.id, s.nim, s.full_name, s.no_ktp, s.tempat_lahir, s.tanggal_lahir, s.nama_ibu_kandung,
-                     s.program_study, s.study_program_id, s.academic_status, s.entry_year, s.entry_semester, s.entry_period,
-                     s.email, s.address, s.phone_number, s.initial_registration, sp.name, sp.code
-            {order_by}
-            limit ?
-            """,
-            (*params, limit),
-        ).fetchall()
+        rows = StudentRepository(conn).list_admin(
+            query=query,
+            limit=limit,
+            study_program_id=study_program_id,
+            academic_status=academic_status,
+            entry_year=entry_year,
+            entry_period=entry_period,
+            sort_by=sort_by,
+        )
     return [student_row_to_dict(row) for row in rows]
 
 
 def get_student_detail(db_path: str | Path, student_id: str) -> dict[str, object] | None:
     """Fetch complete Student 360 profile, including billing summary and transaction history."""
     with database_connection(db_path) as conn:
-        student = conn.execute(
-            """
-            select s.id, s.nim, s.full_name, s.no_ktp, s.tempat_lahir, s.tanggal_lahir, s.nama_ibu_kandung,
-                   s.program_study, s.study_program_id, s.academic_status,
-                   s.entry_year, s.entry_semester, s.entry_period,
-                   s.email, s.address, s.phone_number, s.initial_registration, s.created_at,
-                   sp.name as study_program_name, sp.code as study_program_code, sp.degree as study_program_degree
-            from students s
-            left join study_programs sp on sp.id = s.study_program_id
-            where s.id = ? and s.deleted_at is null
-            """,
-            (student_id,),
-        ).fetchone()
+        repo = StudentRepository(conn)
+        student = repo.find_by_id(student_id)
         if not student:
             return None
 
-        bills = conn.execute(
-            f"""
-            {joined_bill_select()}
-            where b.student_id = ? and b.deleted_at is null
-            order by b.created_at desc, b.period desc
-            """,
-            (student_id,),
-        ).fetchall()
+        bills = repo.get_bills_for_student(student_id)
 
     bill_list = [bill_row_to_dict(b) for b in bills]
     total_amount = sum(cast(int, bill["amount"]) for bill in bill_list)
@@ -413,12 +336,11 @@ def update_student(
     conn = connect(db_path)
     try:
         with conn:
-            existing = conn.execute("select id from students where id = ?", (student_id,)).fetchone()
+            repo = StudentRepository(conn)
+            existing = repo.find_by_id(student_id)
             if not existing:
                 return None
-            duplicate = conn.execute(
-                "select id from students where nim = ? and id <> ?", (normalized_nim, student_id)
-            ).fetchone()
+            duplicate = repo.find_duplicate_nim(normalized_nim, exclude_id=student_id)
             if duplicate:
                 raise ValueError("NIM sudah digunakan mahasiswa lain.")
             conn.execute(
@@ -467,29 +389,11 @@ def delete_student(
     conn = connect(db_path)
     try:
         with conn:
-            row = conn.execute(
-                "select id, nim, full_name from students where id = ? and deleted_at is null", (student_id,)
-            ).fetchone()
-            if row:
-                conn.execute(
-                    """
-                    update students
-                    set deleted_at = datetime('now'), deleted_by = ?, delete_reason = ?, updated_at = datetime('now')
-                    where id = ?
-                    """,
-                    (actor_id, reason, student_id),
-                )
-                if actor_id:
-                    _audit.write_audit(
-                        conn, actor_id, "student.delete", "student", student_id, {"nim": row["nim"], "reason": reason}
-                    )
-                conn.execute(
-                    """
-                    update bills
-                    set deleted_at = datetime('now'), deleted_by = ?, delete_reason = ?, updated_at = datetime('now')
-                    where student_id = ? and deleted_at is null
-                    """,
-                    (actor_id, reason, student_id),
+            repo = StudentRepository(conn)
+            row = repo.soft_delete(student_id, actor_id=actor_id, reason=reason)
+            if row and actor_id:
+                _audit.write_audit(
+                    conn, actor_id, "student.delete", "student", student_id, {"nim": row["nim"], "reason": reason}
                 )
         return row
     finally:
