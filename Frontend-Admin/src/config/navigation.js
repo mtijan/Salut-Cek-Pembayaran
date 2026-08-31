@@ -1,6 +1,7 @@
 import {
   Database,
   FileSpreadsheet,
+  FileClock,
   Layers,
   LayoutDashboard,
   Receipt,
@@ -23,5 +24,12 @@ export const NAV_ITEMS = [
     kicker: 'Manajemen Pengguna',
     icon: ShieldCheck,
     permission: 'manage_users',
+  },
+  {
+    id: 'audit-logs',
+    label: 'Audit Log',
+    kicker: 'Jejak Administratif',
+    icon: FileClock,
+    permission: 'view_audit_logs',
   },
 ];

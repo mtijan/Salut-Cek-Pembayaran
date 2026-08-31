@@ -1,5 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import { BASE_URL, apiFetch } from '../../src/services/http.js';
 import { authApi } from '../../src/services/authApi.js';
@@ -10,8 +13,10 @@ import { masterApi, templateApi } from '../../src/services/masterApi.js';
 import { reportsApi } from '../../src/services/reportsApi.js';
 import { importApi } from '../../src/services/importApi.js';
 import { usersApi } from '../../src/services/usersApi.js';
-import * as barrelApi from '../../src/services/api.js';
-import * as indexApi from '../../src/services/index.js';
+import { auditApi } from '../../src/services/auditApi.js';
+
+const testDirectory = path.dirname(fileURLToPath(import.meta.url));
+const sourceDirectory = path.resolve(testDirectory, '../../src');
 
 test('http transport module exports BASE_URL and apiFetch', () => {
   assert.equal(BASE_URL, '/api');
@@ -80,28 +85,29 @@ test('usersApi exports all required user management methods', () => {
   assert.equal(typeof usersApi.resetPassword, 'function');
 });
 
-test('compatibility barrels export all modular services identical to source modules', () => {
-  assert.equal(barrelApi.authApi, authApi);
-  assert.equal(barrelApi.dashboardApi, dashboardApi);
-  assert.equal(barrelApi.studentsApi, studentsApi);
-  assert.equal(barrelApi.billsApi, billsApi);
-  assert.equal(barrelApi.masterApi, masterApi);
-  assert.equal(barrelApi.templateApi, templateApi);
-  assert.equal(barrelApi.reportsApi, reportsApi);
-  assert.equal(barrelApi.importApi, importApi);
-  assert.equal(barrelApi.usersApi, usersApi);
-  assert.equal(barrelApi.apiFetch, apiFetch);
-  assert.equal(typeof barrelApi.isAbortError, 'function');
+test('auditApi exports its read-only list method', () => {
+  assert.equal(typeof auditApi.list, 'function');
+});
 
-  assert.equal(indexApi.authApi, authApi);
-  assert.equal(indexApi.dashboardApi, dashboardApi);
-  assert.equal(indexApi.studentsApi, studentsApi);
-  assert.equal(indexApi.billsApi, billsApi);
-  assert.equal(indexApi.masterApi, masterApi);
-  assert.equal(indexApi.templateApi, templateApi);
-  assert.equal(indexApi.reportsApi, reportsApi);
-  assert.equal(indexApi.importApi, importApi);
-  assert.equal(indexApi.usersApi, usersApi);
-  assert.equal(indexApi.apiFetch, apiFetch);
-  assert.equal(typeof indexApi.isAbortError, 'function');
+test('domain service modules are canonical and compatibility barrels stay removed', () => {
+  const removedBarrels = [
+    path.join(sourceDirectory, 'services/api.js'),
+    path.join(sourceDirectory, 'services/index.js'),
+  ];
+  for (const barrel of removedBarrels) assert.equal(fs.existsSync(barrel), false);
+
+  const sourceFiles = [];
+  const visit = (directory) => {
+    for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
+      const absolute = path.join(directory, entry.name);
+      if (entry.isDirectory()) visit(absolute);
+      else if (/\.(jsx?|mjs)$/.test(entry.name)) sourceFiles.push(absolute);
+    }
+  };
+  visit(sourceDirectory);
+  const violations = sourceFiles.filter((file) => {
+    const source = fs.readFileSync(file, 'utf8');
+    return /services\/(?:api|index)(?:\.js)?['"]/.test(source);
+  });
+  assert.deepEqual(violations, []);
 });

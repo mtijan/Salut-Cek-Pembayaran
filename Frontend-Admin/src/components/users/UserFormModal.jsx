@@ -1,5 +1,6 @@
 import React from 'react';
 import { X } from 'lucide-react';
+import { useDialogAccessibility } from '../../hooks/useDialogAccessibility.js';
 
 export default function UserFormModal({
   isOpen,
@@ -11,14 +12,30 @@ export default function UserFormModal({
   saving,
   onSubmit,
 }) {
+  const dialogRef = useDialogAccessibility(isOpen, onClose);
   if (!isOpen) return null;
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal-dialog" onClick={(e) => e.stopPropagation()} role="dialog">
+      <div
+        ref={dialogRef}
+        className="modal-dialog"
+        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="user-form-modal-title"
+        tabIndex={-1}
+      >
         <div className="modal-header">
-          <h2>{editingUser ? 'Edit Akun Administrator' : 'Tambah Administrator Baru'}</h2>
-          <button type="button" className="modal-close-btn" onClick={onClose}>
+          <h2 id="user-form-modal-title">
+            {editingUser ? 'Edit Akun Administrator' : 'Tambah Administrator Baru'}
+          </h2>
+          <button
+            type="button"
+            className="modal-close-btn"
+            onClick={onClose}
+            aria-label="Tutup dialog pengguna"
+          >
             <X size={20} />
           </button>
         </div>
@@ -27,8 +44,9 @@ export default function UserFormModal({
             {error && <div className="modal-alert-danger">{error}</div>}
 
             <div className="form-group">
-              <label>Email *</label>
+              <label htmlFor="admin-user-email">Email *</label>
               <input
+                id="admin-user-email"
                 type="email"
                 className="form-control"
                 placeholder="nama@salut.id"
@@ -43,8 +61,9 @@ export default function UserFormModal({
             </div>
 
             <div className="form-group">
-              <label>Nama Lengkap</label>
+              <label htmlFor="admin-user-name">Nama Lengkap</label>
               <input
+                id="admin-user-name"
                 type="text"
                 className="form-control"
                 placeholder="Contoh: Budi Santoso"
@@ -54,8 +73,9 @@ export default function UserFormModal({
             </div>
 
             <div className="form-group">
-              <label>Role Akses *</label>
+              <label htmlFor="admin-user-role">Role Akses *</label>
               <select
+                id="admin-user-role"
                 className="form-control"
                 value={form.role}
                 onChange={(e) => setForm({ ...form, role: e.target.value })}
@@ -74,8 +94,9 @@ export default function UserFormModal({
 
             {!editingUser && (
               <div className="form-group">
-                <label>Password Awal * (Min 8 karakter)</label>
+                <label htmlFor="admin-user-password">Password Awal * (Min 8 karakter)</label>
                 <input
+                  id="admin-user-password"
                   type="password"
                   className="form-control"
                   placeholder="Masukkan password aman"

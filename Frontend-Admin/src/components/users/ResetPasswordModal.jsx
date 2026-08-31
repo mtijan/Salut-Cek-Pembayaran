@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { X, KeyRound } from 'lucide-react';
+import { useDialogAccessibility } from '../../hooks/useDialogAccessibility.js';
 
 export default function ResetPasswordModal({
   isOpen,
@@ -10,6 +11,11 @@ export default function ResetPasswordModal({
   onSubmit,
 }) {
   const [password, setPassword] = useState('');
+  const dialogRef = useDialogAccessibility(isOpen, onClose);
+
+  useEffect(() => {
+    if (!isOpen) setPassword('');
+  }, [isOpen]);
 
   if (!isOpen || !targetUser) return null;
 
@@ -20,13 +26,26 @@ export default function ResetPasswordModal({
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal-dialog" onClick={(e) => e.stopPropagation()} role="dialog">
+      <div
+        ref={dialogRef}
+        className="modal-dialog"
+        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="reset-password-modal-title"
+        tabIndex={-1}
+      >
         <div className="modal-header">
-          <h2>
+          <h2 id="reset-password-modal-title">
             <KeyRound size={18} className="modal-title-icon" />
             Reset Password Admin
           </h2>
-          <button type="button" className="modal-close-btn" onClick={onClose}>
+          <button
+            type="button"
+            className="modal-close-btn"
+            onClick={onClose}
+            aria-label="Tutup dialog reset password"
+          >
             <X size={20} />
           </button>
         </div>
@@ -41,8 +60,9 @@ export default function ResetPasswordModal({
             </p>
 
             <div className="form-group">
-              <label>Password Baru * (Min 8 karakter)</label>
+              <label htmlFor="reset-admin-password">Password Baru * (Min 8 karakter)</label>
               <input
+                id="reset-admin-password"
                 type="password"
                 className="form-control"
                 placeholder="Masukkan password baru"
@@ -50,7 +70,6 @@ export default function ResetPasswordModal({
                 onChange={(e) => setPassword(e.target.value)}
                 minLength={8}
                 required
-                autoFocus
               />
             </div>
           </div>

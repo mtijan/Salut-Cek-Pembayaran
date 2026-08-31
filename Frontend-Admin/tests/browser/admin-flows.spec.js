@@ -11,12 +11,14 @@ const permissions = [
   'manage_billing',
   'manage_master_data',
   'import',
+  'manage_users',
+  'view_audit_logs',
 ];
 
 const admin = {
   email: 'browser-admin@synthetic.test',
   full_name: 'Synthetic Browser Admin',
-  role: 'admin',
+  role: 'super_admin',
   permissions,
 };
 
@@ -110,6 +112,41 @@ function dashboardFixture() {
 }
 
 let mockTransactions = [];
+let mockUsers = [
+  {
+    id: 'super-1',
+    email: 'browser-admin@synthetic.test',
+    full_name: 'Synthetic Browser Admin',
+    role: 'super_admin',
+    is_active: true,
+    permissions,
+    created_at: '2026-08-31 08:00:00',
+    updated_at: '2026-08-31 08:00:00',
+  },
+  {
+    id: 'viewer-1',
+    email: 'viewer@synthetic.test',
+    full_name: 'Synthetic Viewer',
+    role: 'viewer',
+    is_active: true,
+    permissions: ['view_reports'],
+    created_at: '2026-08-31 08:05:00',
+    updated_at: '2026-08-31 08:05:00',
+  },
+];
+const mockAuditLogs = [
+  {
+    id: 'audit-synthetic-1',
+    actor_id: 'super-1',
+    actor_name: 'Synthetic Browser Admin',
+    actor_role: 'super_admin',
+    action: 'user.update',
+    entity_type: 'admin_user',
+    entity_id: 'viewer-1',
+    metadata: { email: '[REDACTED]', role: 'viewer', password: '[REDACTED]' },
+    created_at: '2026-08-31 09:00:00',
+  },
+];
 let mockProdis = [
   {
     id: 'prodi-1',
@@ -149,7 +186,7 @@ let mockPeriods = [
   },
 ];
 
-async function installApiMocks(page, currentAdmin = admin) {
+async function installApiMocks(page, currentAdmin = admin, behavior = {}) {
   await page.route('**/api/**', async (route) => {
     const request = route.request();
     const url = new globalThis.URL(request.url());
@@ -201,6 +238,7 @@ async function installApiMocks(page, currentAdmin = admin) {
       }
     }
     if (path === '/api/admin/students') {
+      if (behavior.students) return behavior.students(route, url);
       const query = (url.searchParams.get('query') || '').toLowerCase();
       const filtered = query
         ? students.filter((student) =>
@@ -330,6 +368,64 @@ async function installApiMocks(page, currentAdmin = admin) {
     if (path === '/api/admin/reports/financial-summary') {
       return fulfillJson(route, reportFixture());
     }
+    if (path === '/api/admin/audit-logs') {
+      return fulfillJson(route, {
+        audit_logs: mockAuditLogs,
+        pagination: { total: mockAuditLogs.length, limit: 50, offset: 0 },
+      });
+    }
+    if (path === '/api/admin/users' && method === 'POST') {
+      const body = request.postDataJSON() || {};
+      const created = {
+        id: `user-${Date.now()}`,
+        ...body,
+        is_active: Boolean(body.is_active),
+        permissions: [],
+        created_at: '2026-08-31 10:00:00',
+        updated_at: '2026-08-31 10:00:00',
+      };
+      delete created.password;
+      mockUsers.push(created);
+      return fulfillJson(route, { user: created });
+    }
+    if (path === '/api/admin/users' && method === 'GET') {
+      return fulfillJson(route, { users: mockUsers });
+    }
+    const resetPasswordMatch = path.match(/^\/api\/admin\/users\/([^/]+)\/reset-password$/);
+    if (resetPasswordMatch && method === 'POST') {
+      return fulfillJson(route, { reset: true });
+    }
+    const userMatch = path.match(/^\/api\/admin\/users\/([^/]+)$/);
+    if (userMatch && method === 'PATCH') {
+      const body = request.postDataJSON() || {};
+      if (userMatch[1] === 'super-1' && body.is_active === false) {
+        return fulfillJson(
+          route,
+          {
+            success: false,
+            error: { message: 'Tidak dapat menonaktifkan super_admin aktif terakhir.' },
+          },
+          400,
+        );
+      }
+      const index = mockUsers.findIndex((user) => user.id === userMatch[1]);
+      mockUsers[index] = { ...mockUsers[index], ...body };
+      return fulfillJson(route, { user: mockUsers[index] });
+    }
+    if (userMatch && method === 'DELETE') {
+      if (userMatch[1] === 'super-1') {
+        return fulfillJson(
+          route,
+          {
+            success: false,
+            error: { message: 'Tidak dapat menghapus super_admin aktif terakhir.' },
+          },
+          400,
+        );
+      }
+      mockUsers = mockUsers.filter((user) => user.id !== userMatch[1]);
+      return fulfillJson(route, { deleted: true });
+    }
     return fulfillJson(route, { error: { message: `Mock belum tersedia untuk ${path}` } }, 404);
   });
 }
@@ -436,6 +532,8 @@ test('viewer tidak melihat aksi mutasi pada students dan bills', async ({ page }
   await expect(page.getByRole('button', { name: 'Edit' })).toHaveCount(0);
   await page.getByRole('button', { name: 'Tagihan Mahasiswa', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Buat Tagihan Baru' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Kelola Admin', exact: true })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Audit Log', exact: true })).toHaveCount(0);
 });
 
 test('bill payment flow: partial payment, live calculation, submit transaksi dan refresh ledger', async ({
@@ -545,4 +643,122 @@ test('negative and empty states: search empty results dan api error handling', a
   await searchInput.fill('NIM_YANG_TIDAK_PERNAH_ADA_9999999');
 
   await expect(page.getByText('Tidak ada data mahasiswa')).toBeVisible();
+});
+
+test('hook aktual menjaga latest response, menampilkan real error, dan aman saat unmount', async ({
+  page,
+}) => {
+  const browserErrors = [];
+  page.on('pageerror', (error) => browserErrors.push(error.message));
+  await installApiMocks(page, admin, {
+    students: async (route, url) => {
+      const query = url.searchParams.get('query') || '';
+      if (query === 'slow') await new Promise((resolve) => setTimeout(resolve, 250));
+      if (query === 'fast') await new Promise((resolve) => setTimeout(resolve, 10));
+      if (query === 'server-error') {
+        return fulfillJson(
+          route,
+          { success: false, error: { message: 'Synthetic server failure' } },
+          500,
+        );
+      }
+      const result = query === 'slow' ? [students[0]] : query === 'fast' ? [students[1]] : students;
+      try {
+        return await fulfillJson(route, { students: result });
+      } catch {
+        return undefined;
+      }
+    },
+  });
+  await page.goto('/admin');
+  await page.getByRole('button', { name: 'Data Mahasiswa', exact: true }).click();
+  const search = page.getByPlaceholder('Cari NIM, nama, prodi, NIK, kontak...');
+
+  const slowRequest = page.waitForRequest((request) => request.url().includes('query=slow'));
+  await search.fill('slow');
+  await slowRequest;
+  await search.fill('fast');
+  await expect(page.getByText('Synthetic Student 02')).toBeVisible();
+  await page.waitForTimeout(300);
+  await expect(page.getByText('Synthetic Student 01')).toHaveCount(0);
+
+  await search.fill('server-error');
+  await expect(page.getByText('Synthetic server failure')).toBeVisible();
+
+  const unmountRequest = page.waitForRequest((request) => request.url().includes('query=slow'));
+  await search.fill('slow');
+  await unmountRequest;
+  await page.getByRole('button', { name: 'Dashboard', exact: true }).click();
+  await page.waitForTimeout(300);
+  await expect(page.getByText('Ringkasan Sistem')).toBeVisible();
+  expect(browserErrors).toEqual([]);
+});
+
+test('user management dan audit viewer menjalankan RBAC, dialog keyboard, reset, dan last-admin guard', async ({
+  page,
+}) => {
+  mockUsers = mockUsers.slice(0, 2);
+  await installApiMocks(page);
+  await page.goto('/admin');
+  await page.getByRole('button', { name: 'Kelola Admin', exact: true }).click();
+  await expect(page.getByText('viewer@synthetic.test')).toBeVisible();
+
+  const createButton = page.getByRole('button', { name: 'Tambah Administrator' });
+  await createButton.click();
+  const dialog = page.getByRole('dialog', { name: 'Tambah Administrator Baru' });
+  await expect(dialog).toHaveAttribute('aria-modal', 'true');
+  await expect(page.getByLabel('Tutup dialog pengguna')).toBeFocused();
+  await page.getByLabel('Email *').fill('new-admin@synthetic.test');
+  await page.getByLabel('Nama Lengkap').fill('Synthetic New Admin');
+  await page.getByLabel('Role Akses *').selectOption('admin_akademik');
+  await page.getByLabel(/Password Awal/).fill('SyntheticPassword123!');
+  await page.getByRole('button', { name: 'Buat Akun Admin' }).click();
+  await expect(page.getByText('new-admin@synthetic.test', { exact: true })).toBeVisible();
+
+  const viewerRow = page.getByRole('row').filter({ hasText: 'viewer@synthetic.test' });
+  const resetButton = viewerRow.getByTitle('Reset Password');
+  await resetButton.click();
+  await expect(page.getByRole('dialog', { name: 'Reset Password Admin' })).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('dialog', { name: 'Reset Password Admin' })).toHaveCount(0);
+  await expect(resetButton).toBeFocused();
+  await resetButton.click();
+  await page.getByLabel(/Password Baru/).fill('ResetSynthetic123!');
+  await page.getByRole('button', { name: 'Reset Password & Cabut Session' }).click();
+  await expect(page.getByText(/berhasil direset/)).toBeVisible();
+
+  const superRow = page.getByRole('row').filter({ hasText: 'browser-admin@synthetic.test' });
+  page.once('dialog', (confirmation) => confirmation.accept());
+  await superRow.getByRole('button', { name: 'Nonaktifkan' }).click();
+  await expect(
+    page.getByText('Tidak dapat menonaktifkan super_admin aktif terakhir.'),
+  ).toBeVisible();
+
+  await page.getByRole('button', { name: 'Audit Log', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Audit Log Sistem' })).toBeVisible();
+  await expect(page.getByText('user.update')).toBeVisible();
+  await expect(page.getByText(/email: \[REDACTED\]/)).toBeVisible();
+});
+
+test('rendered responsive state mempertahankan dialog dan tabel dalam viewport kecil', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await installApiMocks(page);
+  await page.goto('/admin');
+  await page.getByRole('button', { name: 'Kecilkan Menu Sidebar' }).click();
+  await page.getByRole('button', { name: 'Kelola Admin', exact: true }).click();
+  await page.getByRole('button', { name: 'Tambah Administrator' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Tambah Administrator Baru' });
+  const box = await dialog.boundingBox();
+  expect(box).not.toBeNull();
+  expect(box.x).toBeGreaterThanOrEqual(0);
+  expect(box.x + box.width).toBeLessThanOrEqual(390);
+  await page.keyboard.press('Escape');
+  await expect(page.locator('.table-responsive')).toBeVisible();
+  const hasHorizontalOverflow = await page.evaluate(() => {
+    const root = globalThis.document.documentElement;
+    return root.scrollWidth > root.clientWidth + 1;
+  });
+  expect(hasHorizontalOverflow).toBe(false);
 });

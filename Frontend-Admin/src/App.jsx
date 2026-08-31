@@ -14,6 +14,7 @@ import FilesPage from './pages/FilesPage';
 import UploadPage from './pages/UploadPage';
 import MasterPage from './pages/MasterPage';
 import UsersPage from './pages/UsersPage';
+import AuditLogsPage from './pages/AuditLogsPage';
 
 export default function App() {
   const { admin, loading } = useAuth();
@@ -104,6 +105,7 @@ export default function App() {
           {activeView === 'upload' && <UploadPage setActiveView={(view) => navigateTo(view, {})} />}
           {activeView === 'master' && <MasterPage />}
           {activeView === 'users' && <UsersPage />}
+          {activeView === 'audit-logs' && <AuditLogsPage />}
         </main>
       </div>
     </div>
