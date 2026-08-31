@@ -1,38 +1,22 @@
-"""Master data slice – study programs and academic periods CRUD."""
+"""Master data slice – study programs and academic periods CRUD with repository delegation."""
 
 from __future__ import annotations
 
-import uuid
 from pathlib import Path
 
 from Backend.app import config
 from Backend.app.domain.billing import validate_due_date_value
 from Backend.app.domain.common import format_due_date
+from Backend.app.repositories.master_data import AcademicPeriodRepository, StudyProgramRepository
 from Backend.app.services.audit import write_audit
 from Backend.db import connect, database_connection
+from Backend.excel_reader import normalize_text
 
 
 def list_study_programs(db_path: str | Path = config.DB_PATH) -> list[dict[str, object]]:
     """List all active study programs with aggregate student counts."""
     with database_connection(db_path) as conn:
-        rows = conn.execute(
-            """
-            select sp.id, sp.code, sp.name, sp.degree, sp.faculty, sp.is_active, sp.created_at, sp.updated_at,
-                   count(distinct s.id) as student_count
-            from study_programs sp
-            left join students s on (
-                s.study_program_id = sp.id
-                or (
-                    s.study_program_id is null
-                    and trim(coalesce(s.program_study, '')) <> ''
-                    and lower(trim(s.program_study)) = lower(trim(sp.name))
-                )
-            ) and s.deleted_at is null
-            where sp.is_active = 1
-            group by sp.id, sp.code, sp.name, sp.degree, sp.faculty, sp.is_active, sp.created_at, sp.updated_at
-            order by sp.name asc
-            """
-        ).fetchall()
+        rows = StudyProgramRepository(conn).list_all_active_with_counts()
     return [
         {
             "id": r["id"],
@@ -53,8 +37,6 @@ def create_study_program(
     db_path: str | Path, payload: dict[str, object], actor_id: str | None = None
 ) -> dict[str, object]:
     """Create a new study program record with validation and audit logging."""
-    from Backend.excel_reader import normalize_text
-
     code = normalize_text(payload.get("code")).upper()
     name = normalize_text(payload.get("name"))
     degree = normalize_text(payload.get("degree")) or "S1"
@@ -73,22 +55,14 @@ def create_study_program(
     conn = connect(db_path)
     try:
         with conn:
-            existing = conn.execute("select id from study_programs where upper(code) = ?", (code,)).fetchone()
-            if existing:
+            repo = StudyProgramRepository(conn)
+            if repo.find_by_code(code):
                 raise ValueError(f"Program studi dengan kode '{code}' sudah ada.")
-            program_id = f"sp_{uuid.uuid4().hex[:12]}"
-            conn.execute(
-                """
-                insert into study_programs (id, code, name, degree, faculty, is_active)
-                values (?, ?, ?, ?, ?, ?)
-                """,
-                (program_id, code, name, degree, faculty, is_active),
-            )
-            row = conn.execute("select * from study_programs where id = ?", (program_id,)).fetchone()
+            row = repo.create(code=code, name=name, degree=degree, faculty=faculty, is_active=is_active)
             program = dict(row)
             if actor_id:
                 write_audit(
-                    conn, actor_id, "study_program.create", "study_program", program_id, {"code": code, "name": name}
+                    conn, actor_id, "study_program.create", "study_program", program["id"], {"code": code, "name": name}
                 )
             return program
     finally:
@@ -99,8 +73,6 @@ def update_study_program(
     db_path: str | Path, program_id: str, payload: dict[str, object], actor_id: str | None = None
 ) -> dict[str, object] | None:
     """Update an existing study program code, title, degree, or faculty with audit logging."""
-    from Backend.excel_reader import normalize_text
-
     code = normalize_text(payload.get("code")).upper() if payload.get("code") is not None else None
     name = normalize_text(payload.get("name")) if payload.get("name") is not None else None
     degree = normalize_text(payload.get("degree")) if payload.get("degree") is not None else None
@@ -110,7 +82,8 @@ def update_study_program(
     conn = connect(db_path)
     try:
         with conn:
-            current = conn.execute("select * from study_programs where id = ?", (program_id,)).fetchone()
+            repo = StudyProgramRepository(conn)
+            current = repo.find_by_id(program_id)
             if not current:
                 return None
 
@@ -129,21 +102,18 @@ def update_study_program(
             if not new_name:
                 raise ValueError("Nama program studi tidak boleh kosong.")
 
-            duplicate = conn.execute(
-                "select id from study_programs where upper(code) = ? and id <> ?", (new_code, program_id)
-            ).fetchone()
-            if duplicate:
+            if repo.find_by_code(new_code, exclude_id=program_id):
                 raise ValueError(f"Program studi dengan kode '{new_code}' sudah ada.")
 
-            conn.execute(
-                """
-                update study_programs
-                set code = ?, name = ?, degree = ?, faculty = ?, is_active = ?, updated_at = datetime('now')
-                where id = ?
-                """,
-                (new_code, new_name, new_degree, new_faculty, new_active, program_id),
+            row = repo.update(
+                program_id=program_id,
+                code=new_code,
+                name=new_name,
+                degree=new_degree,
+                faculty=new_faculty,
+                is_active=new_active,
             )
-            row = conn.execute("select * from study_programs where id = ?", (program_id,)).fetchone()
+            assert row is not None
             program = dict(row)
             if actor_id:
                 write_audit(
@@ -164,20 +134,14 @@ def delete_study_program(db_path: str | Path, program_id: str, actor_id: str | N
     conn = connect(db_path)
     try:
         with conn:
-            current = conn.execute(
-                "select id from study_programs where id = ? and is_active = 1", (program_id,)
-            ).fetchone()
-            if not current:
+            repo = StudyProgramRepository(conn)
+            current = repo.find_by_id(program_id)
+            if not current or current["is_active"] != 1:
                 return False
-            # Keep the record for FK integrity and auditability.  It can be
-            # reactivated through the existing update endpoint if required.
-            conn.execute(
-                "update study_programs set is_active = 0, updated_at = datetime('now') where id = ?",
-                (program_id,),
-            )
-            if actor_id:
+            deleted = repo.soft_deactivate(program_id)
+            if deleted and actor_id:
                 write_audit(conn, actor_id, "study_program.delete", "study_program", program_id, {})
-            return True
+            return deleted
     finally:
         conn.close()
 
@@ -190,13 +154,7 @@ def delete_study_program(db_path: str | Path, program_id: str, actor_id: str | N
 def list_academic_periods(db_path: str | Path = config.DB_PATH) -> list[dict[str, object]]:
     """List all registered academic periods ordered by code descending."""
     with database_connection(db_path) as conn:
-        rows = conn.execute(
-            """
-            select id, code, name, semester_type, is_active, default_due_date, created_at, updated_at
-            from academic_periods
-            order by code desc
-            """
-        ).fetchall()
+        rows = AcademicPeriodRepository(conn).list_all()
     return [
         {
             "id": r["id"],
@@ -217,8 +175,6 @@ def create_academic_period(
     db_path: str | Path, payload: dict[str, object], actor_id: str | None = None
 ) -> dict[str, object]:
     """Create a new academic period definition and set as active if requested."""
-    from Backend.excel_reader import normalize_text
-
     code = normalize_text(payload.get("code"))
     name = normalize_text(payload.get("name"))
     semester_type = normalize_text(payload.get("semester_type")).lower() or "ganjil"
@@ -235,24 +191,20 @@ def create_academic_period(
     conn = connect(db_path)
     try:
         with conn:
-            existing = conn.execute("select id from academic_periods where code = ?", (code,)).fetchone()
-            if existing:
+            repo = AcademicPeriodRepository(conn)
+            if repo.find_by_code(code):
                 raise ValueError(f"Periode akademik dengan kode '{code}' sudah ada.")
-            period_id = f"prd_{uuid.uuid4().hex[:12]}"
-            if is_active == 1:
-                conn.execute("update academic_periods set is_active = 0")
-            conn.execute(
-                """
-                insert into academic_periods (id, code, name, semester_type, is_active, default_due_date)
-                values (?, ?, ?, ?, ?, ?)
-                """,
-                (period_id, code, name, semester_type, is_active, default_due_date),
+            row = repo.create(
+                code=code,
+                name=name,
+                semester_type=semester_type,
+                is_active=is_active,
+                default_due_date=default_due_date,
             )
-            row = conn.execute("select * from academic_periods where id = ?", (period_id,)).fetchone()
             period = dict(row)
             if actor_id:
                 write_audit(
-                    conn, actor_id, "academic_period.create", "academic_period", period_id, {"code": code, "name": name}
+                    conn, actor_id, "academic_period.create", "academic_period", period["id"], {"code": code, "name": name}
                 )
             return period
     finally:
@@ -263,8 +215,6 @@ def update_academic_period(
     db_path: str | Path, period_id: str, payload: dict[str, object], actor_id: str | None = None
 ) -> dict[str, object] | None:
     """Update an existing academic period code, name, semester type, active status, or default due date."""
-    from Backend.excel_reader import normalize_text
-
     code = normalize_text(payload.get("code")) if payload.get("code") is not None else None
     name = normalize_text(payload.get("name")) if payload.get("name") is not None else None
     semester_type = (
@@ -278,7 +228,8 @@ def update_academic_period(
     conn = connect(db_path)
     try:
         with conn:
-            current = conn.execute("select * from academic_periods where id = ?", (period_id,)).fetchone()
+            repo = AcademicPeriodRepository(conn)
+            current = repo.find_by_id(period_id)
             if not current:
                 return None
 
@@ -295,24 +246,18 @@ def update_academic_period(
             if new_type not in {"ganjil", "genap", "pendek"}:
                 raise ValueError("Tipe semester harus ganjil, genap, atau pendek.")
 
-            duplicate = conn.execute(
-                "select id from academic_periods where code = ? and id <> ?", (new_code, period_id)
-            ).fetchone()
-            if duplicate:
+            if repo.find_by_code(new_code, exclude_id=period_id):
                 raise ValueError(f"Periode akademik dengan kode '{new_code}' sudah ada.")
 
-            if new_active == 1:
-                conn.execute("update academic_periods set is_active = 0 where id <> ?", (period_id,))
-
-            conn.execute(
-                """
-                update academic_periods
-                set code = ?, name = ?, semester_type = ?, is_active = ?, default_due_date = ?, updated_at = datetime('now')
-                where id = ?
-                """,
-                (new_code, new_name, new_type, new_active, new_due, period_id),
+            row = repo.update(
+                period_id=period_id,
+                code=new_code,
+                name=new_name,
+                semester_type=new_type,
+                is_active=new_active,
+                default_due_date=new_due,
             )
-            row = conn.execute("select * from academic_periods where id = ?", (period_id,)).fetchone()
+            assert row is not None
             period = dict(row)
             if actor_id:
                 write_audit(

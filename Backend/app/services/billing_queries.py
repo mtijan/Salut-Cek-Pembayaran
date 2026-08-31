@@ -1,4 +1,4 @@
-"""Read-only billing queries and list projections."""
+"""Read-only billing queries and list projections with repository delegation."""
 
 from __future__ import annotations
 
@@ -6,11 +6,12 @@ from pathlib import Path
 from typing import cast
 
 from Backend.app import config
-from Backend.app.domain.billing import bill_row_to_dict, joined_bill_select
+from Backend.app.domain.billing import bill_row_to_dict
 from Backend.app.domain.students import student_row_to_dict
+from Backend.app.repositories.bills import BillRepository
+from Backend.app.repositories.students import StudentRepository
 from Backend.app.services.audit import list_payment_transactions
 from Backend.db import database_connection
-from Backend.excel_reader import normalize_text
 
 
 def bill_filter_clause(
@@ -22,41 +23,17 @@ def bill_filter_clause(
     bill_type: str = "",
     entry_period: str = "",
 ) -> tuple[str, list[object]]:
-    """Construct SQL WHERE clause and parameter list for billing queries."""
-    search = normalize_text(query)
-    normalized_status = normalize_text(status).lower()
-    normalized_source = normalize_text(source).lower()
-    normalized_prodi = normalize_text(study_program_id)
-    normalized_period = normalize_text(period)
-    normalized_type = normalize_text(bill_type)
-    normalized_entry_period = normalize_text(entry_period)
-    params: list[object] = []
-    where_clauses = ["b.deleted_at is null", "s.deleted_at is null"]
-    if search:
-        where_clauses.append(
-            "(s.nim like ? or s.full_name like ? or b.briva like ? or b.period like ? or b.bill_type like ?)"
+    """Construct SQL WHERE clause and parameter list for billing queries (compatibility helper)."""
+    with database_connection(":memory:") as conn:
+        return BillRepository(conn)._build_filter_clause(
+            query=query,
+            status=status,
+            source=source,
+            study_program_id=study_program_id,
+            period=period,
+            bill_type=bill_type,
+            entry_period=entry_period,
         )
-        params.extend([f"%{search}%", f"%{search}%", f"%{search}%", f"%{search}%", f"%{search}%"])
-    if normalized_status:
-        where_clauses.append("b.status = ?")
-        params.append(normalized_status)
-    if normalized_source == "manual":
-        where_clauses.append("lower(trim(b.source_file)) in ('manual', 'manual admin')")
-    elif normalized_source == "import":
-        where_clauses.append("lower(trim(b.source_file)) not in ('manual', 'manual admin')")
-    if normalized_prodi:
-        where_clauses.append("s.study_program_id = ?")
-        params.append(normalized_prodi)
-    if normalized_period:
-        where_clauses.append("b.period = ?")
-        params.append(normalized_period)
-    if normalized_type:
-        where_clauses.append("b.bill_type = ?")
-        params.append(normalized_type)
-    if normalized_entry_period:
-        where_clauses.append("(s.entry_period = ? or s.initial_registration like ?)")
-        params.extend([normalized_entry_period, f"%{normalized_entry_period}%"])
-    return "where " + " and ".join(where_clauses), params
 
 
 def list_bills(
@@ -73,42 +50,19 @@ def list_bills(
     entry_period: str = "",
 ) -> list[dict[str, object]]:
     """Retrieve paginated billing records matching multi-criteria filters and custom sorting."""
-    limit = max(1, min(int(limit or 2000), 5000))
-    offset = max(0, int(offset or 0))
-    where, params = bill_filter_clause(
-        query=query,
-        status=status,
-        source=source,
-        study_program_id=study_program_id,
-        period=period,
-        bill_type=bill_type,
-        entry_period=entry_period,
-    )
-
-    sort_order_map = {
-        "updated_desc": "order by b.updated_at desc, b.created_at desc",
-        "updated_asc": "order by b.updated_at asc, b.created_at asc",
-        "created_desc": "order by b.created_at desc, b.rowid desc",
-        "created_asc": "order by b.created_at asc, b.rowid asc",
-        "amount_desc": "order by b.amount desc",
-        "amount_asc": "order by b.amount asc",
-        "due_date_asc": "order by case when b.due_date is null or b.due_date = '' then 1 else 0 end, b.due_date asc",
-        "due_date_desc": "order by b.due_date desc",
-        "nim_asc": "order by s.nim asc",
-        "name_asc": "order by s.full_name asc",
-    }
-    order_clause = sort_order_map.get(sort_by, "order by b.updated_at desc, b.created_at desc")
-
     with database_connection(db_path) as conn:
-        rows = conn.execute(
-            f"""
-            {joined_bill_select()}
-            {where}
-            {order_clause}
-            limit ? offset ?
-            """,
-            (*params, limit, offset),
-        ).fetchall()
+        rows = BillRepository(conn).list_admin(
+            query=query,
+            limit=limit,
+            offset=offset,
+            status=status,
+            source=source,
+            study_program_id=study_program_id,
+            period=period,
+            bill_type=bill_type,
+            sort_by=sort_by,
+            entry_period=entry_period,
+        )
     return [bill_row_to_dict(row) for row in rows]
 
 
@@ -123,26 +77,16 @@ def count_bills(
     entry_period: str = "",
 ) -> int:
     """Count the total number of bills matching given filter criteria."""
-    where, params = bill_filter_clause(
-        query=query,
-        status=status,
-        source=source,
-        study_program_id=study_program_id,
-        period=period,
-        bill_type=bill_type,
-        entry_period=entry_period,
-    )
     with database_connection(db_path) as conn:
-        row = conn.execute(
-            f"""
-            select count(*) as total
-            from bills b
-            join students s on s.id = b.student_id
-            {where}
-            """,
-            params,
-        ).fetchone()
-    return int(row["total"] if row else 0)
+        return BillRepository(conn).count_admin(
+            query=query,
+            status=status,
+            source=source,
+            study_program_id=study_program_id,
+            period=period,
+            bill_type=bill_type,
+            entry_period=entry_period,
+        )
 
 
 def get_bills_summary(
@@ -156,32 +100,16 @@ def get_bills_summary(
     entry_period: str = "",
 ) -> dict[str, int]:
     """Calculate financial and status distribution summary for filtered billing records."""
-    where, params = bill_filter_clause(
-        query=query,
-        status=status,
-        source=source,
-        study_program_id=study_program_id,
-        period=period,
-        bill_type=bill_type,
-        entry_period=entry_period,
-    )
     with database_connection(db_path) as conn:
-        row = conn.execute(
-            f"""
-            select
-                count(b.id) as total_count,
-                count(distinct b.student_id) as student_count,
-                coalesce(sum(b.amount), 0) as total_amount,
-                coalesce(sum(b.paid_amount), 0) as total_paid,
-                coalesce(sum(case when b.status = 'paid' then 1 else 0 end), 0) as paid_count,
-                coalesce(sum(case when b.status = 'partial' then 1 else 0 end), 0) as partial_count,
-                coalesce(sum(case when b.status = 'unpaid' then 1 else 0 end), 0) as unpaid_count
-            from bills b
-            join students s on s.id = b.student_id
-            {where}
-            """,
-            params,
-        ).fetchone()
+        row = BillRepository(conn).get_summary_stats(
+            query=query,
+            status=status,
+            source=source,
+            study_program_id=study_program_id,
+            period=period,
+            bill_type=bill_type,
+            entry_period=entry_period,
+        )
 
     if not row:
         return {
@@ -228,27 +156,12 @@ def list_import_issues(db_path: str | Path = config.DB_PATH, limit: int = 500) -
 def get_bill_detail(db_path: str | Path, bill_id: str) -> dict[str, object] | None:
     """Fetch complete billing record details, including student biographical data and payment history."""
     with database_connection(db_path) as conn:
-        row = conn.execute(
-            f"{joined_bill_select()} where b.id = ? and b.deleted_at is null and s.deleted_at is null",
-            (bill_id,),
-        ).fetchone()
+        row = BillRepository(conn).find_by_id(bill_id)
         if not row:
             return None
 
         student_id = str(row["student_id"])
-        student = conn.execute(
-            """
-            select s.id, s.nim, s.full_name, s.no_ktp, s.tempat_lahir, s.tanggal_lahir, s.nama_ibu_kandung,
-                   s.program_study, s.study_program_id, s.academic_status,
-                   s.entry_year, s.entry_semester, s.entry_period,
-                   s.email, s.address, s.phone_number, s.initial_registration, s.created_at,
-                   sp.name as study_program_name, sp.code as study_program_code
-            from students s
-            left join study_programs sp on sp.id = s.study_program_id
-            where s.id = ? and s.deleted_at is null
-            """,
-            (student_id,),
-        ).fetchone()
+        student = StudentRepository(conn).find_by_id(student_id)
 
     bill_dict = bill_row_to_dict(row)
     tx_res = list_payment_transactions(db_path, bill_id=bill_id, limit=50, offset=0)
@@ -264,18 +177,7 @@ def get_bill_detail(db_path: str | Path, bill_id: str) -> dict[str, object] | No
 def list_imported_bill_groups(db_path: str | Path = config.DB_PATH) -> list[dict[str, object]]:
     """Group and summarize active billing records by imported spreadsheet filename."""
     with database_connection(db_path) as conn:
-        rows = conn.execute(
-            """
-            select b.id, b.briva, b.amount, b.period, b.bill_type, b.status, b.payment_method, b.due_date, b.created_at,
-                   b.source_file, b.source_row_number, s.nim, s.full_name
-            from bills b
-            join students s on s.id = b.student_id
-            where b.deleted_at is null
-              and s.deleted_at is null
-              and lower(trim(b.source_file)) not in ('manual', 'manual admin')
-            order by b.source_file desc, s.nim asc, b.source_row_number asc, b.created_at asc, b.briva asc
-            """
-        ).fetchall()
+        rows = BillRepository(conn).list_imported_groups_rows()
 
     groups: list[dict[str, object]] = []
     by_file: dict[str, dict[str, object]] = {}

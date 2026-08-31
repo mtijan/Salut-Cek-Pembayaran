@@ -1,4 +1,4 @@
-"""Admin user management service layer.
+"""Admin user management service layer with repository delegation.
 
 This module provides business logic for administrator account CRUD operations,
 password resets, role assignment, active state management, session invalidation,
@@ -8,11 +8,11 @@ audit logging, and safeguards protecting the last active super_admin.
 from __future__ import annotations
 
 import sqlite3
-import uuid
 from pathlib import Path
 from typing import Any
 
 from Backend.app import config
+from Backend.app.repositories.users import UserRepository
 from Backend.app.security import hash_password
 from Backend.app.services.audit import write_audit
 from Backend.db import database_connection, database_transaction
@@ -22,16 +22,12 @@ ALLOWED_ROLES: set[str] = {"viewer", "admin_akademik", "admin_keuangan", "admin"
 
 def count_active_super_admins(conn: sqlite3.Connection) -> int:
     """Count currently active super_admin accounts."""
-    row = conn.execute(
-        "select count(*) as total from admin_users where role = 'super_admin' and is_active = 1"
-    ).fetchone()
-    return int(row["total"]) if row else 0
+    return UserRepository(conn).count_active_super_admins()
 
 
 def revoke_admin_sessions(conn: sqlite3.Connection, admin_id: str) -> int:
     """Revoke and delete all active sessions for a specific admin user."""
-    cursor = conn.execute("delete from admin_sessions where admin_id = ?", (admin_id,))
-    return cursor.rowcount
+    return UserRepository(conn).revoke_sessions(admin_id)
 
 
 def admin_user_row_to_dict(row: sqlite3.Row) -> dict[str, Any]:
@@ -51,27 +47,14 @@ def admin_user_row_to_dict(row: sqlite3.Row) -> dict[str, Any]:
 def list_admin_users(db_path: Path | str = config.DB_PATH) -> list[dict[str, Any]]:
     """Retrieve all administrator accounts ordered by creation date."""
     with database_connection(db_path) as conn:
-        rows = conn.execute(
-            """
-            select id, email, full_name, role, is_active, created_at, updated_at
-            from admin_users
-            order by created_at asc
-            """
-        ).fetchall()
+        rows = UserRepository(conn).list_all()
     return [admin_user_row_to_dict(row) for row in rows]
 
 
 def get_admin_user(db_path: Path | str, user_id: str) -> dict[str, Any] | None:
     """Retrieve a single administrator account by unique ID."""
     with database_connection(db_path) as conn:
-        row = conn.execute(
-            """
-            select id, email, full_name, role, is_active, created_at, updated_at
-            from admin_users
-            where id = ?
-            """,
-            (user_id,),
-        ).fetchone()
+        row = UserRepository(conn).find_by_id(user_id)
     return admin_user_row_to_dict(row) if row else None
 
 
@@ -94,33 +77,28 @@ def create_admin_user(
     if role not in ALLOWED_ROLES:
         raise ValueError(f"Role '{role}' tidak valid. Pilihan role: {', '.join(sorted(ALLOWED_ROLES))}")
 
-    new_id = str(uuid.uuid4())
     pw_hash = hash_password(password)
 
     with database_transaction(db_path) as conn:
-        existing = conn.execute("select id from admin_users where email = ?", (email,)).fetchone()
-        if existing:
+        repo = UserRepository(conn)
+        if repo.find_by_email(email):
             raise ValueError(f"Email '{email}' sudah terdaftar.")
 
-        conn.execute(
-            """
-            insert into admin_users (id, email, password_hash, full_name, role, is_active)
-            values (?, ?, ?, ?, ?, ?)
-            """,
-            (new_id, email, pw_hash, full_name, role, is_active),
+        created_row = repo.create(
+            email=email,
+            password_hash=pw_hash,
+            full_name=full_name,
+            role=role,
+            is_active=is_active,
         )
         write_audit(
             conn,
             actor_id,
             "user.create",
             "admin_user",
-            new_id,
+            str(created_row["id"]),
             {"email": email, "full_name": full_name, "role": role, "is_active": bool(is_active)},
         )
-        created_row = conn.execute(
-            "select id, email, full_name, role, is_active, created_at, updated_at from admin_users where id = ?",
-            (new_id,),
-        ).fetchone()
 
     return admin_user_row_to_dict(created_row)
 
@@ -133,10 +111,8 @@ def update_admin_user(
 ) -> dict[str, Any]:
     """Update administrator profile, role, or active status with safety checks."""
     with database_transaction(db_path) as conn:
-        current = conn.execute(
-            "select id, email, password_hash, full_name, role, is_active, created_at, updated_at from admin_users where id = ?",
-            (user_id,),
-        ).fetchone()
+        repo = UserRepository(conn)
+        current = repo.find_by_id(user_id)
         if not current:
             raise ValueError("Admin tidak ditemukan.")
 
@@ -155,7 +131,7 @@ def update_admin_user(
         )
 
         if is_demoting_super_admin or is_deactivating_super_admin:
-            if count_active_super_admins(conn) <= 1:
+            if repo.count_active_super_admins() <= 1:
                 raise ValueError("Tidak dapat mengubah role atau menonaktifkan super_admin aktif terakhir.")
 
         pw_hash = current["password_hash"]
@@ -167,18 +143,18 @@ def update_admin_user(
             pw_hash = hash_password(pw_str)
             password_changed = True
 
-        conn.execute(
-            """
-            update admin_users
-            set full_name = ?, role = ?, is_active = ?, password_hash = ?, updated_at = datetime('now')
-            where id = ?
-            """,
-            (new_full_name, new_role, new_is_active, pw_hash, user_id),
+        updated_row = repo.update(
+            user_id=user_id,
+            full_name=new_full_name,
+            role=new_role,
+            is_active=new_is_active,
+            password_hash=pw_hash,
         )
+        assert updated_row is not None
 
         # Invalidate sessions if password changed or account was deactivated
         if password_changed or (current["is_active"] == 1 and new_is_active == 0):
-            revoke_admin_sessions(conn, user_id)
+            repo.revoke_sessions(user_id)
 
         audit_meta = {
             "email": current["email"],
@@ -187,11 +163,6 @@ def update_admin_user(
             "password_changed": password_changed,
         }
         write_audit(conn, actor_id, "user.update", "admin_user", user_id, audit_meta)
-
-        updated_row = conn.execute(
-            "select id, email, full_name, role, is_active, created_at, updated_at from admin_users where id = ?",
-            (user_id,),
-        ).fetchone()
 
     return admin_user_row_to_dict(updated_row)
 
@@ -203,28 +174,27 @@ def delete_admin_user(
 ) -> bool:
     """Delete an administrator account with safeguards against deleting the last super_admin."""
     with database_transaction(db_path) as conn:
-        current = conn.execute(
-            "select id, email, role, is_active from admin_users where id = ?",
-            (user_id,),
-        ).fetchone()
+        repo = UserRepository(conn)
+        current = repo.find_by_id(user_id)
         if not current:
             return False
 
         if current["role"] == "super_admin" and current["is_active"] == 1:
-            if count_active_super_admins(conn) <= 1:
+            if repo.count_active_super_admins() <= 1:
                 raise ValueError("Tidak dapat menghapus super_admin aktif terakhir.")
 
-        revoke_admin_sessions(conn, user_id)
-        conn.execute("delete from admin_users where id = ?", (user_id,))
-        write_audit(
-            conn,
-            actor_id,
-            "user.delete",
-            "admin_user",
-            user_id,
-            {"email": current["email"], "role": current["role"]},
-        )
-    return True
+        repo.revoke_sessions(user_id)
+        deleted = repo.delete(user_id)
+        if deleted:
+            write_audit(
+                conn,
+                actor_id,
+                "user.delete",
+                "admin_user",
+                user_id,
+                {"email": current["email"], "role": current["role"]},
+            )
+    return deleted
 
 
 def reset_admin_password(
@@ -240,18 +210,13 @@ def reset_admin_password(
 
     pw_hash = hash_password(pw_str)
     with database_transaction(db_path) as conn:
-        current = conn.execute(
-            "select id, email from admin_users where id = ?",
-            (user_id,),
-        ).fetchone()
+        repo = UserRepository(conn)
+        current = repo.find_by_id(user_id)
         if not current:
             return False
 
-        conn.execute(
-            "update admin_users set password_hash = ?, updated_at = datetime('now') where id = ?",
-            (pw_hash, user_id),
-        )
-        revoke_admin_sessions(conn, user_id)
+        repo.reset_password(user_id, pw_hash)
+        repo.revoke_sessions(user_id)
         write_audit(
             conn,
             actor_id,
