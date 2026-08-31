@@ -1,3 +1,9 @@
+"""Automated SQLite database backup and rotation utility.
+
+This module uses SQLite's online backup API to create consistent, compressed point-in-time
+zip snapshots and retains a grandfather-father-son (GFS) rotation scheme: 14 daily, 8 weekly, and 12 monthly restore points.
+"""
+
 from __future__ import annotations
 
 import argparse
@@ -12,6 +18,7 @@ BACKUP_SUFFIX = ".sqlite.zip"
 
 
 def backup_timestamp(path: Path) -> datetime | None:
+    """Parse UTC datetime timestamp from backup filename."""
     name = path.name
     if not name.startswith(BACKUP_PREFIX) or not name.endswith(BACKUP_SUFFIX):
         return None
@@ -59,6 +66,7 @@ def prune_backups(destination_dir: Path, now: datetime | None = None) -> list[Pa
 
 
 def backup_database(source: Path, destination_dir: Path) -> Path:
+    """Create point-in-time SQLite online backup and zip archive, then prune old backups."""
     if not source.exists():
         raise FileNotFoundError(f"Database tidak ditemukan: {source}")
 

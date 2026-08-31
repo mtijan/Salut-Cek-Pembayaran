@@ -22,6 +22,7 @@ def bill_filter_clause(
     bill_type: str = "",
     entry_period: str = "",
 ) -> tuple[str, list[object]]:
+    """Construct SQL WHERE clause and parameter list for billing queries."""
     search = normalize_text(query)
     normalized_status = normalize_text(status).lower()
     normalized_source = normalize_text(source).lower()
@@ -71,6 +72,7 @@ def list_bills(
     sort_by: str = "",
     entry_period: str = "",
 ) -> list[dict[str, object]]:
+    """Retrieve paginated billing records matching multi-criteria filters and custom sorting."""
     limit = max(1, min(int(limit or 2000), 5000))
     offset = max(0, int(offset or 0))
     where, params = bill_filter_clause(
@@ -120,6 +122,7 @@ def count_bills(
     bill_type: str = "",
     entry_period: str = "",
 ) -> int:
+    """Count the total number of bills matching given filter criteria."""
     where, params = bill_filter_clause(
         query=query,
         status=status,
@@ -152,6 +155,7 @@ def get_bills_summary(
     bill_type: str = "",
     entry_period: str = "",
 ) -> dict[str, int]:
+    """Calculate financial and status distribution summary for filtered billing records."""
     where, params = bill_filter_clause(
         query=query,
         status=status,
@@ -206,6 +210,7 @@ def get_bills_summary(
 
 
 def list_import_issues(db_path: str | Path = config.DB_PATH, limit: int = 500) -> list[dict[str, object]]:
+    """Retrieve recorded import validation warnings and anomalies."""
     limit = max(1, min(int(limit or 500), 2000))
     with database_connection(db_path) as conn:
         rows = conn.execute(
@@ -221,6 +226,7 @@ def list_import_issues(db_path: str | Path = config.DB_PATH, limit: int = 500) -
 
 
 def get_bill_detail(db_path: str | Path, bill_id: str) -> dict[str, object] | None:
+    """Fetch complete billing record details, including student biographical data and payment history."""
     with database_connection(db_path) as conn:
         row = conn.execute(
             f"{joined_bill_select()} where b.id = ? and b.deleted_at is null and s.deleted_at is null",
@@ -256,6 +262,7 @@ def get_bill_detail(db_path: str | Path, bill_id: str) -> dict[str, object] | No
 
 
 def list_imported_bill_groups(db_path: str | Path = config.DB_PATH) -> list[dict[str, object]]:
+    """Group and summarize active billing records by imported spreadsheet filename."""
     with database_connection(db_path) as conn:
         rows = conn.execute(
             """

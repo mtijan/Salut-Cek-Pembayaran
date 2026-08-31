@@ -1,3 +1,5 @@
+"""Reporting use cases for dashboard statistics and financial summaries."""
+
 from __future__ import annotations
 
 import sqlite3
@@ -16,6 +18,7 @@ class ReportingService:
         self._db_path = db_path
 
     def dashboard_stats(self) -> dict[str, object]:
+        """Compute top-level dashboard statistics (student counts, billing breakdown, payment rates)."""
         with database_connection(self._db_path) as connection:
             student_row, bill_row = ReportingRepository(connection).dashboard_counts()
 
@@ -53,6 +56,7 @@ class ReportingService:
         study_program_id: str = "",
         entry_period: str = "",
     ) -> dict[str, object]:
+        """Generate financial recap partitioned by study program and individual student records."""
         normalized_period = normalize_text(period)
         normalized_program = normalize_text(study_program_id)
         normalized_entry_period = normalize_text(entry_period)

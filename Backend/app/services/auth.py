@@ -15,6 +15,7 @@ from Backend.app.services.audit import write_audit
 
 
 def store_import_preview(token: str, admin_id: str, file_name: str, stored_path: str | Path) -> None:
+    """Store temporary metadata for an uploaded Excel import preview."""
     with database_transaction(config.DB_PATH) as conn:
         conn.execute(
             """
@@ -31,6 +32,7 @@ def store_import_preview(token: str, admin_id: str, file_name: str, stored_path:
 
 
 def get_import_preview_for_admin(token: str, admin: sqlite3.Row) -> sqlite3.Row | None:
+    """Retrieve an active import preview token belonging to the admin or super_admin."""
     with database_connection(config.DB_PATH) as conn:
         row = conn.execute(
             """
@@ -46,11 +48,13 @@ def get_import_preview_for_admin(token: str, admin: sqlite3.Row) -> sqlite3.Row 
 
 
 def delete_import_preview(token: str) -> None:
+    """Delete an import preview token after commit or expiration."""
     with database_transaction(config.DB_PATH) as conn:
         conn.execute("delete from import_previews where token = ?", (token,))
 
 
 def authenticate_admin(email: str, password: str) -> sqlite3.Row | None:
+    """Authenticate admin credentials using PBKDF2 password verification."""
     with database_connection(config.DB_PATH) as conn:
         admin = conn.execute(
             """
@@ -66,6 +70,7 @@ def authenticate_admin(email: str, password: str) -> sqlite3.Row | None:
 
 
 def create_admin_session(admin: sqlite3.Row) -> str:
+    """Generate a secure session token for an authenticated administrator and log audit event."""
     token = secrets.token_urlsafe(32)
     session_id = str(uuid.uuid4())
     with database_transaction(config.DB_PATH) as conn:
@@ -81,6 +86,7 @@ def create_admin_session(admin: sqlite3.Row) -> str:
 
 
 def delete_admin_session(token: str | None, admin: sqlite3.Row | None) -> None:
+    """Revoke an active admin session token and record logout audit log."""
     with database_transaction(config.DB_PATH) as conn:
         if token:
             conn.execute("delete from admin_sessions where token_hash = ?", (token_hash(token),))
@@ -89,6 +95,7 @@ def delete_admin_session(token: str | None, admin: sqlite3.Row | None) -> None:
 
 
 def find_admin_by_session(token: str | None) -> sqlite3.Row | None:
+    """Lookup active administrator profile by session token hash."""
     if not token:
         return None
     with database_connection(config.DB_PATH) as conn:

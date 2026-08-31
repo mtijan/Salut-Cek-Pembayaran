@@ -1,3 +1,9 @@
+"""SQLite database connectivity, schema initialization, and migration management.
+
+This module provides SQLite connection factories, connection/transaction context managers,
+schema version migrations (v1 to v2), entry registration period parsing, and study program resolution.
+"""
+
 from __future__ import annotations
 
 import hashlib
@@ -14,6 +20,7 @@ LATEST_SCHEMA_VERSION = 2
 
 
 def resolve_db_path(db_path: str | Path = DEFAULT_DB_PATH) -> Path:
+    """Normalize file URI or string representation into a valid local filesystem Path object."""
     raw = str(db_path)
     if raw.startswith("file:"):
         raw = raw[5:]
@@ -21,6 +28,7 @@ def resolve_db_path(db_path: str | Path = DEFAULT_DB_PATH) -> Path:
 
 
 def connect(db_path: str | Path = DEFAULT_DB_PATH) -> sqlite3.Connection:
+    """Instantiate and configure a SQLite connection with foreign keys and busy timeout."""
     path = resolve_db_path(db_path)
     path.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(path, timeout=5)
@@ -308,6 +316,7 @@ DEFAULT_STUDY_PROGRAMS: list[tuple[str, str, str, str, str, list[str]]] = [
 
 
 def resolve_study_program_id(conn: sqlite3.Connection, raw_program: str | None) -> str | None:
+    """Resolve study program UUID from free-text program study name or faculty prefix."""
     if not raw_program or not str(raw_program).strip():
         return None
     raw_clean = re.sub(r"\s+", " ", str(raw_program)).strip()
@@ -430,6 +439,7 @@ def migrate_soft_delete(conn: sqlite3.Connection) -> None:
 
 
 def ensure_academic_period(conn: sqlite3.Connection, period_code: str, default_name: str | None = None) -> str:
+    """Ensure an academic period row exists in database, creating a new record if not present."""
     code_clean = str(period_code or "").strip()
     if not code_clean:
         return ""

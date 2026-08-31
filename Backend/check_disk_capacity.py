@@ -1,3 +1,9 @@
+"""Disk capacity monitoring utility.
+
+This module inspects disk usage across designated filesystem paths and alerts when
+usage surpasses a configured percentage threshold (default 85%).
+"""
+
 from __future__ import annotations
 
 import argparse
@@ -7,6 +13,7 @@ from pathlib import Path
 
 
 def disk_capacity_report(paths: list[str | Path], threshold_percent: float = 85.0) -> dict[str, object]:
+    """Inspect disk usage across designated filesystem paths and generate threshold alert report."""
     if not 0 < threshold_percent < 100:
         raise ValueError("Threshold kapasitas disk harus di antara 0 dan 100 persen.")
     if not paths:

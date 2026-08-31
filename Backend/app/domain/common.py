@@ -1,5 +1,10 @@
-from __future__ import annotations
+"""Common presentation formatting helpers.
 
+This module provides formatting utilities for Indonesian Rupiah currency,
+Indonesian month name localization for due dates, and academic entry periods.
+"""
+
+from __future__ import annotations
 
 MONTH_NAMES_ID = (
     "",

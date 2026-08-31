@@ -18,6 +18,7 @@ def _existing_bills(
     period: str,
     source_file: str,
 ) -> tuple[dict[str, list[sqlite3.Row]], dict[str, list[sqlite3.Row]], dict[int, sqlite3.Row]]:
+    """Query existing database bills matching target NIMs, period, or workbook source filename."""
     if not nims:
         return {}, {}, {}
 
@@ -49,6 +50,7 @@ def _existing_bills(
 
 
 def _append_limited(items: list[dict[str, object]], item: dict[str, object], limit: int = 12) -> None:
+    """Append item to list if count is strictly below the limit threshold."""
     if len(items) < limit:
         items.append(item)
 
@@ -59,6 +61,7 @@ def _analyze_workbook(
     period: str | None = None,
     source_file_name: str | None = None,
 ) -> dict[str, object]:
+    """Execute deep diff comparison between spreadsheet rows and existing database state."""
     workbook = Path(workbook_path)
     if not workbook.exists():
         raise FileNotFoundError(f"File Excel tidak ditemukan: {workbook}")
@@ -334,5 +337,6 @@ def preview_workbook(
     period: str | None = None,
     source_file_name: str | None = None,
 ) -> dict[str, object]:
+    """Generate user-facing preview response payload for Excel workbook import."""
     analysis = _analyze_workbook(workbook_path, db_path, period, source_file_name)
     return {key: value for key, value in analysis.items() if key not in {"actions", "_skipped_issues"}}

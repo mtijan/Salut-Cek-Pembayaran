@@ -1,3 +1,5 @@
+"""Reporting repository aggregate queries layer."""
+
 from __future__ import annotations
 
 import sqlite3
@@ -10,6 +12,7 @@ class ReportingRepository:
         self._connection = connection
 
     def dashboard_counts(self) -> tuple[sqlite3.Row | None, sqlite3.Row | None]:
+        """Aggregate total students, active count, total bills, and paid/unpaid financial amounts."""
         student_row = self._connection.execute(
             """
             select
@@ -51,6 +54,7 @@ class ReportingRepository:
         study_program_id: str,
         entry_period: str,
     ) -> tuple[list[sqlite3.Row], list[sqlite3.Row]]:
+        """Query aggregated study program rows and individual student breakdown rows for financial reporting."""
         filter_sql, params = self._financial_filter(
             period=period,
             study_program_id=study_program_id,

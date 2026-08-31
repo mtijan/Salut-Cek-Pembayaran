@@ -1,15 +1,18 @@
+"""Bill repository data access layer."""
+
 from __future__ import annotations
 
 import sqlite3
 
 
 class BillRepository:
-    """Read access to bills without owning the connection lifecycle."""
+    """Data access object for querying active student billing records."""
 
     def __init__(self, connection: sqlite3.Connection) -> None:
         self._connection = connection
 
     def list_active_for_public_lookup(self, student_id: str) -> list[sqlite3.Row]:
+        """Retrieve active billing rows for public lookup by student UUID."""
         return self._connection.execute(
             """
             select briva, amount, coalesce(paid_amount, 0) as paid_amount,

@@ -15,6 +15,7 @@ from Backend.db import database_connection, database_transaction
 
 
 def write_lookup_log(nim: str, name: str, result_type: str) -> None:
+    """Record a hashed audit entry of a public student billing lookup attempt."""
     with database_transaction(config.DB_PATH) as conn:
         conn.execute(
             """
@@ -33,6 +34,7 @@ def write_audit(
     entity_id: str | None,
     metadata: dict[str, object] | None = None,
 ) -> None:
+    """Write an immutable audit log entry for administrative actions within a database transaction."""
     # Service-level callers (imports/tests/system jobs) may not have an
     # admin_users row. Preserve the audit event as a system event instead of
     # failing and rolling back an otherwise valid transaction on FK checking.

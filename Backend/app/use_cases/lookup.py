@@ -1,3 +1,5 @@
+"""Public student billing lookup use case."""
+
 from __future__ import annotations
 
 import sqlite3
@@ -25,6 +27,7 @@ class LookupService:
         self._default_payment_period_label = default_payment_period_label
 
     def execute(self, nim: str) -> dict[str, object] | None:
+        """Execute student billing lookup by NIM, resolving student and bill summaries."""
         with database_connection(self._db_path) as connection:
             student = StudentRepository(connection).find_active_for_public_lookup(nim)
             if student is None:

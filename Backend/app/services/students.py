@@ -42,6 +42,7 @@ def ensure_student(
     entry_semester: object = None,
     entry_period: object = None,
 ) -> sqlite3.Row:
+    """Insert a new student record or restore/update an existing profile matching the unique NIM."""
     normalized_nim = validate_nim_value(nim)
     normalized_name = normalize_imported_name(full_name)
     if not normalized_nim:
@@ -187,6 +188,7 @@ def list_students(
     entry_period: str = "",
     sort_by: str = "",
 ) -> list[dict[str, object]]:
+    """List active students filtered by search term, study program, academic status, and entry cohort."""
     search = normalize_text(query)
     limit = max(1, min(int(limit or 2000), 5000))
     params: list[object] = []
@@ -260,6 +262,7 @@ def list_students(
 
 
 def get_student_detail(db_path: str | Path, student_id: str) -> dict[str, object] | None:
+    """Fetch complete Student 360 profile, including billing summary and transaction history."""
     with database_connection(db_path) as conn:
         student = conn.execute(
             """
@@ -324,6 +327,7 @@ def create_student(
     payload: dict[str, object] | None = None,
     actor_id: str | None = None,
 ) -> sqlite3.Row:
+    """Create a new student master record with validation and audit logging."""
     if isinstance(nim_or_payload, dict):
         data = nim_or_payload
     elif isinstance(payload, dict):
@@ -370,6 +374,7 @@ def require_delete_reason(reason: str) -> str:
 def update_student(
     db_path: str | Path, student_id: str, payload: dict[str, object], actor_id: str | None = None
 ) -> sqlite3.Row | None:
+    """Update student biographical and academic profile fields with audit logging."""
     normalized_nim = validate_nim_value(payload.get("nim"))
     normalized_name = normalize_imported_name(payload.get("full_name"))
     if not normalized_nim:
@@ -457,6 +462,7 @@ def update_student(
 def delete_student(
     db_path: str | Path, student_id: str, actor_id: str | None = None, reason: str = ""
 ) -> sqlite3.Row | None:
+    """Soft delete a student and cascade soft deletion to all associated active bills."""
     reason = require_delete_reason(reason)
     conn = connect(db_path)
     try:

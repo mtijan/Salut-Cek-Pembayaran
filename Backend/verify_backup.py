@@ -1,3 +1,9 @@
+"""Backup integrity verification utility.
+
+This module validates that a backup zip archive contains a valid SQLite database
+and passes SQLite's PRAGMA integrity_check without corruption.
+"""
+
 from __future__ import annotations
 
 import argparse
@@ -10,6 +16,7 @@ from Backend.backup_sqlite import backup_timestamp
 
 
 def verify_backup(archive: Path) -> None:
+    """Extract backup database into a temporary directory and execute PRAGMA integrity_check."""
     if not archive.is_file():
         raise FileNotFoundError(f"Backup tidak ditemukan: {archive}")
     with tempfile.TemporaryDirectory(prefix="salut-backup-verify-") as temporary_directory:

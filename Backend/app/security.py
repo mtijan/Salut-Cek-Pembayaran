@@ -1,3 +1,9 @@
+"""Cryptographic and security utilities.
+
+This module handles HMAC digests for pseudonymous NIM logging, SHA-256 session token hashing,
+PBKDF2 password hashing and verification, and secure cookie header construction.
+"""
+
 from __future__ import annotations
 
 import hashlib
@@ -8,6 +14,7 @@ from Backend.app import config
 
 
 def digest(value: str) -> str:
+    """Compute HMAC-SHA256 digest of a sensitive string for audit logs."""
     return hmac.new(
         config.LOOKUP_HASH_SECRET.encode("utf-8"),
         value.encode("utf-8"),
@@ -16,16 +23,19 @@ def digest(value: str) -> str:
 
 
 def token_hash(token: str) -> str:
+    """Compute SHA-256 hash of a session token for storage and lookup."""
     return hashlib.sha256(token.encode("utf-8")).hexdigest()
 
 
 def hash_password(password: str, salt: str | None = None, iterations: int = 260000) -> str:
+    """Hash password using PBKDF2-HMAC-SHA256 with 260,000 iterations and random salt."""
     salt = salt or secrets.token_hex(16)
     password_hash = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt.encode("utf-8"), iterations)
     return f"pbkdf2_sha256${iterations}${salt}${password_hash.hex()}"
 
 
 def verify_password(password: str, stored_hash: str) -> bool:
+    """Verify password candidate against a stored PBKDF2 hash using constant-time comparison."""
     try:
         algorithm, iterations, salt, expected = stored_hash.split("$", 3)
     except ValueError:
@@ -37,6 +47,7 @@ def verify_password(password: str, stored_hash: str) -> bool:
 
 
 def cookie_header(token: str, max_age: int) -> str:
+    """Construct Set-Cookie header value with HttpOnly, SameSite=Lax, and Secure in production."""
     parts = [
         f"{config.SESSION_COOKIE}={token}",
         "Path=/",

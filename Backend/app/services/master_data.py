@@ -13,6 +13,7 @@ from Backend.db import connect, database_connection
 
 
 def list_study_programs(db_path: str | Path = config.DB_PATH) -> list[dict[str, object]]:
+    """List all active study programs with aggregate student counts."""
     with database_connection(db_path) as conn:
         rows = conn.execute(
             """
@@ -51,6 +52,7 @@ def list_study_programs(db_path: str | Path = config.DB_PATH) -> list[dict[str, 
 def create_study_program(
     db_path: str | Path, payload: dict[str, object], actor_id: str | None = None
 ) -> dict[str, object]:
+    """Create a new study program record with validation and audit logging."""
     from Backend.excel_reader import normalize_text
 
     code = normalize_text(payload.get("code")).upper()
@@ -96,6 +98,7 @@ def create_study_program(
 def update_study_program(
     db_path: str | Path, program_id: str, payload: dict[str, object], actor_id: str | None = None
 ) -> dict[str, object] | None:
+    """Update an existing study program code, title, degree, or faculty with audit logging."""
     from Backend.excel_reader import normalize_text
 
     code = normalize_text(payload.get("code")).upper() if payload.get("code") is not None else None
@@ -157,6 +160,7 @@ def update_study_program(
 
 
 def delete_study_program(db_path: str | Path, program_id: str, actor_id: str | None = None) -> bool:
+    """Soft deactivate a study program to preserve foreign key integrity on historical records."""
     conn = connect(db_path)
     try:
         with conn:
@@ -184,6 +188,7 @@ def delete_study_program(db_path: str | Path, program_id: str, actor_id: str | N
 
 
 def list_academic_periods(db_path: str | Path = config.DB_PATH) -> list[dict[str, object]]:
+    """List all registered academic periods ordered by code descending."""
     with database_connection(db_path) as conn:
         rows = conn.execute(
             """
@@ -211,6 +216,7 @@ def list_academic_periods(db_path: str | Path = config.DB_PATH) -> list[dict[str
 def create_academic_period(
     db_path: str | Path, payload: dict[str, object], actor_id: str | None = None
 ) -> dict[str, object]:
+    """Create a new academic period definition and set as active if requested."""
     from Backend.excel_reader import normalize_text
 
     code = normalize_text(payload.get("code"))
@@ -256,6 +262,7 @@ def create_academic_period(
 def update_academic_period(
     db_path: str | Path, period_id: str, payload: dict[str, object], actor_id: str | None = None
 ) -> dict[str, object] | None:
+    """Update an existing academic period code, name, semester type, active status, or default due date."""
     from Backend.excel_reader import normalize_text
 
     code = normalize_text(payload.get("code")) if payload.get("code") is not None else None

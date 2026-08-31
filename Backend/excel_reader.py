@@ -1,3 +1,9 @@
+"""Low-level streaming OpenXML Excel reader and string normalizers.
+
+This module provides direct XML parsing of .xlsx files via zipfile and ElementTree,
+extracting shared strings, sheet definitions, headers, and cell values without heavy third-party dependencies.
+"""
+
 from __future__ import annotations
 
 import re
@@ -12,6 +18,7 @@ NS = {"a": MAIN_NS, "r": REL_NS, "p": PKG_REL_NS}
 
 
 def normalize_text(value: object) -> str:
+    """Collapse repeated whitespace and strip leading/trailing spaces."""
     return re.sub(r"\s+", " ", str(value or "").strip())
 
 
@@ -21,6 +28,7 @@ def clean_excel_text(value: object) -> str:
 
 
 def normalize_name(value: object) -> str:
+    """Lowercase and normalize whitespace of student name for canonical comparison."""
     return clean_excel_text(value).casefold()
 
 
@@ -42,6 +50,7 @@ def clean_demographic_value(value: object) -> str | None:
 
 
 def normalize_nim(value: object) -> str:
+    """Extract numeric digits from student NIM or phone string."""
     return re.sub(r"\D+", "", str(value or ""))
 
 
@@ -125,6 +134,7 @@ def _open_zip(path: str | Path) -> zipfile.ZipFile:
 
 
 def read_sheet(path: str | Path, sheet_name: str) -> list[dict[str, str]]:
+    """Parse worksheet rows into a list of dictionaries keyed by header column names."""
     with _open_zip(path) as zf:
         shared = _shared_strings(zf)
         targets = _sheet_targets(zf)
@@ -155,6 +165,7 @@ def read_sheet(path: str | Path, sheet_name: str) -> list[dict[str, str]]:
 
 
 def read_sheet_headers(path: str | Path, sheet_name: str) -> list[str]:
+    """Extract header column names from the first row of target worksheet."""
     with _open_zip(path) as zf:
         shared = _shared_strings(zf)
         targets = _sheet_targets(zf)
@@ -170,5 +181,6 @@ def read_sheet_headers(path: str | Path, sheet_name: str) -> list[str]:
 
 
 def workbook_sheet_names(path: str | Path) -> list[str]:
+    """List all worksheet names contained within the Excel workbook archive."""
     with _open_zip(path) as zf:
         return list(_sheet_targets(zf).keys())

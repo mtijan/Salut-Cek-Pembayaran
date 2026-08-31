@@ -1,3 +1,9 @@
+"""Excel workbook ingestion CLI and database import runner.
+
+This script executes the import pipeline, ingesting student master data and billing records
+from Excel workbooks into the SQLite database with transaction safety and conflict resolution.
+"""
+
 from __future__ import annotations
 
 import argparse
@@ -41,11 +47,13 @@ __all__ = ["generate_master_data_template", "import_workbook", "preview_workbook
 
 
 def _get_existing_id(conn: sqlite3.Connection, table: str, column: str, value: str) -> str | None:
+    """Query existing record UUID by column value lookup."""
     row = conn.execute(f"select id from {table} where {column} = ?", (value,)).fetchone()
     return str(row["id"]) if row else None
 
 
 def _upsert_student(conn: sqlite3.Connection, row: dict[str, object]) -> str:
+    """Insert or update student record with demographic fields, restoring soft-deleted records."""
     nim = str(row["nim"])
     full_name = normalize_imported_name(row["full_name"])
     student_id = _get_existing_id(conn, "students", "nim", nim) or str(uuid.uuid4())
@@ -121,6 +129,7 @@ def _upsert_student(conn: sqlite3.Connection, row: dict[str, object]) -> str:
 
 
 def _store_import_issue(conn: sqlite3.Connection, issue: dict[str, object], source_file: str) -> None:
+    """Record an invalid or skipped import row in the import_issues table."""
     conn.execute(
         """
         insert into import_issues
@@ -150,6 +159,7 @@ def import_workbook(
     confirm_updates: bool = False,
     actor_id: str | None = None,
 ) -> dict[str, object]:
+    """Execute spreadsheet import transaction, creating/updating students and billing items."""
     workbook = Path(workbook_path)
     source_file = source_file_name or workbook.name
     analysis = _analyze_workbook(workbook, db_path, period, source_file)

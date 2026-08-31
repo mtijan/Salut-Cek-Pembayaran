@@ -1,3 +1,10 @@
+"""Application configuration and environment variable loading.
+
+This module centralizes environment-driven configuration values, security settings,
+database path resolution, role-based access control (RBAC) permission mappings,
+and runtime deployment/release metadata detection.
+"""
+
 from __future__ import annotations
 
 import os

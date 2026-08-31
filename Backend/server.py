@@ -1,3 +1,9 @@
+"""ASGI application runner and local development server entry point.
+
+This script launches the Uvicorn ASGI server hosting the FastAPI application
+with configured network host and port settings.
+"""
+
 from __future__ import annotations
 
 import sys
@@ -14,6 +20,7 @@ from Backend.app.main import app as app  # noqa: E402 - compatibility export for
 
 
 def main() -> None:
+    """Run local development ASGI server via Uvicorn."""
     print(f"Salut Cek Pembayaran running at http://127.0.0.1:{PORT}")
     print(f"SQLite database: {DB_PATH.resolve()}")
     uvicorn.run("Backend.app.main:app", host="127.0.0.1", port=PORT)

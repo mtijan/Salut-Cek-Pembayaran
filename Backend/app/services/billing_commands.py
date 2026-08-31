@@ -24,6 +24,7 @@ from Backend.excel_reader import normalize_text
 
 
 def create_bill(db_path: str | Path, payload: dict[str, object], actor_id: str | None = None) -> sqlite3.Row:
+    """Create a new billing record with validation, payment transaction recording, and audit logging."""
     briva = normalize_text(payload.get("briva"))
     raw_period = normalize_text(payload.get("period"))
     bill_type = normalize_text(payload.get("bill_type")) or "UKT"
@@ -111,6 +112,7 @@ def create_bill(db_path: str | Path, payload: dict[str, object], actor_id: str |
 def update_bill(
     db_path: str | Path, bill_id: str, payload: dict[str, object], actor_id: str | None = None
 ) -> sqlite3.Row | None:
+    """Update an existing billing record and record associated payment delta transactions."""
     briva = normalize_text(payload.get("briva"))
     raw_period = normalize_text(payload.get("period"))
     bill_type = normalize_text(payload.get("bill_type")) or "UKT"
@@ -201,6 +203,7 @@ def record_bill_payment(
     payload: dict[str, object],
     actor_id: str | None = None,
 ) -> dict[str, object]:
+    """Record an incremental payment towards a bill, update status, and append to transaction ledger."""
     conn = connect(db_path)
     try:
         with conn:
@@ -295,6 +298,7 @@ def record_bill_payment(
 
 
 def delete_bill(db_path: str | Path, bill_id: str, actor_id: str | None = None, reason: str = "") -> sqlite3.Row | None:
+    """Soft delete a bill record with mandatory audit deletion reason."""
     reason = require_delete_reason(reason)
     conn = connect(db_path)
     try:
@@ -329,6 +333,7 @@ def delete_imported_bill_group(
     actor_id: str | None = None,
     reason: str = "",
 ) -> dict[str, object] | None:
+    """Soft delete all bills associated with an imported Excel workbook file."""
     file_name = normalize_text(source_file)
     if not file_name:
         raise ValueError("Nama file wajib diisi.")
@@ -382,6 +387,7 @@ def update_bill_status(
     reference_number: object = None,
     notes: object = None,
 ) -> sqlite3.Row | None:
+    """Update overall bill payment status, adjust paid amount, and log the state transition transaction."""
     if status not in {"paid", "partial", "unpaid"}:
         raise ValueError("Status hanya boleh paid, partial, atau unpaid.")
     normalized_payment_date, normalized_reference_number, normalized_notes = validate_payment_metadata(
@@ -456,6 +462,7 @@ def update_bill_status(
 def update_bill_due_date(
     db_path: str | Path, bill_ids: list[str], due_date: str | None, actor_id: str | None = None
 ) -> list[sqlite3.Row]:
+    """Batch update due dates across multiple active billing records."""
     if not bill_ids:
         return []
     due_date_str = validate_due_date_value(due_date)

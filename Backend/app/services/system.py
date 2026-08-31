@@ -11,6 +11,7 @@ from Backend.db import database_transaction, migrate_database
 
 
 def validate_runtime_configuration() -> None:
+    """Validate mandatory environment variables and security constraints in production mode."""
     if config.APP_ENV != "production":
         return
     if config.PROCESS_WORKERS != 1:
@@ -49,6 +50,7 @@ def validate_runtime_configuration() -> None:
 
 
 def cleanup_stale_imports() -> int:
+    """Remove expired uploaded preview workbooks and delete expired preview tokens."""
     removed_files = 0
     if not config.IMPORT_DIR.exists():
         return removed_files
@@ -86,6 +88,7 @@ def cleanup_operational_data() -> dict[str, int]:
 
 
 def ensure_database() -> None:
+    """Validate configuration, run database schema migrations, and bootstrap initial super_admin."""
     validate_runtime_configuration()
     migrate_database(config.DB_PATH)
     with database_transaction(config.DB_PATH) as conn:

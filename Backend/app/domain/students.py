@@ -1,3 +1,9 @@
+"""Domain logic, validation, and presentation formatting for student records.
+
+This module contains student validation helpers (NIM, academic status) and
+transforms raw SQLite rows into serialized dictionary models for API responses.
+"""
+
 from __future__ import annotations
 
 import re
@@ -5,7 +11,6 @@ import sqlite3
 
 from Backend.app.domain.common import format_entry_period, rupiah
 from Backend.excel_reader import normalize_nim, normalize_text
-
 
 ACADEMIC_STATUSES = {"aktif", "cuti", "lulus", "nonaktif", "keluar"}
 

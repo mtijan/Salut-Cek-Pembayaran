@@ -89,6 +89,7 @@ MASTER_SAMPLE_ROWS = [
 
 
 def generate_master_data_template() -> bytes:
+    """Generate empty Excel template file with standard Master Data Mahasiswa columns and sample data."""
     wb = openpyxl.Workbook()
     ws = cast(Worksheet, wb.active)
     ws.title = "Master_Data_Mahasiswa"
@@ -110,6 +111,8 @@ def generate_master_data_template() -> bytes:
 
 @dataclass(frozen=True)
 class ImportLayout:
+    """Descriptor for recognized workbook sheet structure and headers."""
+
     kind: str
     data_sheet: str
     issue_sheet: str | None
@@ -118,6 +121,7 @@ class ImportLayout:
 
 
 def _amount_to_int(value: str) -> int | None:
+    """Extract and convert numeric amount string from spreadsheet cell into integer."""
     cleaned = re.sub(r"\D+", "", clean_excel_text(value))
     if not cleaned or not cleaned.isdigit():
         return None
@@ -125,10 +129,12 @@ def _amount_to_int(value: str) -> int | None:
 
 
 def _normalized_headers(headers: list[str]) -> dict[str, str]:
+    """Map lowercased header names to original stripped header strings."""
     return {normalize_text(header).casefold(): normalize_text(header) for header in headers if normalize_text(header)}
 
 
 def _find_header_key(headers: dict[str, str], aliases: tuple[str, ...]) -> str:
+    """Find the first matching column header key amongst supported alias variants."""
     for alias in aliases:
         key = alias.casefold()
         if key in headers:
@@ -137,6 +143,7 @@ def _find_header_key(headers: dict[str, str], aliases: tuple[str, ...]) -> str:
 
 
 def _require_headers(workbook: Path) -> ImportLayout:
+    """Inspect workbook sheets and identify valid tabular layouts for import parsing."""
     sheet_names = workbook_sheet_names(workbook)
     if "Data Sinkron" in sheet_names and "Data Belum Lengkap" in sheet_names:
         sync_headers = _normalized_headers(read_sheet_headers(workbook, "Data Sinkron"))
@@ -174,6 +181,7 @@ def _require_headers(workbook: Path) -> ImportLayout:
 
 
 def _record_value(record: dict[str, str], headers: dict[str, str], aliases: str | tuple[str, ...]) -> str:
+    """Extract cell value for the first matched header alias."""
     if isinstance(aliases, str):
         aliases = (aliases,)
     for alias in aliases:
@@ -184,6 +192,7 @@ def _record_value(record: dict[str, str], headers: dict[str, str], aliases: str 
 
 
 def _normalize_briva(value: object) -> str:
+    """Validate and clean BRIVA virtual account number format."""
     raw = clean_excel_text(value)
     if not raw or not re.fullmatch(r"[\d\s-]+", raw):
         return ""
@@ -195,6 +204,7 @@ def _read_sync_rows(
     layout: ImportLayout,
     period: str,
 ) -> tuple[list[dict[str, object]], list[dict[str, object]], list[dict[str, object]], int, list[dict[str, object]]]:
+    """Parse and normalize all data rows from the target workbook worksheet."""
     rows: list[dict[str, object]] = []
     errors: list[dict[str, object]] = []
     sample: list[dict[str, object]] = []
