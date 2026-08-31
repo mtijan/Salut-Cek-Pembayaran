@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useToast } from '../components/common/Toast';
-import { studentsApi } from '../services/studentsApi';
+import { studentsApi } from '../services/studentsApi.js';
+import { isAbortError } from '../services/http.js';
 import { useCopyFeedback } from './useCopyFeedback';
 
 export function useStudent360({ isOpen, onClose, studentId }) {
@@ -12,32 +13,68 @@ export function useStudent360({ isOpen, onClose, studentId }) {
   const [historyData, setHistoryData] = useState(null);
   const [historyLoading, setHistoryLoading] = useState(false);
   const onCloseRef = useRef(onClose);
+  const detailRequestRef = useRef(null);
+  const historyRequestRef = useRef(null);
 
   useEffect(() => {
     onCloseRef.current = onClose;
   }, [onClose]);
 
   const fetchDetail = useCallback(async () => {
+    if (detailRequestRef.current) {
+      detailRequestRef.current.abort();
+    }
+    const controller = new AbortController();
+    detailRequestRef.current = controller;
+
     setLoading(true);
     try {
-      setData(await studentsApi.getDetail(studentId));
+      const detail = await studentsApi.getDetail(studentId, { signal: controller.signal });
+      if (detailRequestRef.current === controller) {
+        setData(detail);
+      }
     } catch (error) {
-      showToast(error.message || 'Gagal memuat profil mahasiswa.', 'error');
-      onCloseRef.current();
+      if (isAbortError(error)) return;
+      if (detailRequestRef.current === controller) {
+        showToast(error.message || 'Gagal memuat profil mahasiswa.', 'error');
+        onCloseRef.current();
+      }
     } finally {
-      setLoading(false);
+      if (detailRequestRef.current === controller) {
+        setLoading(false);
+        detailRequestRef.current = null;
+      }
     }
   }, [showToast, studentId]);
 
   const fetchPaymentHistory = useCallback(
     async (offset = 0) => {
+      if (historyRequestRef.current) {
+        historyRequestRef.current.abort();
+      }
+      const controller = new AbortController();
+      historyRequestRef.current = controller;
+
       setHistoryLoading(true);
       try {
-        setHistoryData(await studentsApi.getTransactions(studentId, { limit: 50, offset }));
+        const history = await studentsApi.getTransactions(
+          studentId,
+          { limit: 50, offset },
+          { signal: controller.signal },
+        );
+        if (historyRequestRef.current === controller) {
+          setHistoryData(history);
+        }
       } catch (error) {
-        showToast(error.message || 'Gagal memuat riwayat pembayaran.', 'error');
+        if (isAbortError(error)) return;
+        if (historyRequestRef.current === controller) {
+          showToast(error.message || 'Gagal memuat riwayat pembayaran.', 'error');
+        }
       } finally {
-        setHistoryLoading(false);
+        if (historyRequestRef.current === controller) {
+          setHistoryLoading(false);
+          historyRequestRef.current = null;
+        }
       }
     },
     [showToast, studentId],
@@ -51,10 +88,26 @@ export function useStudent360({ isOpen, onClose, studentId }) {
     } else {
       setData(null);
     }
+    return () => {
+      if (detailRequestRef.current) {
+        detailRequestRef.current.abort();
+        detailRequestRef.current = null;
+      }
+      if (historyRequestRef.current) {
+        historyRequestRef.current.abort();
+        historyRequestRef.current = null;
+      }
+    };
   }, [fetchDetail, isOpen, studentId]);
 
   useEffect(() => {
     if (isOpen && studentId && activeTab === 'history') fetchPaymentHistory(0);
+    return () => {
+      if (historyRequestRef.current) {
+        historyRequestRef.current.abort();
+        historyRequestRef.current = null;
+      }
+    };
   }, [activeTab, fetchPaymentHistory, isOpen, studentId]);
 
   const handleCopy = useCallback(

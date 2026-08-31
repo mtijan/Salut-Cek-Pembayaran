@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useToast } from '../components/common/Toast';
-import { studentsApi } from '../services/studentsApi';
-import { masterApi } from '../services/masterApi';
+import { studentsApi } from '../services/studentsApi.js';
+import { masterApi } from '../services/masterApi.js';
+import { isAbortError } from '../services/http.js';
 import { useCopyFeedback } from './useCopyFeedback';
 
 const emptyStudent = {
@@ -43,33 +44,66 @@ export function useStudentsPage() {
   const [saving, setSaving] = useState(false);
   const { copiedKey, copyToClipboard } = useCopyFeedback();
 
+  const activeRequestRef = useRef(null);
+
   const fetchStudents = useCallback(async () => {
+    if (activeRequestRef.current) {
+      activeRequestRef.current.abort();
+    }
+    const controller = new AbortController();
+    activeRequestRef.current = controller;
+
     setLoading(true);
     try {
-      const response = await studentsApi.list({
-        query: query.trim(),
-        study_program_id: selectedProdi,
-        academic_status: selectedStatus,
-        entry_period: selectedPeriod,
-        sort_by: sortBy,
-      });
-      setStudents(response.students || []);
-      setCurrentPage(1);
+      const response = await studentsApi.list(
+        {
+          query: query.trim(),
+          study_program_id: selectedProdi,
+          academic_status: selectedStatus,
+          entry_period: selectedPeriod,
+          sort_by: sortBy,
+        },
+        { signal: controller.signal },
+      );
+
+      if (activeRequestRef.current === controller) {
+        setStudents(response.students || []);
+        setCurrentPage(1);
+      }
     } catch (error) {
-      showToast(error.message || 'Gagal memuat data mahasiswa.', 'error');
+      if (isAbortError(error)) return;
+      if (activeRequestRef.current === controller) {
+        showToast(error.message || 'Gagal memuat data mahasiswa.', 'error');
+      }
     } finally {
-      setLoading(false);
+      if (activeRequestRef.current === controller) {
+        setLoading(false);
+        activeRequestRef.current = null;
+      }
     }
   }, [query, selectedProdi, selectedStatus, selectedPeriod, sortBy, showToast]);
 
   useEffect(() => {
+    const prodiController = new AbortController();
     masterApi
-      .listProdi()
+      .listProdi({ signal: prodiController.signal })
       .then((response) => setProdis(response.study_programs || []))
-      .catch(() => {});
+      .catch((err) => {
+        if (!isAbortError(err)) {
+          // Silent fallback for prodi options
+        }
+      });
+    return () => prodiController.abort();
   }, []);
+
   useEffect(() => {
     fetchStudents();
+    return () => {
+      if (activeRequestRef.current) {
+        activeRequestRef.current.abort();
+        activeRequestRef.current = null;
+      }
+    };
   }, [fetchStudents]);
 
   const stats = useMemo(

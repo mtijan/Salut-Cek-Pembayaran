@@ -91,6 +91,7 @@ test('compatibility barrels export all modular services identical to source modu
   assert.equal(barrelApi.importApi, importApi);
   assert.equal(barrelApi.usersApi, usersApi);
   assert.equal(barrelApi.apiFetch, apiFetch);
+  assert.equal(typeof barrelApi.isAbortError, 'function');
 
   assert.equal(indexApi.authApi, authApi);
   assert.equal(indexApi.dashboardApi, dashboardApi);
@@ -102,4 +103,5 @@ test('compatibility barrels export all modular services identical to source modu
   assert.equal(indexApi.importApi, importApi);
   assert.equal(indexApi.usersApi, usersApi);
   assert.equal(indexApi.apiFetch, apiFetch);
+  assert.equal(typeof indexApi.isAbortError, 'function');
 });

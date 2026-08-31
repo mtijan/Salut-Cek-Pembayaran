@@ -2,10 +2,13 @@ import js from '@eslint/js';
 
 const browserGlobals = {
   __APP_VERSION__: 'readonly',
+  AbortController: 'readonly',
+  AbortSignal: 'readonly',
   Blob: 'readonly',
   clearTimeout: 'readonly',
   console: 'readonly',
   document: 'readonly',
+  DOMException: 'readonly',
   fetch: 'readonly',
   FileReader: 'readonly',
   FormData: 'readonly',
@@ -18,8 +21,12 @@ const browserGlobals = {
 };
 
 const nodeGlobals = {
+  AbortController: 'readonly',
   AbortSignal: 'readonly',
   Buffer: 'readonly',
+  clearTimeout: 'readonly',
+  console: 'readonly',
+  DOMException: 'readonly',
   fetch: 'readonly',
   process: 'readonly',
   setTimeout: 'readonly',

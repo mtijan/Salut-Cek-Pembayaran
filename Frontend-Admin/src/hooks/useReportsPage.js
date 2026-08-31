@@ -1,14 +1,15 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useToast } from '../components/common/Toast';
-import { reportsApi } from '../services/reportsApi';
+import { reportsApi } from '../services/reportsApi.js';
+import { isAbortError } from '../services/http.js';
 import {
   calculateReportStats,
   createFinancialReportCsv,
   filterAndSortReportStudents,
-} from '../utils/reports';
+} from '../utils/reports.js';
 import { useCopyFeedback } from './useCopyFeedback';
-import { useMasterOptions } from './useMasterOptions';
-import { usePagination } from './usePagination';
+import { useMasterOptions } from './useMasterOptions.js';
+import { usePagination } from './usePagination.js';
 
 const PAGE_SIZE = 50;
 
@@ -27,24 +28,50 @@ export function useReportsPage() {
   );
   const { copiedKey, copyToClipboard } = useCopyFeedback();
 
+  const activeRequestRef = useRef(null);
+
   const fetchReport = useCallback(async () => {
+    if (activeRequestRef.current) {
+      activeRequestRef.current.abort();
+    }
+    const controller = new AbortController();
+    activeRequestRef.current = controller;
+
     setLoading(true);
     try {
-      const data = await reportsApi.getFinancialSummary({
-        period: selectedPeriod,
-        study_program_id: selectedProdi,
-        entry_period: selectedEntryPeriod,
-      });
-      setReport(data);
+      const data = await reportsApi.getFinancialSummary(
+        {
+          period: selectedPeriod,
+          study_program_id: selectedProdi,
+          entry_period: selectedEntryPeriod,
+        },
+        { signal: controller.signal },
+      );
+
+      if (activeRequestRef.current === controller) {
+        setReport(data);
+      }
     } catch (error) {
-      showToast(error.message || 'Gagal memuat rekapitulasi keuangan.', 'error');
+      if (isAbortError(error)) return;
+      if (activeRequestRef.current === controller) {
+        showToast(error.message || 'Gagal memuat rekapitulasi keuangan.', 'error');
+      }
     } finally {
-      setLoading(false);
+      if (activeRequestRef.current === controller) {
+        setLoading(false);
+        activeRequestRef.current = null;
+      }
     }
   }, [selectedPeriod, selectedProdi, selectedEntryPeriod, showToast]);
 
   useEffect(() => {
     fetchReport();
+    return () => {
+      if (activeRequestRef.current) {
+        activeRequestRef.current.abort();
+        activeRequestRef.current = null;
+      }
+    };
   }, [fetchReport]);
 
   const students = useMemo(

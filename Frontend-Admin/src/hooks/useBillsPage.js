@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useToast } from '../components/common/Toast';
-import { billsApi } from '../services/billsApi';
+import { billsApi } from '../services/billsApi.js';
+import { isAbortError } from '../services/http.js';
 import { useCopyFeedback } from './useCopyFeedback';
-import { useMasterOptions } from './useMasterOptions';
-import { usePagination } from './usePagination';
+import { useMasterOptions } from './useMasterOptions.js';
+import { usePagination } from './usePagination.js';
 
 const PAGE_SIZE = 100;
 
@@ -31,28 +32,48 @@ export function useBillsPage() {
   );
   const { copiedKey, copyToClipboard } = useCopyFeedback();
 
+  const activeRequestRef = useRef(null);
+
   const fetchBills = useCallback(async () => {
+    if (activeRequestRef.current) {
+      activeRequestRef.current.abort();
+    }
+    const controller = new AbortController();
+    activeRequestRef.current = controller;
+
     setLoading(true);
     try {
-      const response = await billsApi.list({
-        query: query.trim(),
-        study_program_id: selectedProdi,
-        period: selectedPeriod,
-        entry_period: selectedEntryPeriod,
-        status: selectedStatus,
-        sort_by: sortBy,
-        limit: PAGE_SIZE,
-        offset: (page - 1) * PAGE_SIZE,
-      });
-      const pagination = response.pagination || {};
-      setBills(response.bills || []);
-      setServerPagination(pagination);
-      setTotalCount(Number(pagination.total) || 0);
-      setSummary(response.summary || null);
+      const response = await billsApi.list(
+        {
+          query: query.trim(),
+          study_program_id: selectedProdi,
+          period: selectedPeriod,
+          entry_period: selectedEntryPeriod,
+          status: selectedStatus,
+          sort_by: sortBy,
+          limit: PAGE_SIZE,
+          offset: (page - 1) * PAGE_SIZE,
+        },
+        { signal: controller.signal },
+      );
+
+      if (activeRequestRef.current === controller) {
+        const pagination = response.pagination || {};
+        setBills(response.bills || []);
+        setServerPagination(pagination);
+        setTotalCount(Number(pagination.total) || 0);
+        setSummary(response.summary || null);
+      }
     } catch (error) {
-      showToast(error.message || 'Gagal memuat daftar tagihan.', 'error');
+      if (isAbortError(error)) return;
+      if (activeRequestRef.current === controller) {
+        showToast(error.message || 'Gagal memuat daftar tagihan.', 'error');
+      }
     } finally {
-      setLoading(false);
+      if (activeRequestRef.current === controller) {
+        setLoading(false);
+        activeRequestRef.current = null;
+      }
     }
   }, [
     query,
@@ -67,6 +88,12 @@ export function useBillsPage() {
 
   useEffect(() => {
     fetchBills();
+    return () => {
+      if (activeRequestRef.current) {
+        activeRequestRef.current.abort();
+        activeRequestRef.current = null;
+      }
+    };
   }, [fetchBills]);
 
   const stats = useMemo(() => {

@@ -12,7 +12,7 @@
  * - ./usersApi.js
  */
 
-export { BASE_URL, apiFetch } from './http.js';
+export { BASE_URL, apiFetch, isAbortError } from './http.js';
 export { authApi } from './authApi.js';
 export { dashboardApi } from './dashboardApi.js';
 export { studentsApi } from './studentsApi.js';
