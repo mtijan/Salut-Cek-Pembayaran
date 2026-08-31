@@ -1,43 +1,44 @@
+"""FastAPI application composition root and entry point.
+
+This module initializes the FastAPI application instance, configures security headers
+and CSP middleware, sets up exception handlers, handles static SPA asset serving,
+and composes all modular domain routers.
+"""
+
+from __future__ import annotations
+
 import sqlite3
 from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
 from json import JSONDecodeError
 
-from fastapi import Depends, FastAPI, Request, Response
+from fastapi import FastAPI, Request, Response
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from starlette.middleware.base import RequestResponseEndpoint
 
 from Backend.app import config
 from Backend.app.rate_limit import RATE_LIMITER
-from Backend.app.responses import error_response, request_id, success_response
+from Backend.app.responses import error_response, success_response
+from Backend.app.routers.auth import build_auth_router
 from Backend.app.routers.billing import build_billing_router
+from Backend.app.routers.imports import build_import_router
+from Backend.app.routers.lookup import build_lookup_router
 from Backend.app.routers.master_data import build_master_data_router
-from Backend.app.security import cookie_header
-from Backend.app.version import APP_VERSION
+from Backend.app.routers.reports import build_report_router
+from Backend.app.routers.students import build_student_router
 from Backend.app.services import (
     authenticate_admin,
     cleanup_operational_data,
-    create_admin_session,
-    create_student,
-    delete_admin_session,
-    delete_student,
     ensure_database,
     find_admin_by_session,
-    get_student_detail,
-    list_import_issues,
-    list_students,
-    student_row_to_dict,
-    update_student,
-    validate_nim_value,
-    write_lookup_log,
 )
-from Backend.app.routers.imports import build_import_router
-from Backend.app.use_cases.lookup import LookupService
-from Backend.app.use_cases.reporting import ReportingService
+from Backend.app.version import APP_VERSION
 
 
 class AuthError(Exception):
+    """Custom exception raised when authentication or authorization checks fail."""
+
     def __init__(self, status_code: int, code: str, message: str) -> None:
         self.status_code = status_code
         self.code = code
@@ -46,6 +47,7 @@ class AuthError(Exception):
 
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+    """Application lifespan context manager: initializes database and executes operational cleanups."""
     ensure_database()
     cleanup_operational_data()
     yield
@@ -53,6 +55,7 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
 
 app = FastAPI(title="Salut Cek Pembayaran", version=APP_VERSION, lifespan=lifespan)
 
+# Content Security Policy (CSP) configurations
 DOCS_CONTENT_SECURITY_POLICY = (
     "default-src 'self'; base-uri 'none'; frame-ancestors 'none'; object-src 'none'; "
     "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
@@ -70,6 +73,7 @@ APPLICATION_CONTENT_SECURITY_POLICY = (
 
 @app.middleware("http")
 async def security_headers(request: Request, call_next: RequestResponseEndpoint) -> Response:
+    """Inject strict security headers (nosniff, no-referrer, X-Frame-Options, CSP) into all responses."""
     response = await call_next(request)
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["Referrer-Policy"] = "no-referrer"
@@ -83,15 +87,18 @@ async def security_headers(request: Request, call_next: RequestResponseEndpoint)
 
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(_: Request, __: RequestValidationError) -> JSONResponse:
+    """Handle request validation errors and return consistent 400 JSON response."""
     return error_response(400, "VALIDATION_ERROR", "Data yang dikirim belum valid.")
 
 
 @app.exception_handler(AuthError)
 async def auth_exception_handler(_: Request, exc: AuthError) -> JSONResponse:
+    """Handle custom authentication/authorization errors and return consistent JSON response."""
     return error_response(exc.status_code, exc.code, exc.message)
 
 
 def client_ip(request: Request) -> str:
+    """Extract client IP address, respecting trusted proxy header if configured."""
     if config.TRUST_PROXY_HEADERS:
         real_ip = request.headers.get("x-real-ip", "").strip()
         if real_ip:
@@ -100,6 +107,7 @@ def client_ip(request: Request) -> str:
 
 
 def parse_limit(request: Request, default: int = 2000, max_limit: int = 5000) -> int:
+    """Parse and validate the limit query parameter."""
     raw = request.query_params.get("limit")
     if raw is None or raw == "":
         return default
@@ -111,6 +119,7 @@ def parse_limit(request: Request, default: int = 2000, max_limit: int = 5000) ->
 
 
 def parse_offset(request: Request) -> int:
+    """Parse and validate the offset query parameter."""
     raw = request.query_params.get("offset")
     if raw is None or raw == "":
         return 0
@@ -122,14 +131,17 @@ def parse_offset(request: Request) -> int:
 
 
 def enforce_rate_limit(scope: str, key: str, limit: int, window_seconds: int) -> int | None:
+    """Enforce in-memory sliding window rate limit for given scope and key."""
     return RATE_LIMITER.check(scope, key, limit, window_seconds)
 
 
 def session_token(request: Request) -> str | None:
+    """Extract session token from HTTP cookie."""
     return request.cookies.get(config.SESSION_COOKIE)
 
 
 async def read_json(request: Request) -> dict[str, object]:
+    """Safely parse JSON request body into a dictionary."""
     try:
         payload = await request.json()
     except JSONDecodeError:
@@ -138,10 +150,13 @@ async def read_json(request: Request) -> dict[str, object]:
 
 
 def current_admin(request: Request) -> sqlite3.Row | None:
+    """Retrieve current authenticated admin row from session cookie."""
     return find_admin_by_session(session_token(request))
 
 
 def require_admin(permission: str | None = None) -> Callable[[Request], sqlite3.Row]:
+    """Dependency factory that validates admin session and checks for required RBAC capability."""
+
     def dependency(request: Request) -> sqlite3.Row:
         admin = current_admin(request)
         if not admin:
@@ -155,252 +170,34 @@ def require_admin(permission: str | None = None) -> Callable[[Request], sqlite3.
 
 @app.get("/api/health")
 async def health() -> JSONResponse:
+    """Public health check endpoint returning service status, version, and release identifier."""
     return success_response({"status": "ok", "version": APP_VERSION, "release_id": config.RELEASE_ID})
 
 
-@app.post("/api/lookup")
-async def lookup(request: Request) -> JSONResponse:
-    req_id = request_id()
-    payload = await read_json(request)
-
-    retry_after = enforce_rate_limit("lookup", client_ip(request), 10, 10 * 60)
-    if retry_after:
-        write_lookup_log("", "", "rate_limited")
-        return error_response(
-            429,
-            "RATE_LIMITED",
-            "Terlalu banyak permintaan. Coba lagi nanti.",
-            {"Retry-After": str(retry_after)},
-            req_id,
-        )
-
-    try:
-        nim = validate_nim_value(payload.get("nim"))
-    except ValueError as exc:
-        write_lookup_log("", "", "invalid")
-        return error_response(400, "VALIDATION_ERROR", str(exc), req_id=req_id)
-
-    if not nim:
-        write_lookup_log(nim, "", "invalid")
-        return error_response(400, "VALIDATION_ERROR", "NIM wajib diisi.", req_id=req_id)
-
-    result = LookupService(
-        config.DB_PATH,
-        default_program_study=config.DEFAULT_PROGRAM_STUDY,
-        default_payment_period_label=config.DEFAULT_PAYMENT_PERIOD_LABEL,
-    ).execute(nim)
-    if result is None:
-        write_lookup_log(nim, "", "not_found")
-        return error_response(
-            404, "NOT_FOUND", "Data tagihan tidak ditemukan. Pastikan NIM sesuai data SALUT.", req_id=req_id
-        )
-    write_lookup_log(nim, "", "found")
-
-    return JSONResponse(
-        {
-            "success": True,
-            "data": result,
-            "request_id": req_id,
-        }
+# Include modular route slices
+app.include_router(build_lookup_router(read_json, enforce_rate_limit, client_ip))
+app.include_router(
+    build_auth_router(
+        require_admin,
+        read_json,
+        enforce_rate_limit,
+        client_ip,
+        session_token,
+        current_admin,
+        authenticate_admin=lambda email, pwd: authenticate_admin(email, pwd),
     )
-
-
-@app.post("/api/admin/login")
-async def admin_login(request: Request) -> JSONResponse:
-    payload = await read_json(request)
-    email = str(payload.get("email") or "").strip().casefold()
-    password = str(payload.get("password") or "")
-    if not email or not password:
-        return error_response(400, "VALIDATION_ERROR", "Email dan password wajib diisi.")
-
-    # Consume the rate-limit budget before verifying the password. Checking it
-    # only after a failed verification lets a correct guess bypass an already
-    # exhausted limit and still pays the expensive password-hash cost.
-    retry_after = enforce_rate_limit("login", f"{client_ip(request)}:{email}", 5, 15 * 60)
-    if retry_after:
-        return error_response(
-            429,
-            "RATE_LIMITED",
-            "Terlalu banyak percobaan login. Coba lagi nanti.",
-            {"Retry-After": str(retry_after)},
-        )
-
-    admin = authenticate_admin(email, password)
-    if not admin:
-        return error_response(401, "UNAUTHORIZED", "Email atau password tidak sesuai.")
-
-    token = create_admin_session(admin)
-    return success_response(
-        {
-            "email": admin["email"],
-            "full_name": admin["full_name"],
-            "role": admin["role"],
-            "permissions": sorted(config.ROLE_PERMISSIONS.get(admin["role"], set())),
-        },
-        headers={"Set-Cookie": cookie_header(token, config.SESSION_TTL_HOURS * 60 * 60)},
-    )
-
-
-@app.get("/api/admin/me")
-async def admin_me(admin: sqlite3.Row = Depends(require_admin())) -> JSONResponse:
-    return success_response(
-        {
-            "email": admin["email"],
-            "full_name": admin["full_name"],
-            "role": admin["role"],
-            "permissions": sorted(config.ROLE_PERMISSIONS.get(admin["role"], set())),
-        }
-    )
-
-
-@app.post("/api/admin/logout")
-async def admin_logout(request: Request) -> JSONResponse:
-    admin = current_admin(request)
-    delete_admin_session(session_token(request), admin)
-    return success_response(headers={"Set-Cookie": cookie_header("", 0)})
-
-
+)
 app.include_router(build_billing_router(require_admin, read_json, parse_limit, parse_offset))
-
-
-# ==========================================
-# DASHBOARD STATS & FINANCIAL REPORTS
-# ==========================================
-
-
-@app.get("/api/admin/dashboard/stats")
-async def admin_dashboard_stats(admin: sqlite3.Row = Depends(require_admin("view_reports"))) -> JSONResponse:
-    return success_response(ReportingService(config.DB_PATH).dashboard_stats())
-
-
-@app.get("/api/admin/reports/financial-summary")
-async def admin_financial_summary(
-    request: Request, admin: sqlite3.Row = Depends(require_admin("view_reports"))
-) -> JSONResponse:
-    period = str(request.query_params.get("period") or "").strip()
-    study_program_id = str(request.query_params.get("study_program_id") or "").strip()
-    entry_period = str(request.query_params.get("entry_period") or "").strip()
-    return success_response(
-        ReportingService(config.DB_PATH).financial_summary(
-            period=period,
-            study_program_id=study_program_id,
-            entry_period=entry_period,
-        )
-    )
-
-
+app.include_router(build_student_router(require_admin, read_json, parse_limit))
+app.include_router(build_report_router(require_admin, parse_limit))
 app.include_router(build_master_data_router(require_admin, read_json))
-
-
-# ==========================================
-# STUDENTS & STUDENT PROFILE 360
-# ==========================================
-
-
-@app.get("/api/admin/students")
-async def admin_students(
-    request: Request, admin: sqlite3.Row = Depends(require_admin("view_students"))
-) -> JSONResponse:
-    query = str(request.query_params.get("query") or "")
-    study_program_id = str(request.query_params.get("study_program_id") or request.query_params.get("prodi") or "")
-    academic_status = str(request.query_params.get("academic_status") or "")
-    entry_period = str(request.query_params.get("entry_period") or "")
-    sort_by = str(request.query_params.get("sort_by") or "")
-    raw_year = request.query_params.get("entry_year")
-    entry_year = int(raw_year) if raw_year and raw_year.isdigit() else None
-    try:
-        limit = parse_limit(request, default=2000, max_limit=5000)
-    except ValueError as exc:
-        return error_response(400, "VALIDATION_ERROR", str(exc))
-    return success_response(
-        {
-            "students": list_students(
-                config.DB_PATH,
-                query=query,
-                limit=limit,
-                study_program_id=study_program_id,
-                academic_status=academic_status,
-                entry_year=entry_year,
-                entry_period=entry_period,
-                sort_by=sort_by,
-            )
-        }
-    )
-
-
-@app.get("/api/admin/students/{student_id}/detail")
-async def admin_student_detail(
-    student_id: str, admin: sqlite3.Row = Depends(require_admin("view_students"))
-) -> JSONResponse:
-    detail = get_student_detail(config.DB_PATH, student_id)
-    if not detail:
-        return error_response(404, "NOT_FOUND", "Mahasiswa tidak ditemukan.")
-    return success_response(detail)
-
-
-@app.get("/api/admin/import-issues")
-async def admin_import_issues(
-    request: Request, admin: sqlite3.Row = Depends(require_admin("view_imports"))
-) -> JSONResponse:
-    try:
-        limit = parse_limit(request, default=500, max_limit=2000)
-    except ValueError as exc:
-        return error_response(400, "VALIDATION_ERROR", str(exc))
-    return success_response({"issues": list_import_issues(config.DB_PATH, limit)})
-
-
-@app.post("/api/admin/students")
-async def admin_create_student(
-    request: Request, admin: sqlite3.Row = Depends(require_admin("manage_students"))
-) -> JSONResponse:
-    payload = await read_json(request)
-    try:
-        student = create_student(config.DB_PATH, payload=payload, actor_id=admin["id"])
-    except ValueError as exc:
-        return error_response(400, "VALIDATION_ERROR", str(exc))
-
-    return success_response({"student": student_row_to_dict(student)})
-
-
-@app.patch("/api/admin/students/{student_id}")
-async def admin_update_student(
-    student_id: str, request: Request, admin: sqlite3.Row = Depends(require_admin("manage_students"))
-) -> JSONResponse:
-    payload = await read_json(request)
-    try:
-        student = update_student(config.DB_PATH, student_id, payload, actor_id=admin["id"])
-    except ValueError as exc:
-        return error_response(400, "VALIDATION_ERROR", str(exc))
-    if not student:
-        return error_response(404, "NOT_FOUND", "Mahasiswa tidak ditemukan.")
-
-    return success_response({"student": student_row_to_dict(student)})
-
-
-@app.delete("/api/admin/students/{student_id}")
-async def admin_delete_student(
-    student_id: str, request: Request, admin: sqlite3.Row = Depends(require_admin("manage_students"))
-) -> JSONResponse:
-    reason = str(request.query_params.get("reason") or "").strip()
-    if not reason:
-        payload = await read_json(request)
-        reason = str(payload.get("reason") or "").strip()
-    try:
-        student = delete_student(config.DB_PATH, student_id, actor_id=admin["id"], reason=reason)
-    except ValueError as exc:
-        return error_response(400, "VALIDATION_ERROR", str(exc))
-    if not student:
-        return error_response(404, "NOT_FOUND", "Mahasiswa tidak ditemukan.")
-
-    return success_response({"deleted": True, "student": student_row_to_dict(student)})
-
-
 app.include_router(build_import_router(require_admin, read_json, enforce_rate_limit))
 
 
 @app.get("/admin", include_in_schema=False, response_model=None)
 @app.get("/admin/", include_in_schema=False, response_model=None)
 async def admin_page(request: Request) -> FileResponse | RedirectResponse | JSONResponse:
+    """Serve the compiled React admin single-page application entry point."""
     if request.url.query:
         return RedirectResponse(url="/admin", status_code=303)
     admin_dist_index = config.FRONTEND_DIR / "admin-dist" / "index.html"
@@ -415,6 +212,7 @@ async def admin_page(request: Request) -> FileResponse | RedirectResponse | JSON
 
 @app.get("/{full_path:path}", include_in_schema=False, response_model=None)
 async def frontend(full_path: str) -> FileResponse | JSONResponse:
+    """Serve public static frontend assets or fallback to index.html for client-side routing."""
     if full_path.startswith("api/"):
         return error_response(404, "NOT_FOUND", "Endpoint tidak ditemukan.")
 
