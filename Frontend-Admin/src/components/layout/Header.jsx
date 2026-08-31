@@ -51,7 +51,7 @@ export default function Header({
       <div className="header-user-area">
         <div className="user-badge">
           <User size={16} className="text-brand" />
-          <span>{admin?.email || 'admin@salut.local'}</span>
+          <span className="user-email">{admin?.email || 'admin@salut.local'}</span>
           <span className={`role-tag ${admin?.role || 'admin'}`}>
             {admin?.role === 'super_admin'
               ? 'Super Admin'

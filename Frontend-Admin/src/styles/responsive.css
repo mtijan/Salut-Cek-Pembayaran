@@ -29,6 +29,32 @@
   }
   .app-header {
     padding: 0 16px;
+    gap: 12px;
+  }
+  .header-left-group {
+    flex: 1 1 auto;
+    gap: 8px;
+  }
+  .header-user-area {
+    flex: 0 1 58%;
+  }
+  .user-badge {
+    padding-inline: 8px;
+  }
+  .users-header-row {
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  .users-header-row > div,
+  .users-filter-row,
+  .users-search-box,
+  .users-table-card {
+    min-width: 0;
+    max-width: 100%;
+  }
+  .users-search-box {
+    flex-basis: 100%;
   }
   .form-grid-2 {
     grid-template-columns: 1fr;

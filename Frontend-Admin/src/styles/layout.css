@@ -310,6 +310,9 @@
   font-size: 18px;
   font-weight: 800;
   color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .header-title-area p {
@@ -318,12 +321,16 @@
   color: var(--muted);
   text-transform: uppercase;
   letter-spacing: 0.05em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .header-user-area {
   display: flex;
   align-items: center;
   gap: 12px;
+  min-width: 0;
 }
 
 .user-badge {
@@ -336,6 +343,15 @@
   font-size: 13px;
   font-weight: 600;
   color: var(--ink);
+  min-width: 0;
+  max-width: 100%;
+}
+
+.user-email {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .role-tag {
@@ -377,4 +393,9 @@
   display: flex;
   align-items: center;
   gap: 14px;
+  min-width: 0;
+}
+
+.header-title-area {
+  min-width: 0;
 }
