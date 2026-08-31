@@ -17,6 +17,7 @@ from Backend.app.routers.lookup import build_lookup_router
 from Backend.app.routers.master_data import build_master_data_router
 from Backend.app.routers.reports import build_report_router
 from Backend.app.routers.students import build_student_router
+from Backend.app.routers.users import build_user_router
 
 __all__ = [
     "build_auth_router",
@@ -26,4 +27,5 @@ __all__ = [
     "build_master_data_router",
     "build_report_router",
     "build_student_router",
+    "build_user_router",
 ]

@@ -18,6 +18,7 @@ from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from starlette.middleware.base import RequestResponseEndpoint
 
 from Backend.app import config
+from Backend.app.openapi import build_custom_openapi
 from Backend.app.rate_limit import RATE_LIMITER
 from Backend.app.responses import error_response, success_response
 from Backend.app.routers.auth import build_auth_router
@@ -27,6 +28,7 @@ from Backend.app.routers.lookup import build_lookup_router
 from Backend.app.routers.master_data import build_master_data_router
 from Backend.app.routers.reports import build_report_router
 from Backend.app.routers.students import build_student_router
+from Backend.app.routers.users import build_user_router
 from Backend.app.services import (
     authenticate_admin,
     cleanup_operational_data,
@@ -54,6 +56,7 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
 
 
 app = FastAPI(title="Salut Cek Pembayaran", version=APP_VERSION, lifespan=lifespan)
+app.openapi = lambda: build_custom_openapi(app)
 
 # Content Security Policy (CSP) configurations
 DOCS_CONTENT_SECURITY_POLICY = (
@@ -192,6 +195,7 @@ app.include_router(build_student_router(require_admin, read_json, parse_limit))
 app.include_router(build_report_router(require_admin, parse_limit))
 app.include_router(build_master_data_router(require_admin, read_json))
 app.include_router(build_import_router(require_admin, read_json, enforce_rate_limit))
+app.include_router(build_user_router(require_admin, read_json))
 
 
 @app.get("/admin", include_in_schema=False, response_model=None)

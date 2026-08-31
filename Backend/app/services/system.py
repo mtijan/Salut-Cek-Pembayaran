@@ -2,15 +2,26 @@
 
 from __future__ import annotations
 
+import sqlite3
 import time
 import uuid
+from pathlib import Path
 
 from Backend.app import config
 from Backend.app.security import hash_password
-from Backend.db import database_transaction, migrate_database
+from Backend.db import database_connection, database_transaction, migrate_database
 
 
-def validate_runtime_configuration() -> None:
+def _has_existing_admins(db_path: Path | str = config.DB_PATH) -> bool:
+    try:
+        with database_connection(db_path) as conn:
+            row = conn.execute("select count(*) as total from admin_users where is_active = 1").fetchone()
+            return bool(row and row["total"] > 0)
+    except sqlite3.OperationalError:
+        return False
+
+
+def validate_runtime_configuration(has_existing_admins: bool | None = None) -> None:
     """Validate mandatory environment variables and security constraints in production mode."""
     if config.APP_ENV != "production":
         return
@@ -19,12 +30,24 @@ def validate_runtime_configuration() -> None:
             "Rate limiter in-memory hanya aman untuk satu worker. "
             "Gunakan WEB_CONCURRENCY=1/UVICORN_WORKERS=1 atau implementasikan shared limiter sebelum scale-out."
         )
-    values = {
-        "LOOKUP_HASH_SECRET": config.LOOKUP_HASH_SECRET.strip(),
-        "ADMIN_BOOTSTRAP_EMAIL": config.ADMIN_BOOTSTRAP_EMAIL.strip(),
-        "ADMIN_BOOTSTRAP_PASSWORD": config.ADMIN_BOOTSTRAP_PASSWORD,
-    }
-    missing = [name for name, value in values.items() if not value]
+
+    if has_existing_admins is None:
+        has_existing_admins = _has_existing_admins(config.DB_PATH)
+
+    lookup_secret = config.LOOKUP_HASH_SECRET.strip()
+    bootstrap_email = config.ADMIN_BOOTSTRAP_EMAIL.strip()
+    bootstrap_password = config.ADMIN_BOOTSTRAP_PASSWORD
+
+    missing: list[str] = []
+    if not lookup_secret:
+        missing.append("LOOKUP_HASH_SECRET")
+
+    if not has_existing_admins:
+        if not bootstrap_email:
+            missing.append("ADMIN_BOOTSTRAP_EMAIL")
+        if not bootstrap_password:
+            missing.append("ADMIN_BOOTSTRAP_PASSWORD")
+
     if missing:
         raise RuntimeError(f"Konfigurasi production belum lengkap: {', '.join(missing)}")
 
@@ -36,13 +59,19 @@ def validate_runtime_configuration() -> None:
         "password123",
         "your-",
     )
-    weak = [name for name, value in values.items() if any(marker in value.casefold() for marker in placeholder_markers)]
-    if len(values["LOOKUP_HASH_SECRET"]) < 32:
-        weak.append("LOOKUP_HASH_SECRET")
-    if len(values["ADMIN_BOOTSTRAP_PASSWORD"]) < 12:
-        weak.append("ADMIN_BOOTSTRAP_PASSWORD")
-    if "@" not in values["ADMIN_BOOTSTRAP_EMAIL"]:
-        weak.append("ADMIN_BOOTSTRAP_EMAIL")
+    weak: list[str] = []
+    if lookup_secret:
+        if len(lookup_secret) < 32 or any(m in lookup_secret.casefold() for m in placeholder_markers):
+            weak.append("LOOKUP_HASH_SECRET")
+
+    if bootstrap_email:
+        if "@" not in bootstrap_email or any(m in bootstrap_email.casefold() for m in placeholder_markers):
+            weak.append("ADMIN_BOOTSTRAP_EMAIL")
+
+    if bootstrap_password:
+        if len(bootstrap_password) < 12 or any(m in bootstrap_password.casefold() for m in placeholder_markers):
+            weak.append("ADMIN_BOOTSTRAP_PASSWORD")
+
     if weak:
         raise RuntimeError(
             "Konfigurasi production memakai nilai placeholder atau lemah: " + ", ".join(sorted(set(weak)))

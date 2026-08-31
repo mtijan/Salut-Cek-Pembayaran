@@ -28,11 +28,13 @@ follow_imports = "skip"
 files = [
   "Backend/app/main.py",
   "Backend/app/domain",
+  "Backend/app/openapi.py",
   "Backend/app/repositories",
   "Backend/app/routers",
   "Backend/app/services",
   "Backend/app/use_cases",
   "Backend/app/version.py",
+  "Backend/admin_cli.py",
   "Backend/backup_sqlite.py",
   "Backend/db.py",
   "Backend/due_date_backfill.py",

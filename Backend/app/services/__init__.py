@@ -70,6 +70,14 @@ from Backend.app.services.system import (  # noqa: F401
     ensure_database,
     validate_runtime_configuration,
 )
+from Backend.app.services.users import (  # noqa: F401
+    create_admin_user,
+    delete_admin_user,
+    get_admin_user,
+    list_admin_users,
+    reset_admin_password,
+    update_admin_user,
+)
 
 # Re-export domain helpers that main.py imports from services for convenience.
 from Backend.app.domain.billing import bill_row_to_dict, summarize_payment_status  # noqa: F401

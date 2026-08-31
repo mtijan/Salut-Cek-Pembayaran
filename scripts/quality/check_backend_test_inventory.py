@@ -5,9 +5,12 @@ from collections import Counter
 
 
 EXPECTED_TEST_COUNTS = {
+    "Backend.tests.test_admin_cli": 5,
+    "Backend.tests.test_admin_users": 9,
     "Backend.tests.test_auth_rbac": 7,
     "Backend.tests.test_billing": 10,
     "Backend.tests.test_billing_payments": 5,
+    "Backend.tests.test_contract_openapi": 10,
     "Backend.tests.test_database_lifecycle": 22,
     "Backend.tests.test_domain": 3,
     "Backend.tests.test_due_date_backfill": 4,
