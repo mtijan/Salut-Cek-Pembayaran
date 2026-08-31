@@ -204,7 +204,12 @@ def create_academic_period(
             period = dict(row)
             if actor_id:
                 write_audit(
-                    conn, actor_id, "academic_period.create", "academic_period", period["id"], {"code": code, "name": name}
+                    conn,
+                    actor_id,
+                    "academic_period.create",
+                    "academic_period",
+                    period["id"],
+                    {"code": code, "name": name},
                 )
             return period
     finally:
