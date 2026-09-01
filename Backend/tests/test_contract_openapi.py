@@ -110,6 +110,8 @@ class ContractOpenAPITests(BackendBaseTestCase):
             "HealthResponse",
             "LookupRequest",
             "LookupResponse",
+            "LookupBillingSummary",
+            "LookupPaymentHistoryItem",
             "AdminLoginRequest",
             "AdminAuthResponse",
             "BillSingleResponse",
@@ -124,6 +126,11 @@ class ContractOpenAPITests(BackendBaseTestCase):
         for name in required_schemas:
             with self.subTest(schema=name):
                 self.assertIn(name, schemas)
+
+        public_history = schemas["LookupPaymentHistoryItem"]["properties"]
+        self.assertNotIn("reference_number", public_history)
+        self.assertNotIn("notes", public_history)
+        self.assertNotIn("recorded_by", public_history)
 
     def test_lookup_contract_student_without_bills_returns_200_empty_list(self) -> None:
         """Contract: Registered student with zero active bills returns HTTP 200 with empty bills list."""

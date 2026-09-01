@@ -27,19 +27,34 @@ class LookupService:
         self._default_payment_period_label = default_payment_period_label
 
     def execute(self, nim: str) -> dict[str, object] | None:
-        """Execute student billing lookup by NIM, resolving student and bill summaries."""
+        """Execute student billing lookup by NIM, resolving student, bills, summary, and payment transactions."""
         with database_connection(self._db_path) as connection:
             student = StudentRepository(connection).find_active_for_public_lookup(nim)
             if student is None:
                 return None
-            bills = BillRepository(connection).list_active_for_public_lookup(str(student["id"]))
+            bill_repository = BillRepository(connection)
+            student_id = str(student["id"])
+            bills = bill_repository.list_active_for_public_lookup(student_id)
+            transactions = bill_repository.list_recent_transactions_for_public_lookup(student_id)
 
-        return self._build_result(student, bills)
+        return self._build_result(student, bills, transactions)
 
-    def _build_result(self, student: sqlite3.Row, bills: list[sqlite3.Row]) -> dict[str, object]:
+    def _build_result(
+        self,
+        student: sqlite3.Row,
+        bills: list[sqlite3.Row],
+        transactions: list[sqlite3.Row] | None = None,
+    ) -> dict[str, object]:
+        txs = transactions or []
         unpaid_due_dates = [bill["due_date"] for bill in bills if bill["due_date"] and bill["status"] != "paid"]
         all_due_dates = [bill["due_date"] for bill in bills if bill["due_date"]]
         primary_due_date = unpaid_due_dates[0] if unpaid_due_dates else (all_due_dates[0] if all_due_dates else "")
+
+        bill_dicts = [self._bill_to_dict(bill, index, len(bills)) for index, bill in enumerate(bills, start=1)]
+        total_amount = sum(int(str(b["amount"])) for b in bill_dicts)
+        total_paid_amount = sum(int(str(b["paid_amount"])) for b in bill_dicts)
+        total_remaining_amount = sum(int(str(b["remaining_amount"])) for b in bill_dicts)
+
         return {
             "student": {
                 "nim": student["nim"],
@@ -49,8 +64,32 @@ class LookupService:
                 "due_date": primary_due_date,
                 "due_date_formatted": format_due_date(primary_due_date),
             },
-            "bills": [self._bill_to_dict(bill, index, len(bills)) for index, bill in enumerate(bills, start=1)],
+            "bills": bill_dicts,
             "payment_status": summarize_payment_status([bill["status"] for bill in bills]),
+            "summary": {
+                "total_amount": total_amount,
+                "total_amount_formatted": rupiah(total_amount),
+                "paid_amount": total_paid_amount,
+                "paid_amount_formatted": rupiah(total_paid_amount),
+                "remaining_amount": total_remaining_amount,
+                "remaining_amount_formatted": rupiah(total_remaining_amount),
+            },
+            "payment_history": [self._transaction_to_dict(tx) for tx in txs],
+        }
+
+    @staticmethod
+    def _transaction_to_dict(tx: sqlite3.Row) -> dict[str, object]:
+        amount = int(tx["amount"])
+        payment_date = str(tx["payment_date"] or "")
+        return {
+            "transaction_type": str(tx["transaction_type"] or "payment"),
+            "amount": amount,
+            "amount_formatted": rupiah(abs(amount)),
+            "payment_date": payment_date,
+            "payment_date_formatted": format_due_date(payment_date) if payment_date else "",
+            "payment_method": str(tx["payment_method"] or "BRIVA"),
+            "bill_type": str(tx["bill_type"] or ""),
+            "briva": str(tx["briva"] or ""),
         }
 
     @staticmethod

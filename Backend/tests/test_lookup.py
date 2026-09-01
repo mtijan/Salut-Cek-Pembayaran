@@ -107,6 +107,47 @@ class LookupServiceTests(unittest.TestCase):
                         "2026-08-27 07:00:00",
                     ),
                 )
+                connection.executemany(
+                    """
+                    insert into payment_transactions (
+                        id, bill_id, student_id, transaction_type, amount,
+                        running_paid_total, previous_status, new_status,
+                        payment_date, payment_method, reference_number, notes, created_at
+                    ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    [
+                        (
+                            "tx-payment",
+                            "bill-partial",
+                            "student-lookup",
+                            "payment",
+                            250000,
+                            250000,
+                            "unpaid",
+                            "partial",
+                            "2026-09-01",
+                            "BRIVA",
+                            "PRIVATE-REFERENCE",
+                            "Catatan internal tidak boleh publik",
+                            "2026-09-01 08:00:00",
+                        ),
+                        (
+                            "tx-reversal",
+                            "bill-partial",
+                            "student-lookup",
+                            "reversal",
+                            -50000,
+                            200000,
+                            "partial",
+                            "partial",
+                            "2026-08-31",
+                            "Transfer",
+                            "PRIVATE-REVERSAL",
+                            "Alasan internal tidak boleh publik",
+                            "2026-08-31 08:00:00",
+                        ),
+                    ],
+                )
 
             result = LookupService(
                 database,
@@ -118,7 +159,7 @@ class LookupServiceTests(unittest.TestCase):
             assert result is not None
             self.assertEqual(
                 set(result),
-                {"student", "bills", "payment_status"},
+                {"student", "bills", "payment_status", "summary", "payment_history"},
             )
             self.assertEqual(result["payment_status"], "partial")
             student = result["student"]
@@ -126,6 +167,36 @@ class LookupServiceTests(unittest.TestCase):
             self.assertEqual(student["program_study"], "Program Default")
             self.assertEqual(student["payment_period"], "Semester Aktif")
             self.assertEqual(student["due_date"], "2026-09-10")
+
+            summary = result["summary"]
+            assert isinstance(summary, dict)
+            self.assertEqual(summary["total_amount"], 1500000)
+            self.assertEqual(summary["paid_amount"], 1200000)
+            self.assertEqual(summary["remaining_amount"], 300000)
+
+            payment_history = result["payment_history"]
+            assert isinstance(payment_history, list)
+            self.assertEqual(len(payment_history), 2)
+            self.assertEqual(payment_history[0]["transaction_type"], "payment")
+            self.assertEqual(payment_history[0]["amount"], 250000)
+            self.assertEqual(payment_history[1]["transaction_type"], "reversal")
+            self.assertEqual(payment_history[1]["amount"], -50000)
+            self.assertEqual(payment_history[1]["amount_formatted"], "Rp 50.000")
+            self.assertEqual(
+                set(payment_history[0]),
+                {
+                    "transaction_type",
+                    "amount",
+                    "amount_formatted",
+                    "payment_date",
+                    "payment_date_formatted",
+                    "payment_method",
+                    "bill_type",
+                    "briva",
+                },
+            )
+            self.assertNotIn("reference_number", payment_history[0])
+            self.assertNotIn("notes", payment_history[0])
 
             bills = result["bills"]
             assert isinstance(bills, list)

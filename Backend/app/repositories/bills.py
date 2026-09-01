@@ -28,6 +28,26 @@ class BillRepository:
             (student_id,),
         ).fetchall()
 
+    def list_recent_transactions_for_public_lookup(
+        self,
+        student_id: str,
+        limit: int = 50,
+    ) -> list[sqlite3.Row]:
+        """Retrieve a bounded, privacy-minimized payment history for public lookup."""
+        bounded_limit = max(1, min(int(limit or 50), 50))
+        return self._connection.execute(
+            """
+            select pt.transaction_type, pt.amount, pt.payment_date, pt.payment_method,
+                   b.bill_type, b.briva
+            from payment_transactions pt
+            left join bills b on b.id = pt.bill_id
+            where coalesce(pt.student_id, b.student_id) = ?
+            order by pt.payment_date desc, pt.created_at desc, pt.rowid desc
+            limit ?
+            """,
+            (student_id, bounded_limit),
+        ).fetchall()
+
     def find_by_id(self, bill_id: str) -> sqlite3.Row | None:
         """Find an active bill record by UUID primary key."""
         return self._connection.execute(

@@ -762,3 +762,101 @@ test('rendered responsive state mempertahankan dialog dan tabel dalam viewport k
   });
   expect(hasHorizontalOverflow).toBe(false);
 });
+
+test('public lookup merender ringkasan dan histori sintetis tanpa XSS atau dependency eksternal', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const externalRequests = [];
+  const browserErrors = [];
+  page.on('request', (request) => {
+    const url = new URL(request.url());
+    if (!['127.0.0.1', 'localhost'].includes(url.hostname)) externalRequests.push(request.url());
+  });
+  page.on('pageerror', (error) => browserErrors.push(error.message));
+  await page.route('**/api/lookup', async (route) => {
+    await fulfillJson(route, {
+      student: {
+        nim: '990000001',
+        full_name: 'Synthetic <img src=x onerror=globalThis.__xss=true>',
+        program_study: 'Program Sintetis',
+        payment_period: '2026.1',
+        due_date: '2026-12-31',
+        due_date_formatted: '31 Desember 2026',
+      },
+      bills: [
+        {
+          bill_label: 'Tagihan <script>globalThis.__xss=true</script>',
+          briva: '990000000000001',
+          amount: 1000000,
+          amount_formatted: 'Rp 1.000.000',
+          paid_amount: 250000,
+          paid_amount_formatted: 'Rp 250.000',
+          remaining_amount: 750000,
+          remaining_amount_formatted: 'Rp 750.000',
+          status: 'partial',
+          period: '2026.1',
+        },
+      ],
+      payment_status: 'partial',
+      summary: {
+        total_amount: 1000000,
+        total_amount_formatted: 'Rp 1.000.000',
+        paid_amount: 250000,
+        paid_amount_formatted: 'Rp 250.000',
+        remaining_amount: 750000,
+        remaining_amount_formatted: 'Rp 750.000',
+      },
+      payment_history: [
+        {
+          transaction_type: 'payment',
+          amount: 250000,
+          amount_formatted: 'Rp 250.000',
+          payment_date: '2026-09-01',
+          payment_date_formatted: '1 September 2026',
+          payment_method: 'BRIVA <img src=x onerror=globalThis.__xss=true>',
+          bill_type: 'Registrasi Sintetis',
+          briva: '990000000000001',
+        },
+      ],
+    });
+  });
+
+  await page.goto('/');
+  await page.getByLabel('Nomor Induk Mahasiswa (NIM)').fill('990000001');
+  await page.getByRole('button', { name: 'Periksa Tagihan' }).click();
+
+  await expect(page.getByText('Rp 750.000', { exact: true }).first()).toBeVisible();
+  await expect(page.getByText('1 Transaksi', { exact: true })).toBeVisible();
+  await expect(
+    page.getByRole('heading', { name: 'Synthetic <img src=x onerror=globalThis.__xss=true>' }),
+  ).toBeVisible();
+  expect(await page.evaluate(() => globalThis.__xss)).toBeUndefined();
+  await expect(page.locator('img[src="x"]')).toHaveCount(0);
+  await expect(page.locator('script:not([src])')).toHaveCount(0);
+  expect(externalRequests).toEqual([]);
+  expect(browserErrors).toEqual([]);
+  const overflowReport = await page.evaluate(() => {
+    const root = globalThis.document.documentElement;
+    const offenders = [...globalThis.document.querySelectorAll('body *')]
+      .filter((element) => {
+        const style = globalThis.getComputedStyle(element);
+        if (style.display === 'none' || style.visibility === 'hidden') return false;
+        const rect = element.getBoundingClientRect();
+        return rect.left < -1 || rect.right > root.clientWidth + 1;
+      })
+      .slice(0, 10)
+      .map((element) => {
+        const rect = element.getBoundingClientRect();
+        return {
+          tag: element.tagName,
+          id: element.id,
+          className: String(element.className),
+          left: Math.round(rect.left),
+          right: Math.round(rect.right),
+        };
+      });
+    return { rootOverflow: root.scrollWidth > root.clientWidth + 1, offenders };
+  });
+  expect(overflowReport).toEqual({ rootOverflow: false, offenders: [] });
+});

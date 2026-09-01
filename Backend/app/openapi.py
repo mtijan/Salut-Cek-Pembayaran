@@ -1479,6 +1479,52 @@ def build_custom_openapi(app: FastAPI) -> dict[str, Any]:
                 "due_date_formatted": {"type": "string", "example": "10 September 2026"},
             },
         },
+        "LookupBillingSummary": {
+            "type": "object",
+            "required": [
+                "total_amount",
+                "total_amount_formatted",
+                "paid_amount",
+                "paid_amount_formatted",
+                "remaining_amount",
+                "remaining_amount_formatted",
+            ],
+            "properties": {
+                "total_amount": {"type": "integer", "example": 1850000},
+                "total_amount_formatted": {"type": "string", "example": "Rp 1.850.000"},
+                "paid_amount": {"type": "integer", "example": 500000},
+                "paid_amount_formatted": {"type": "string", "example": "Rp 500.000"},
+                "remaining_amount": {"type": "integer", "example": 1350000},
+                "remaining_amount_formatted": {"type": "string", "example": "Rp 1.350.000"},
+            },
+        },
+        "LookupPaymentHistoryItem": {
+            "type": "object",
+            "required": [
+                "transaction_type",
+                "amount",
+                "amount_formatted",
+                "payment_date",
+                "payment_date_formatted",
+                "payment_method",
+                "bill_type",
+                "briva",
+            ],
+            "properties": {
+                "transaction_type": {
+                    "type": "string",
+                    "enum": ["payment", "reversal", "correction"],
+                    "example": "payment",
+                },
+                "amount": {"type": "integer", "example": 500000},
+                "amount_formatted": {"type": "string", "example": "Rp 500.000"},
+                "payment_date": {"type": "string", "example": "2026-08-26"},
+                "payment_date_formatted": {"type": "string", "example": "26 Agustus 2026"},
+                "payment_method": {"type": "string", "example": "BRIVA"},
+                "bill_type": {"type": "string", "example": "UKT"},
+                "briva": {"type": "string", "example": "990000000000009"},
+            },
+        },
         "LookupResponse": {
             "type": "object",
             "required": ["success", "data", "request_id"],
@@ -1486,7 +1532,7 @@ def build_custom_openapi(app: FastAPI) -> dict[str, Any]:
                 "success": {"type": "boolean", "example": True},
                 "data": {
                     "type": "object",
-                    "required": ["student", "bills", "payment_status"],
+                    "required": ["student", "bills", "payment_status", "summary", "payment_history"],
                     "properties": {
                         "student": {"$ref": "#/components/schemas/LookupStudentInfo"},
                         "bills": {
@@ -1497,6 +1543,11 @@ def build_custom_openapi(app: FastAPI) -> dict[str, Any]:
                             "type": "string",
                             "enum": ["paid", "partial", "unpaid"],
                             "example": "unpaid",
+                        },
+                        "summary": {"$ref": "#/components/schemas/LookupBillingSummary"},
+                        "payment_history": {
+                            "type": "array",
+                            "items": {"$ref": "#/components/schemas/LookupPaymentHistoryItem"},
                         },
                     },
                 },
