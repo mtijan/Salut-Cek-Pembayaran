@@ -66,6 +66,10 @@ create table if not exists bills (
   period text not null,
   bill_type text not null,
   status text not null default 'unpaid',
+  is_active integer not null default 1 check (is_active in (0, 1)),
+  deactivated_at text,
+  deactivated_by text,
+  deactivation_reason text,
   payment_method text not null default 'BRIVA',
   instructions text not null,
   due_date text,
@@ -188,6 +192,7 @@ create table if not exists payment_transactions (
 create index if not exists idx_students_nim on students(nim);
 create index if not exists idx_students_name_norm on students(name_norm);
 create index if not exists idx_bills_student_id on bills(student_id);
+create index if not exists idx_bills_activation_period on bills(is_active, period);
 create index if not exists idx_lookup_logs_created_at on lookup_logs(created_at);
 create index if not exists idx_import_previews_admin_id on import_previews(admin_id);
 create index if not exists idx_import_previews_expires_at on import_previews(expires_at);

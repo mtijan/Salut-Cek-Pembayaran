@@ -1,7 +1,7 @@
 """SQLite database connectivity, schema initialization, and migration management.
 
 This module provides SQLite connection factories, connection/transaction context managers,
-schema version migrations (v1 to v5), entry registration period parsing, and study program resolution.
+schema version migrations (v1 to v6), entry registration period parsing, and study program resolution.
 """
 
 from __future__ import annotations
@@ -16,7 +16,7 @@ from typing import Callable, Iterator
 BASE_DIR = Path(__file__).resolve().parent
 DEFAULT_DB_PATH = BASE_DIR / "data" / "salut.sqlite"
 SCHEMA_PATH = BASE_DIR / "schema.sql"
-LATEST_SCHEMA_VERSION = 5
+LATEST_SCHEMA_VERSION = 6
 
 
 def resolve_db_path(db_path: str | Path = DEFAULT_DB_PATH) -> Path:
@@ -156,6 +156,11 @@ def migrate_schema_v4(conn: sqlite3.Connection) -> None:
 def migrate_schema_v5(conn: sqlite3.Connection) -> None:
     """Complete legacy v4 backfill ledgers with timestamp snapshots."""
     migrate_due_date_backfill_updated_at_ledger(conn)
+
+
+def migrate_schema_v6(conn: sqlite3.Connection) -> None:
+    """Add the independent operational activation lifecycle for billing records."""
+    migrate_bills_for_activation(conn)
 
 
 def _table_sql(conn: sqlite3.Connection, table: str) -> str:
@@ -685,6 +690,23 @@ def migrate_soft_delete(conn: sqlite3.Connection) -> None:
     conn.execute("create index if not exists idx_bills_deleted_at on bills(deleted_at)")
 
 
+def migrate_bills_for_activation(conn: sqlite3.Connection) -> None:
+    """Add activation state without changing payment, deletion, or import history."""
+    columns = _table_columns(conn, "bills")
+    if not columns:
+        return
+    if "is_active" not in columns:
+        conn.execute("alter table bills add column is_active integer not null default 1 check (is_active in (0, 1))")
+    if "deactivated_at" not in columns:
+        conn.execute("alter table bills add column deactivated_at text")
+    if "deactivated_by" not in columns:
+        conn.execute("alter table bills add column deactivated_by text")
+    if "deactivation_reason" not in columns:
+        conn.execute("alter table bills add column deactivation_reason text")
+    conn.execute("update bills set is_active = 1 where is_active is null")
+    conn.execute("create index if not exists idx_bills_activation_period on bills(is_active, period)")
+
+
 def ensure_academic_period(conn: sqlite3.Connection, period_code: str, default_name: str | None = None) -> str:
     """Ensure an academic period row exists in database, creating a new record if not present."""
     code_clean = str(period_code or "").strip()
@@ -768,4 +790,5 @@ MIGRATIONS: dict[int, Callable[[sqlite3.Connection], None]] = {
     3: migrate_schema_v3,
     4: migrate_schema_v4,
     5: migrate_schema_v5,
+    6: migrate_schema_v6,
 }

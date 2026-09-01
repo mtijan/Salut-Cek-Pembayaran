@@ -22,6 +22,7 @@ def bill_filter_clause(
     period: str = "",
     bill_type: str = "",
     entry_period: str = "",
+    activation: str = "",
 ) -> tuple[str, list[object]]:
     """Construct SQL WHERE clause and parameter list for billing queries (compatibility helper)."""
     with database_connection(":memory:") as conn:
@@ -33,6 +34,7 @@ def bill_filter_clause(
             period=period,
             bill_type=bill_type,
             entry_period=entry_period,
+            activation=activation,
         )
 
 
@@ -48,6 +50,7 @@ def list_bills(
     bill_type: str = "",
     sort_by: str = "",
     entry_period: str = "",
+    activation: str = "",
 ) -> list[dict[str, object]]:
     """Retrieve paginated billing records matching multi-criteria filters and custom sorting."""
     with database_connection(db_path) as conn:
@@ -62,6 +65,7 @@ def list_bills(
             bill_type=bill_type,
             sort_by=sort_by,
             entry_period=entry_period,
+            activation=activation,
         )
     return [bill_row_to_dict(row) for row in rows]
 
@@ -75,6 +79,7 @@ def count_bills(
     period: str = "",
     bill_type: str = "",
     entry_period: str = "",
+    activation: str = "",
 ) -> int:
     """Count the total number of bills matching given filter criteria."""
     with database_connection(db_path) as conn:
@@ -86,6 +91,7 @@ def count_bills(
             period=period,
             bill_type=bill_type,
             entry_period=entry_period,
+            activation=activation,
         )
 
 
@@ -98,6 +104,7 @@ def get_bills_summary(
     period: str = "",
     bill_type: str = "",
     entry_period: str = "",
+    activation: str = "",
 ) -> dict[str, int]:
     """Calculate financial and status distribution summary for filtered billing records."""
     with database_connection(db_path) as conn:
@@ -109,6 +116,7 @@ def get_bills_summary(
             period=period,
             bill_type=bill_type,
             entry_period=entry_period,
+            activation=activation,
         )
 
     if not row:

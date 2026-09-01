@@ -17,6 +17,11 @@ from Backend.excel_reader import normalize_text
 # Canonical billing status constants
 BILL_STATUSES: set[str] = {"paid", "partial", "unpaid"}
 
+
+class BillInactiveError(ValueError):
+    """Raised when a payment mutation targets an operationally inactive bill."""
+
+
 # Localization and alias mapping for payment status
 PAYMENT_STATUS_ALIASES: dict[str, str] = {
     "paid": "paid",
@@ -125,7 +130,9 @@ def joined_bill_select() -> str:
     """Return standard SQL SELECT clause with joins for bills, students, and study programs."""
     return """
         select b.id, b.student_id, b.briva, b.amount, coalesce(b.paid_amount, 0) as paid_amount,
-               b.period, b.bill_type, b.status, b.payment_method, b.instructions, b.due_date, b.created_at,
+               b.period, b.bill_type, b.status, coalesce(b.is_active, 1) as is_active,
+               b.deactivated_at, b.deactivated_by, b.deactivation_reason,
+               b.payment_method, b.instructions, b.due_date, b.created_at,
                b.source_file, b.source_row_number, s.nim, s.full_name, s.program_study,
                sp.name as study_program_name
         from bills b
@@ -159,6 +166,10 @@ def bill_row_to_dict(row: sqlite3.Row) -> dict[str, object]:
         "period": row["period"] if "period" in keys else "",
         "bill_type": row["bill_type"] if "bill_type" in keys else "",
         "status": status,
+        "is_active": bool(row["is_active"]) if "is_active" in keys else True,
+        "deactivated_at": row["deactivated_at"] if "deactivated_at" in keys else None,
+        "deactivated_by": row["deactivated_by"] if "deactivated_by" in keys else None,
+        "deactivation_reason": row["deactivation_reason"] if "deactivation_reason" in keys else None,
         "amount": amount,
         "amount_formatted": rupiah(amount),
         "paid_amount": paid_amount,

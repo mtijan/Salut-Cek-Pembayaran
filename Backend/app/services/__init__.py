@@ -29,6 +29,7 @@ from Backend.app.services.auth import (  # noqa: F401
 )
 from Backend.app.services.billing import (  # noqa: F401
     bill_filter_clause,
+    bulk_update_bill_activation,
     count_bills,
     create_bill,
     delete_bill,
@@ -38,9 +39,11 @@ from Backend.app.services.billing import (  # noqa: F401
     list_bills,
     list_import_issues,
     list_imported_bill_groups,
+    preview_bill_activation,
     record_bill_payment,
     sanitize_filename,
     update_bill,
+    update_bill_activation,
     update_bill_due_date,
     update_bill_status,
 )

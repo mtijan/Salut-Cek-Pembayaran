@@ -42,7 +42,7 @@ class ReportingRepository:
               ) as total_paid_amount
             from bills b
             join students s on s.id = b.student_id
-            where b.deleted_at is null and s.deleted_at is null
+            where b.deleted_at is null and s.deleted_at is null and coalesce(b.is_active, 1) = 1
             """
         ).fetchone()
         return student_row, bill_row

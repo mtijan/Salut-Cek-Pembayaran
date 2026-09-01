@@ -10,9 +10,11 @@ from fastapi import APIRouter, Depends, Request
 from fastapi.responses import JSONResponse
 
 from Backend.app import config
+from Backend.app.domain.billing import BillInactiveError
 from Backend.app.responses import error_response, success_response
 from Backend.app.services import (
     bill_row_to_dict,
+    bulk_update_bill_activation,
     create_bill,
     delete_bill,
     delete_imported_bill_group,
@@ -22,8 +24,10 @@ from Backend.app.services import (
     list_imported_bill_groups,
     list_payment_transactions,
     payment_transaction_target_exists,
+    preview_bill_activation,
     record_bill_payment,
     update_bill,
+    update_bill_activation,
     update_bill_due_date,
     update_bill_status,
 )
@@ -92,6 +96,8 @@ def build_billing_router(
                 reference_number=reference_number,
                 notes=notes,
             )
+        except BillInactiveError as exc:
+            return error_response(409, "BILL_INACTIVE", str(exc))
         except ValueError as exc:
             return error_response(400, "VALIDATION_ERROR", str(exc))
         if not updated:
@@ -132,6 +138,28 @@ def build_billing_router(
             }
         )
 
+    @router.post("/api/admin/bills/activation/preview")
+    async def admin_preview_bill_activation(
+        request: Request, admin: sqlite3.Row = Depends(require_admin("view_billing"))
+    ) -> JSONResponse:
+        payload = await read_json(request)
+        try:
+            result = preview_bill_activation(config.DB_PATH, payload)
+        except ValueError as exc:
+            return error_response(400, "VALIDATION_ERROR", str(exc))
+        return success_response(result)
+
+    @router.post("/api/admin/bills/activation/bulk")
+    async def admin_bulk_bill_activation(
+        request: Request, admin: sqlite3.Row = Depends(require_admin("manage_billing"))
+    ) -> JSONResponse:
+        payload = await read_json(request)
+        try:
+            result = bulk_update_bill_activation(config.DB_PATH, payload, actor_id=admin["id"])
+        except ValueError as exc:
+            return error_response(400, "VALIDATION_ERROR", str(exc))
+        return success_response(result)
+
     @router.get("/api/admin/bills")
     async def admin_bills(
         request: Request, admin: sqlite3.Row = Depends(require_admin("view_billing"))
@@ -146,11 +174,14 @@ def build_billing_router(
         bill_type = str(request.query_params.get("bill_type") or "").strip()
         sort_by = str(request.query_params.get("sort_by") or "").strip()
         entry_period = str(request.query_params.get("entry_period") or "").strip()
+        activation = str(request.query_params.get("activation") or "").strip().lower()
 
         if status not in {"", "paid", "partial", "unpaid"}:
             return error_response(400, "VALIDATION_ERROR", "Filter status tidak valid.")
         if source not in {"", "import", "manual"}:
             return error_response(400, "VALIDATION_ERROR", "Filter sumber tidak valid.")
+        if activation not in {"", "active", "inactive", "all"}:
+            return error_response(400, "VALIDATION_ERROR", "Filter aktivasi tidak valid.")
         try:
             limit = parse_limit(request, default=100, max_limit=100)
             offset = parse_offset(request)
@@ -166,6 +197,7 @@ def build_billing_router(
             period=period,
             bill_type=bill_type,
             entry_period=entry_period,
+            activation=activation,
         )
         total = summary["total_count"]
         page = (offset // limit) + 1 if limit > 0 else 1
@@ -184,6 +216,7 @@ def build_billing_router(
                     bill_type=bill_type,
                     sort_by=sort_by,
                     entry_period=entry_period,
+                    activation=activation,
                 ),
                 "pagination": {
                     "total": total,
@@ -217,6 +250,25 @@ def build_billing_router(
             return error_response(404, "NOT_FOUND", "Tagihan tidak ditemukan.")
         return success_response(detail)
 
+    @router.patch("/api/admin/bills/{bill_id}/activation")
+    async def admin_update_bill_activation(
+        bill_id: str, request: Request, admin: sqlite3.Row = Depends(require_admin("manage_billing"))
+    ) -> JSONResponse:
+        payload = await read_json(request)
+        try:
+            bill = update_bill_activation(
+                config.DB_PATH,
+                bill_id,
+                payload.get("is_active"),
+                payload.get("reason"),
+                actor_id=admin["id"],
+            )
+        except ValueError as exc:
+            return error_response(400, "VALIDATION_ERROR", str(exc))
+        if not bill:
+            return error_response(404, "NOT_FOUND", "Tagihan tidak ditemukan.")
+        return success_response({"bill": bill_row_to_dict(bill)})
+
     @router.post("/api/admin/bills/{bill_id}/payments")
     async def admin_record_bill_payment(
         bill_id: str, request: Request, admin: sqlite3.Row = Depends(require_admin("manage_billing"))
@@ -224,6 +276,8 @@ def build_billing_router(
         payload = await read_json(request)
         try:
             result = record_bill_payment(config.DB_PATH, bill_id, payload, actor_id=admin["id"])
+        except BillInactiveError as exc:
+            return error_response(409, "BILL_INACTIVE", str(exc))
         except ValueError as exc:
             return error_response(400, "VALIDATION_ERROR", str(exc))
 
@@ -236,6 +290,8 @@ def build_billing_router(
         payload = await read_json(request)
         try:
             bill = update_bill(config.DB_PATH, bill_id, payload, actor_id=admin["id"])
+        except BillInactiveError as exc:
+            return error_response(409, "BILL_INACTIVE", str(exc))
         except ValueError as exc:
             return error_response(400, "VALIDATION_ERROR", str(exc))
         if not bill:

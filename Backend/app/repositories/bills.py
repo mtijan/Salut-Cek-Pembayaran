@@ -22,7 +22,7 @@ class BillRepository:
             select briva, amount, coalesce(paid_amount, 0) as paid_amount,
                    period, bill_type, status, payment_method, instructions, due_date
             from bills
-            where student_id = ? and deleted_at is null
+            where student_id = ? and deleted_at is null and coalesce(is_active, 1) = 1
             order by period desc, created_at asc, briva asc
             """,
             (student_id,),
@@ -74,6 +74,7 @@ class BillRepository:
         bill_type: str = "",
         sort_by: str = "",
         entry_period: str = "",
+        activation: str = "",
     ) -> list[sqlite3.Row]:
         """Retrieve paginated billing records matching multi-criteria filters and custom sorting."""
         limit = max(1, min(int(limit or 2000), 5000))
@@ -86,6 +87,7 @@ class BillRepository:
             period=period,
             bill_type=bill_type,
             entry_period=entry_period,
+            activation=activation,
         )
 
         sort_order_map = {
@@ -121,6 +123,7 @@ class BillRepository:
         period: str = "",
         bill_type: str = "",
         entry_period: str = "",
+        activation: str = "",
     ) -> int:
         """Count total bills matching given filter criteria."""
         where, params = self._build_filter_clause(
@@ -131,6 +134,7 @@ class BillRepository:
             period=period,
             bill_type=bill_type,
             entry_period=entry_period,
+            activation=activation,
         )
         row = self._connection.execute(
             f"""
@@ -152,6 +156,7 @@ class BillRepository:
         period: str = "",
         bill_type: str = "",
         entry_period: str = "",
+        activation: str = "",
     ) -> sqlite3.Row | None:
         """Calculate summary statistics for filtered billing records."""
         where, params = self._build_filter_clause(
@@ -162,6 +167,7 @@ class BillRepository:
             period=period,
             bill_type=bill_type,
             entry_period=entry_period,
+            activation=activation,
         )
         return self._connection.execute(
             f"""
@@ -184,7 +190,10 @@ class BillRepository:
         """Retrieve active imported bills for grouping."""
         return self._connection.execute(
             """
-            select b.id, b.briva, b.amount, b.period, b.bill_type, b.status, b.payment_method, b.due_date, b.created_at,
+            select b.id, b.student_id, b.briva, b.amount, coalesce(b.paid_amount, 0) as paid_amount,
+                   b.period, b.bill_type, b.status, coalesce(b.is_active, 1) as is_active,
+                   b.deactivated_at, b.deactivated_by, b.deactivation_reason,
+                   b.payment_method, b.instructions, b.due_date, b.created_at,
                    b.source_file, b.source_row_number, s.nim, s.full_name
             from bills b
             join students s on s.id = b.student_id
@@ -220,6 +229,7 @@ class BillRepository:
         period: str = "",
         bill_type: str = "",
         entry_period: str = "",
+        activation: str = "",
     ) -> tuple[str, list[object]]:
         """Construct SQL WHERE clause and parameter list for billing queries."""
         search = normalize_text(query)
@@ -229,6 +239,7 @@ class BillRepository:
         normalized_period = normalize_text(period)
         normalized_type = normalize_text(bill_type)
         normalized_entry_period = normalize_text(entry_period)
+        normalized_activation = normalize_text(activation).lower()
         params: list[object] = []
         where_clauses = ["b.deleted_at is null", "s.deleted_at is null"]
         if search:
@@ -255,4 +266,8 @@ class BillRepository:
         if normalized_entry_period:
             where_clauses.append("(s.entry_period = ? or s.initial_registration like ?)")
             params.extend([normalized_entry_period, f"%{normalized_entry_period}%"])
+        if normalized_activation == "active":
+            where_clauses.append("coalesce(b.is_active, 1) = 1")
+        elif normalized_activation == "inactive":
+            where_clauses.append("coalesce(b.is_active, 1) = 0")
         return "where " + " and ".join(where_clauses), params

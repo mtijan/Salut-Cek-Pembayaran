@@ -9,6 +9,7 @@ EXPECTED_TEST_COUNTS = {
     "Backend.tests.test_admin_users": 9,
     "Backend.tests.test_audit_logs": 3,
     "Backend.tests.test_auth_rbac": 13,
+    "Backend.tests.test_bill_activation": 9,
     "Backend.tests.test_billing": 10,
     "Backend.tests.test_billing_payments": 5,
     "Backend.tests.test_contract_openapi": 10,

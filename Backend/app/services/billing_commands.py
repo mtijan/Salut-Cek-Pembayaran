@@ -7,6 +7,7 @@ import uuid
 from pathlib import Path
 
 from Backend.app.domain.billing import (
+    BillInactiveError,
     bill_row_to_dict,
     joined_bill_select,
     normalize_status_value,
@@ -19,8 +20,223 @@ from Backend.app.domain.common import rupiah
 from Backend.app.services import audit as _audit
 from Backend.app.services.audit import list_payment_transactions, record_payment_transaction
 from Backend.app.services.students import ensure_student, require_delete_reason
-from Backend.db import connect, database_transaction
+from Backend.db import connect, database_connection, database_transaction
 from Backend.excel_reader import normalize_text
+
+
+def _require_activation_reason(value: object) -> str:
+    reason = normalize_text(value)
+    if not reason:
+        raise ValueError("Alasan perubahan aktivasi wajib diisi.")
+    if len(reason) > 500:
+        raise ValueError("Alasan perubahan aktivasi maksimal 500 karakter.")
+    return reason
+
+
+def _parse_activation_scope(payload: dict[str, object], *, require_reason: bool) -> dict[str, object]:
+    period = normalize_text(payload.get("period"))
+    if not period:
+        raise ValueError("Periode tagihan wajib dipilih.")
+    raw_active = payload.get("is_active")
+    if not isinstance(raw_active, bool):
+        raise ValueError("Status aktivasi wajib berupa boolean.")
+    study_program_id = normalize_text(payload.get("study_program_id"))
+    mode = normalize_text(payload.get("mode")).lower() or "all"
+    if mode not in {"all", "with_replacement"}:
+        raise ValueError("Mode aktivasi massal tidak valid.")
+    replacement_period = normalize_text(payload.get("replacement_period"))
+    if mode == "with_replacement":
+        if raw_active:
+            raise ValueError("Mode pengganti hanya digunakan untuk penonaktifan.")
+        if not replacement_period:
+            raise ValueError("Periode pengganti wajib dipilih untuk mode aman.")
+        if replacement_period.casefold() == period.casefold():
+            raise ValueError("Periode pengganti harus berbeda dari periode lama.")
+    if not study_program_id and payload.get("confirm_all_programs") is not True:
+        raise ValueError("Konfirmasi semua program studi wajib diberikan.")
+    scope: dict[str, object] = {
+        "period": period,
+        "study_program_id": study_program_id,
+        "mode": mode,
+        "replacement_period": replacement_period,
+        "is_active": raw_active,
+        "confirm_all_programs": payload.get("confirm_all_programs") is True,
+    }
+    if require_reason:
+        scope["reason"] = _require_activation_reason(payload.get("reason"))
+    return scope
+
+
+def _activation_target_clause(scope: dict[str, object]) -> tuple[str, list[object]]:
+    desired = 1 if bool(scope["is_active"]) else 0
+    clauses = [
+        "b.deleted_at is null",
+        "s.deleted_at is null",
+        "b.period = ?",
+        "coalesce(b.is_active, 1) <> ?",
+    ]
+    params: list[object] = [scope["period"], desired]
+    if scope["study_program_id"]:
+        clauses.append("s.study_program_id = ?")
+        params.append(scope["study_program_id"])
+    if scope["mode"] == "with_replacement":
+        clauses.append(
+            """
+            exists (
+              select 1 from bills replacement
+              where replacement.student_id = b.student_id
+                and replacement.period = ?
+                and replacement.deleted_at is null
+                and coalesce(replacement.is_active, 1) = 1
+            )
+            """
+        )
+        params.append(scope["replacement_period"])
+    return " and ".join(clauses), params
+
+
+def _activation_summary(conn: sqlite3.Connection, where: str, params: list[object]) -> dict[str, int]:
+    row = conn.execute(
+        f"""
+        select count(b.id) as total_count,
+               count(distinct b.student_id) as student_count,
+               coalesce(sum(b.amount), 0) as total_amount,
+               coalesce(sum(case when b.status = 'paid' then b.amount else coalesce(b.paid_amount, 0) end), 0)
+                 as total_paid,
+               coalesce(sum(case when b.status = 'paid' then 1 else 0 end), 0) as paid_count,
+               coalesce(sum(case when b.status = 'partial' then 1 else 0 end), 0) as partial_count,
+               coalesce(sum(case when b.status = 'unpaid' then 1 else 0 end), 0) as unpaid_count
+        from bills b join students s on s.id = b.student_id
+        where {where}
+        """,
+        params,
+    ).fetchone()
+    total_amount = int(row["total_amount"] or 0) if row else 0
+    total_paid = int(row["total_paid"] or 0) if row else 0
+    return {
+        "total_count": int(row["total_count"] or 0) if row else 0,
+        "student_count": int(row["student_count"] or 0) if row else 0,
+        "total_amount": total_amount,
+        "total_paid": total_paid,
+        "total_remaining": max(0, total_amount - total_paid),
+        "paid_count": int(row["paid_count"] or 0) if row else 0,
+        "partial_count": int(row["partial_count"] or 0) if row else 0,
+        "unpaid_count": int(row["unpaid_count"] or 0) if row else 0,
+    }
+
+
+def preview_bill_activation(db_path: str | Path, payload: dict[str, object]) -> dict[str, object]:
+    """Preview a bulk activation scope without mutating database state."""
+    scope = _parse_activation_scope(payload, require_reason=False)
+    where, params = _activation_target_clause(scope)
+    with database_connection(db_path) as conn:
+        summary = _activation_summary(conn, where, params)
+    return {"scope": scope, "summary": summary}
+
+
+def update_bill_activation(
+    db_path: str | Path,
+    bill_id: str,
+    is_active: object,
+    reason: object,
+    actor_id: str | None = None,
+) -> sqlite3.Row | None:
+    """Change one bill activation state and write its audit record atomically."""
+    if not isinstance(is_active, bool):
+        raise ValueError("Status aktivasi wajib berupa boolean.")
+    cleaned_reason = _require_activation_reason(reason)
+    with database_transaction(db_path) as conn:
+        row = conn.execute(
+            f"{joined_bill_select()} where b.id = ? and b.deleted_at is null and s.deleted_at is null",
+            (bill_id,),
+        ).fetchone()
+        if not row:
+            return None
+        if bool(row["is_active"]) == is_active:
+            return row
+        if is_active:
+            conn.execute(
+                """
+                update bills set is_active = 1, deactivated_at = null, deactivated_by = null,
+                                 deactivation_reason = null, updated_at = datetime('now')
+                where id = ? and deleted_at is null
+                """,
+                (bill_id,),
+            )
+        else:
+            conn.execute(
+                """
+                update bills set is_active = 0, deactivated_at = datetime('now'), deactivated_by = ?,
+                                 deactivation_reason = ?, updated_at = datetime('now')
+                where id = ? and deleted_at is null
+                """,
+                (actor_id, cleaned_reason, bill_id),
+            )
+        if actor_id:
+            _audit.write_audit(
+                conn,
+                actor_id,
+                "bill.activation.update",
+                "bill",
+                bill_id,
+                {"is_active": is_active, "period": row["period"], "reason": cleaned_reason},
+            )
+        return conn.execute(f"{joined_bill_select()} where b.id = ?", (bill_id,)).fetchone()
+
+
+def bulk_update_bill_activation(
+    db_path: str | Path,
+    payload: dict[str, object],
+    actor_id: str | None = None,
+) -> dict[str, object]:
+    """Apply one validated bulk activation scope and audit it in the same transaction."""
+    scope = _parse_activation_scope(payload, require_reason=True)
+    where, params = _activation_target_clause(scope)
+    with database_transaction(db_path) as conn:
+        summary = _activation_summary(conn, where, params)
+        if summary["total_count"]:
+            desired = 1 if bool(scope["is_active"]) else 0
+            if desired:
+                set_clause = (
+                    "is_active = 1, deactivated_at = null, deactivated_by = null, "
+                    "deactivation_reason = null, updated_at = datetime('now')"
+                )
+                update_params: tuple[object, ...] = tuple(params)
+            else:
+                set_clause = (
+                    "is_active = 0, deactivated_at = datetime('now'), deactivated_by = ?, "
+                    "deactivation_reason = ?, updated_at = datetime('now')"
+                )
+                update_params = (actor_id, scope["reason"], *params)
+            conn.execute(
+                f"""
+                update bills as b set {set_clause}
+                where b.id in (
+                  select target.id from bills target
+                  join students s on s.id = target.student_id
+                  where {where.replace("b.", "target.")}
+                )
+                """,
+                update_params,
+            )
+            if actor_id:
+                _audit.write_audit(
+                    conn,
+                    actor_id,
+                    "bill.activation.bulk_update",
+                    "bill_activation_scope",
+                    str(scope["period"]),
+                    {
+                        "is_active": scope["is_active"],
+                        "period": scope["period"],
+                        "study_program_id": scope["study_program_id"] or None,
+                        "mode": scope["mode"],
+                        "replacement_period": scope["replacement_period"] or None,
+                        "updated_count": summary["total_count"],
+                        "reason": scope["reason"],
+                    },
+                )
+    return {"scope": scope, "summary": summary, "updated_count": summary["total_count"]}
 
 
 def create_bill(db_path: str | Path, payload: dict[str, object], actor_id: str | None = None) -> sqlite3.Row:
@@ -136,11 +352,13 @@ def update_bill(
     try:
         with conn:
             current = conn.execute(
-                "select id, student_id, status, paid_amount, payment_method from bills where id = ? and deleted_at is null",
+                "select id, student_id, status, paid_amount, payment_method, coalesce(is_active, 1) as is_active from bills where id = ? and deleted_at is null",
                 (bill_id,),
             ).fetchone()
             if not current:
                 return None
+            if not bool(current["is_active"]):
+                raise BillInactiveError("Tagihan nonaktif harus diaktifkan kembali sebelum diubah.")
 
             old_status = str(current["status"] or "unpaid")
             old_paid = int(current["paid_amount"] or 0)
@@ -213,6 +431,8 @@ def record_bill_payment(
             ).fetchone()
             if not row:
                 raise ValueError("Tagihan tidak ditemukan.")
+            if not bool(row["is_active"]):
+                raise BillInactiveError("Tagihan nonaktif harus diaktifkan kembali sebelum menerima pembayaran.")
 
             amount = int(row["amount"])
             old_paid = int(row["paid_amount"] or 0)
@@ -404,6 +624,10 @@ def update_bill_status(
             if not row:
                 updated = None
             else:
+                if not bool(row["is_active"]):
+                    raise BillInactiveError(
+                        "Tagihan nonaktif harus diaktifkan kembali sebelum status pembayaran diubah."
+                    )
                 old_status = str(row["status"])
                 old_paid = int(row["paid_amount"] or 0)
                 amount = int(row["amount"])

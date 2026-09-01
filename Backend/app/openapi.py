@@ -1,7 +1,7 @@
 """OpenAPI specification generator and schema definitions for Salut Cek Pembayaran.
 
 This module builds a comprehensive, schema-accurate OpenAPI 3.1 specification for all
-31 paths and 42 operations, defining exact query parameters, request bodies,
+34 paths and 45 operations, defining exact query parameters, request bodies,
 cookie-based security schemes, and standardized error response models without
 advertising unused 422 HTTPValidationError schemas.
 """
@@ -14,8 +14,8 @@ from fastapi import FastAPI
 
 from Backend.app.version import APP_VERSION
 
-EXPECTED_OPENAPI_PATHS = 31
-EXPECTED_OPENAPI_OPERATIONS = 42
+EXPECTED_OPENAPI_PATHS = 34
+EXPECTED_OPENAPI_OPERATIONS = 45
 
 
 def build_custom_openapi(app: FastAPI) -> dict[str, Any]:
@@ -255,6 +255,54 @@ def build_custom_openapi(app: FastAPI) -> dict[str, Any]:
                 },
             }
         },
+        "/api/admin/bills/activation/preview": {
+            "post": {
+                "tags": ["Billing"],
+                "summary": "Preview Bulk Bill Activation",
+                "description": "Read-only preview of a period/program activation scope and its financial impact.",
+                "operationId": "preview_bill_activation",
+                "security": sec_cookie,
+                "requestBody": {
+                    "required": True,
+                    "content": {
+                        "application/json": {"schema": {"$ref": "#/components/schemas/BillActivationScopeRequest"}}
+                    },
+                },
+                "responses": {
+                    "200": {
+                        "description": "Activation Scope Preview",
+                        "content": {"application/json": {"schema": {"type": "object"}}},
+                    },
+                    "400": resp_400,
+                    "401": resp_401,
+                    "403": resp_403,
+                },
+            }
+        },
+        "/api/admin/bills/activation/bulk": {
+            "post": {
+                "tags": ["Billing"],
+                "summary": "Apply Bulk Bill Activation",
+                "description": "Apply a validated activation scope and its audit record atomically.",
+                "operationId": "bulk_update_bill_activation",
+                "security": sec_cookie,
+                "requestBody": {
+                    "required": True,
+                    "content": {
+                        "application/json": {"schema": {"$ref": "#/components/schemas/BillActivationBulkRequest"}}
+                    },
+                },
+                "responses": {
+                    "200": {
+                        "description": "Bulk Activation Applied",
+                        "content": {"application/json": {"schema": {"type": "object"}}},
+                    },
+                    "400": resp_400,
+                    "401": resp_401,
+                    "403": resp_403,
+                },
+            }
+        },
         "/api/admin/bills": {
             "get": {
                 "tags": ["Billing"],
@@ -283,6 +331,13 @@ def build_custom_openapi(app: FastAPI) -> dict[str, Any]:
                         "required": False,
                         "schema": {"type": "string", "enum": ["", "import", "manual"]},
                         "description": "Filter by creation source",
+                    },
+                    {
+                        "name": "activation",
+                        "in": "query",
+                        "required": False,
+                        "schema": {"type": "string", "enum": ["", "active", "inactive", "all"]},
+                        "description": "Filter by operational activation state",
                     },
                     {
                         "name": "study_program_id",
@@ -488,6 +543,32 @@ def build_custom_openapi(app: FastAPI) -> dict[str, Any]:
                         "description": "Payment Recorded",
                         "content": {
                             "application/json": {"schema": {"$ref": "#/components/schemas/RecordPaymentResponse"}}
+                        },
+                    },
+                    "400": resp_400,
+                    "401": resp_401,
+                    "403": resp_403,
+                    "404": resp_404,
+                },
+            }
+        },
+        "/api/admin/bills/{bill_id}/activation": {
+            "patch": {
+                "tags": ["Billing"],
+                "summary": "Update Bill Activation",
+                "description": "Activate or deactivate one bill independently from payment and deletion status.",
+                "operationId": "update_bill_activation",
+                "security": sec_cookie,
+                "parameters": [{"name": "bill_id", "in": "path", "required": True, "schema": {"type": "string"}}],
+                "requestBody": {
+                    "required": True,
+                    "content": {"application/json": {"schema": {"$ref": "#/components/schemas/BillActivationRequest"}}},
+                },
+                "responses": {
+                    "200": {
+                        "description": "Bill Activation Updated",
+                        "content": {
+                            "application/json": {"schema": {"$ref": "#/components/schemas/BillSingleResponse"}}
                         },
                     },
                     "400": resp_400,
@@ -1652,6 +1733,36 @@ def build_custom_openapi(app: FastAPI) -> dict[str, Any]:
                 "reference_number": {"type": "string", "nullable": True, "example": "TRX-12345"},
                 "notes": {"type": "string", "nullable": True, "example": "Lunas via transfer"},
             },
+        },
+        "BillActivationRequest": {
+            "type": "object",
+            "required": ["is_active", "reason"],
+            "properties": {
+                "is_active": {"type": "boolean", "example": False},
+                "reason": {"type": "string", "minLength": 1, "maxLength": 500},
+            },
+        },
+        "BillActivationScopeRequest": {
+            "type": "object",
+            "required": ["period", "is_active", "mode"],
+            "properties": {
+                "period": {"type": "string"},
+                "study_program_id": {"type": "string", "nullable": True},
+                "mode": {"type": "string", "enum": ["all", "with_replacement"]},
+                "replacement_period": {"type": "string", "nullable": True},
+                "is_active": {"type": "boolean"},
+                "confirm_all_programs": {"type": "boolean", "default": False},
+            },
+        },
+        "BillActivationBulkRequest": {
+            "allOf": [
+                {"$ref": "#/components/schemas/BillActivationScopeRequest"},
+                {
+                    "type": "object",
+                    "required": ["reason"],
+                    "properties": {"reason": {"type": "string", "minLength": 1, "maxLength": 500}},
+                },
+            ]
         },
         "BillDueDateUpdateRequest": {
             "type": "object",

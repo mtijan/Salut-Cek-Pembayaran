@@ -6,11 +6,14 @@ callers can keep importing this module or ``Backend.app.services``.
 
 from Backend.app.domain.files import sanitize_filename as sanitize_filename
 from Backend.app.services.billing_commands import (
+    bulk_update_bill_activation as bulk_update_bill_activation,
     create_bill as create_bill,
     delete_bill as delete_bill,
     delete_imported_bill_group as delete_imported_bill_group,
+    preview_bill_activation as preview_bill_activation,
     record_bill_payment as record_bill_payment,
     update_bill as update_bill,
+    update_bill_activation as update_bill_activation,
     update_bill_due_date as update_bill_due_date,
     update_bill_status as update_bill_status,
 )
@@ -26,6 +29,7 @@ from Backend.app.services.billing_queries import (
 
 __all__ = [
     "bill_filter_clause",
+    "bulk_update_bill_activation",
     "count_bills",
     "create_bill",
     "delete_bill",
@@ -35,9 +39,11 @@ __all__ = [
     "list_bills",
     "list_import_issues",
     "list_imported_bill_groups",
+    "preview_bill_activation",
     "record_bill_payment",
     "sanitize_filename",
     "update_bill",
+    "update_bill_activation",
     "update_bill_due_date",
     "update_bill_status",
 ]
