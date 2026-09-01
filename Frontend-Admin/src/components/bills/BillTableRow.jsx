@@ -17,7 +17,8 @@ export default function BillTableRow({ bill, copiedKey, canManage, actions, navi
   const amount = Number(bill.amount) || 0;
   const paid = Number(bill.paid_amount) || 0;
   const percentage = amount > 0 ? Math.min(100, Math.round((paid / amount) * 100)) : 0;
-  const isActive = bill.is_active !== false;
+  const isActive = bill.is_active === true || bill.is_active === 1;
+
   return (
     <tr className="table-row-modern">
       <td>

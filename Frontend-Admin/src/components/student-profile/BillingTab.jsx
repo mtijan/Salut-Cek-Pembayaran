@@ -53,88 +53,87 @@ export function BillingTab({
               </tr>
             </thead>
             <tbody>
-              {bills.map((bill) => (
-                <tr key={bill.id}>
-                  <td className="font-semibold">{bill.period || '-'}</td>
-                  <td>{bill.bill_type || '-'}</td>
-                  <td>
-                    <div className="mono-font flex-row-gap-6">
-                      <span>{bill.briva || '-'}</span>
-                      {bill.briva && (
-                        <button
-                          type="button"
-                          className="copy-btn-inline"
-                          onClick={() => onCopy(bill.briva, 'BRIVA')}
-                          title="Salin BRIVA"
-                        >
-                          {copiedKey === 'BRIVA' ? (
-                            <Check size={12} className="text-success" />
-                          ) : (
-                            <Copy size={12} />
-                          )}
-                        </button>
-                      )}
-                    </div>
-                  </td>
-                  <td className="text-right font-bold">{bill.amount_formatted}</td>
-                  <td className="text-right text-success font-semibold">
-                    {bill.paid_amount_formatted}
-                  </td>
-                  <td
-                    className={`text-right font-semibold ${bill.remaining_amount > 0 ? 'text-danger' : 'text-muted'}`}
-                  >
-                    {bill.remaining_amount_formatted}
-                  </td>
-                  <td className="cell-notes">{bill.due_date_formatted || '-'}</td>
-                  <td>
-                    <span
-                      className={`badge ${bill.status === 'paid' ? 'badge-success' : bill.status === 'partial' ? 'badge-warning' : 'badge-danger'}`}
+              {bills.map((bill) => {
+                const isBillActive = bill.is_active === true || bill.is_active === 1;
+                return (
+                  <tr key={bill.id}>
+                    <td className="font-semibold">{bill.period || '-'}</td>
+                    <td>{bill.bill_type || '-'}</td>
+                    <td>
+                      <div className="mono-font flex-row-gap-6">
+                        <span>{bill.briva || '-'}</span>
+                        {bill.briva && (
+                          <button
+                            type="button"
+                            className="copy-btn-inline"
+                            onClick={() => onCopy(bill.briva, 'BRIVA')}
+                            title="Salin BRIVA"
+                          >
+                            {copiedKey === 'BRIVA' ? (
+                              <Check size={12} className="text-success" />
+                            ) : (
+                              <Copy size={12} />
+                            )}
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                    <td className="text-right font-bold">{bill.amount_formatted}</td>
+                    <td className="text-right text-success font-semibold">
+                      {bill.paid_amount_formatted}
+                    </td>
+                    <td
+                      className={`text-right font-semibold ${bill.remaining_amount > 0 ? 'text-danger' : 'text-muted'}`}
                     >
-                      {bill.status === 'paid'
-                        ? 'LUNAS'
-                        : bill.status === 'partial'
-                          ? 'SEBAGIAN'
-                          : 'BELUM BAYAR'}
-                    </span>
-                  </td>
-                  <td>
-                    <span
-                      className={`badge ${bill.is_active !== false ? 'badge-success' : 'badge-neutral'}`}
-                    >
-                      {bill.is_active !== false ? 'AKTIF' : 'NONAKTIF'}
-                    </span>
-                  </td>
-                  <td className="text-center">
-                    <div className="flex-row-gap-6">
-                      {canManageBilling && bill.is_active !== false && (
-                        <button
-                          type="button"
-                          className="btn btn-sm btn-brand"
-                          onClick={() => navigateTo('bill-payment', { billId: bill.id })}
-                          title="Catat Pembayaran Tagihan Ini"
-                        >
-                          <CreditCard size={13} />
-                          <span>Bayar</span>
-                        </button>
-                      )}
-                      {canManageBilling && (
-                        <button
-                          type="button"
-                          className={`btn btn-sm ${bill.is_active !== false ? 'btn-secondary' : 'btn-primary'}`}
-                          onClick={() => onToggleActivation(bill)}
-                          title={
-                            bill.is_active !== false
-                              ? 'Nonaktifkan Tagihan'
-                              : 'Aktifkan Kembali Tagihan'
-                          }
-                        >
-                          {bill.is_active !== false ? <PowerOff size={13} /> : <Power size={13} />}
-                        </button>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              ))}
+                      {bill.remaining_amount_formatted}
+                    </td>
+                    <td className="cell-notes">{bill.due_date_formatted || '-'}</td>
+                    <td>
+                      <span
+                        className={`badge ${bill.status === 'paid' ? 'badge-success' : bill.status === 'partial' ? 'badge-warning' : 'badge-danger'}`}
+                      >
+                        {bill.status === 'paid'
+                          ? 'LUNAS'
+                          : bill.status === 'partial'
+                            ? 'SEBAGIAN'
+                            : 'BELUM BAYAR'}
+                      </span>
+                    </td>
+                    <td>
+                      <span className={`badge ${isBillActive ? 'badge-success' : 'badge-neutral'}`}>
+                        {isBillActive ? 'AKTIF' : 'NONAKTIF'}
+                      </span>
+                    </td>
+                    <td className="text-center">
+                      <div className="flex-row-gap-6">
+                        {canManageBilling && isBillActive && (
+                          <button
+                            type="button"
+                            className="btn btn-sm btn-brand"
+                            onClick={() => navigateTo('bill-payment', { billId: bill.id })}
+                            title="Catat Pembayaran Tagihan Ini"
+                          >
+                            <CreditCard size={13} />
+                            <span>Bayar</span>
+                          </button>
+                        )}
+                        {canManageBilling && (
+                          <button
+                            type="button"
+                            className={`btn btn-sm ${isBillActive ? 'btn-secondary' : 'btn-primary'}`}
+                            onClick={() => onToggleActivation(bill)}
+                            title={
+                              isBillActive ? 'Nonaktifkan Tagihan' : 'Aktifkan Kembali Tagihan'
+                            }
+                          >
+                            {isBillActive ? <PowerOff size={13} /> : <Power size={13} />}
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

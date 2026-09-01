@@ -69,29 +69,61 @@ def _parse_activation_scope(payload: dict[str, object], *, require_reason: bool)
 
 def _activation_target_clause(scope: dict[str, object]) -> tuple[str, list[object]]:
     desired = 1 if bool(scope["is_active"]) else 0
+    raw_period = str(scope["period"]).strip()
     clauses = [
         "b.deleted_at is null",
         "s.deleted_at is null",
-        "b.period = ?",
+        """(
+            b.period = ?
+            or exists (
+              select 1 from academic_periods ap
+              where (ap.code = ? or ap.name = ? or lower(ap.name) = lower(?) or lower(ap.code) = lower(?))
+                and (
+                  b.period = ap.code
+                  or b.period = ap.name
+                  or lower(b.period) = lower(ap.code)
+                  or lower(b.period) = lower(ap.name)
+                  or lower(b.period) = lower(replace(ap.name, 'Periode ', ''))
+                  or lower(ap.name) like '%' || lower(b.period) || '%'
+                  or lower(b.period) like '%' || lower(replace(ap.name, 'Periode ', '')) || '%'
+                )
+            )
+        )""",
         "coalesce(b.is_active, 1) <> ?",
     ]
-    params: list[object] = [scope["period"], desired]
+    params: list[object] = [raw_period, raw_period, raw_period, raw_period, raw_period, desired]
     if scope["study_program_id"]:
         clauses.append("s.study_program_id = ?")
         params.append(scope["study_program_id"])
     if scope["mode"] == "with_replacement":
+        raw_replacement = str(scope["replacement_period"]).strip()
         clauses.append(
             """
             exists (
               select 1 from bills replacement
               where replacement.student_id = b.student_id
-                and replacement.period = ?
+                and (
+                  replacement.period = ?
+                  or exists (
+                    select 1 from academic_periods ap_r
+                    where (ap_r.code = ? or ap_r.name = ? or lower(ap_r.name) = lower(?) or lower(ap_r.code) = lower(?))
+                      and (
+                        replacement.period = ap_r.code
+                        or replacement.period = ap_r.name
+                        or lower(replacement.period) = lower(ap_r.code)
+                        or lower(replacement.period) = lower(ap_r.name)
+                        or lower(replacement.period) = lower(replace(ap_r.name, 'Periode ', ''))
+                        or lower(ap_r.name) like '%' || lower(replacement.period) || '%'
+                        or lower(replacement.period) like '%' || lower(replace(ap_r.name, 'Periode ', '')) || '%'
+                      )
+                  )
+                )
                 and replacement.deleted_at is null
                 and coalesce(replacement.is_active, 1) = 1
             )
             """
         )
-        params.append(scope["replacement_period"])
+        params.extend([raw_replacement, raw_replacement, raw_replacement, raw_replacement, raw_replacement])
     return " and ".join(clauses), params
 
 

@@ -258,8 +258,31 @@ class BillRepository:
             where_clauses.append("s.study_program_id = ?")
             params.append(normalized_prodi)
         if normalized_period:
-            where_clauses.append("b.period = ?")
-            params.append(normalized_period)
+            where_clauses.append(
+                """(
+                    b.period = ?
+                    or exists (
+                        select 1 from academic_periods ap
+                        where (ap.code = ? or ap.name = ? or lower(ap.name) = lower(?) or lower(ap.code) = lower(?))
+                          and (
+                            b.period = ap.code
+                            or b.period = ap.name
+                            or lower(b.period) = lower(ap.code)
+                            or lower(b.period) = lower(ap.name)
+                            or lower(b.period) = lower(replace(ap.name, 'Periode ', ''))
+                            or lower(ap.name) like '%' || lower(b.period) || '%'
+                            or lower(b.period) like '%' || lower(replace(ap.name, 'Periode ', '')) || '%'
+                          )
+                    )
+                )"""
+            )
+            params.extend([
+                normalized_period,
+                normalized_period,
+                normalized_period,
+                normalized_period,
+                normalized_period,
+            ])
         if normalized_type:
             where_clauses.append("b.bill_type = ?")
             params.append(normalized_type)

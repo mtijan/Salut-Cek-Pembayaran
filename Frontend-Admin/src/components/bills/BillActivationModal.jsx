@@ -1,15 +1,17 @@
 import React from 'react';
-import { Power, X } from 'lucide-react';
+import { Power, PowerOff, X } from 'lucide-react';
 import BillActivationForm from './BillActivationForm';
 
 export default function BillActivationModal({ isOpen, onClose, onApplied, targetBill = null }) {
   if (!isOpen || !targetBill) return null;
 
-  const desiredLabel = targetBill.is_active === false ? 'Aktifkan' : 'Nonaktifkan';
+  const isCurrentlyActive = targetBill.is_active === true || targetBill.is_active === 1;
+  const desiredLabel = isCurrentlyActive ? 'Nonaktifkan' : 'Aktifkan Kembali';
+
   return (
     <div className="modal-backdrop" onClick={onClose}>
       <div
-        className="modal-dialog"
+        className="modal-dialog modal-dialog-md"
         onClick={(event) => event.stopPropagation()}
         role="dialog"
         aria-modal="true"
@@ -17,10 +19,19 @@ export default function BillActivationModal({ isOpen, onClose, onApplied, target
       >
         <div className="modal-header">
           <div className="confirm-modal-header-left">
-            <div className="confirm-modal-header-icon">
-              <Power size={20} />
+            <div
+              className={`confirm-modal-header-icon ${isCurrentlyActive ? 'header-icon-danger' : 'header-icon-brand'}`}
+            >
+              {isCurrentlyActive ? <PowerOff size={20} /> : <Power size={20} />}
             </div>
-            <h2 id="activation-modal-title">{desiredLabel} Tagihan</h2>
+            <div>
+              <h2 id="activation-modal-title">{desiredLabel} Tagihan</h2>
+              <span className="modal-header-subtitle">
+                {isCurrentlyActive
+                  ? 'Menonaktifkan tagihan operasional'
+                  : 'Mengaktifkan kembali tagihan'}
+              </span>
+            </div>
           </div>
           <button type="button" className="modal-close-btn" onClick={onClose} aria-label="Tutup">
             <X size={20} />

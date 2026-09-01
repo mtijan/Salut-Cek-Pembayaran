@@ -242,9 +242,11 @@ export function useBillsPage() {
     }
   };
 
-  const handleActivationApplied = async (result) => {
-    const count = Number(result?.updated_count || (result?.bill ? 1 : 0));
-    showToast(`${count || 1} tagihan berhasil diperbarui status aktivasinya.`, 'success');
+  const handleActivationApplied = async (result, isActive) => {
+    const isAct =
+      isActive !== undefined ? isActive : result?.bill ? Boolean(result.bill.is_active) : true;
+    const actionText = isAct ? 'diaktifkan kembali' : 'dinonaktifkan';
+    showToast(`Status tagihan berhasil ${actionText}.`, 'success');
     setActivationTarget(null);
     await fetchBills();
   };

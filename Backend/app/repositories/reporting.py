@@ -134,8 +134,25 @@ class ReportingRepository:
         where_clauses = ["s.deleted_at is null", "b.deleted_at is null"]
         params: list[object] = []
         if period:
-            where_clauses.append("b.period = ?")
-            params.append(period)
+            where_clauses.append(
+                """(
+                    b.period = ?
+                    or exists (
+                        select 1 from academic_periods ap
+                        where (ap.code = ? or ap.name = ? or lower(ap.name) = lower(?) or lower(ap.code) = lower(?))
+                          and (
+                            b.period = ap.code
+                            or b.period = ap.name
+                            or lower(b.period) = lower(ap.code)
+                            or lower(b.period) = lower(ap.name)
+                            or lower(b.period) = lower(replace(ap.name, 'Periode ', ''))
+                            or lower(ap.name) like '%' || lower(b.period) || '%'
+                            or lower(b.period) like '%' || lower(replace(ap.name, 'Periode ', '')) || '%'
+                          )
+                    )
+                )"""
+            )
+            params.extend([period, period, period, period, period])
         if study_program_id:
             where_clauses.append("(s.study_program_id = ? or sp.id = ?)")
             params.extend([study_program_id, study_program_id])
