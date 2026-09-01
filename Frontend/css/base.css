@@ -1,0 +1,59 @@
+/* Base Reset, Typography & Global Utility Classes */
+/* UT SALUT Awwabin Tangerang */
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+  background-color: var(--bg-page);
+  color: var(--text-main);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+.font-mono {
+  font-family: "Cascadia Mono", Consolas, "Courier New", monospace;
+}
+
+.font-bold {
+  font-weight: 700;
+}
+
+.hidden {
+  display: none !important;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  border: 0;
+}
+
+.text-success {
+  color: var(--status-paid) !important;
+}
+
+.text-remaining {
+  color: var(--brand-primary) !important;
+}
+
+.text-remaining-sub {
+  color: var(--brand-primary) !important;
+  font-weight: 700;
+}
+
+.text-muted {
+  color: var(--text-dim);
+}

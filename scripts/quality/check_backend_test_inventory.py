@@ -16,6 +16,7 @@ EXPECTED_TEST_COUNTS = {
     "Backend.tests.test_database_lifecycle": 23,
     "Backend.tests.test_domain": 3,
     "Backend.tests.test_due_date_backfill": 4,
+    "Backend.tests.test_frontend_assets": 4,
     "Backend.tests.test_frontend_serving": 1,
     "Backend.tests.test_import_admin_safety": 12,
     "Backend.tests.test_imports": 10,

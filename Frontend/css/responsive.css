@@ -1,0 +1,43 @@
+/* Responsive Layouts & Mobile Optimizations */
+/* UT SALUT Awwabin Tangerang */
+
+@media (max-width: 900px) {
+  .app-layout {
+    grid-template-columns: minmax(0, 1fr);
+    margin: 18px auto 36px;
+  }
+
+  .financial-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 600px) {
+  .student-card-header,
+  .briva-header,
+  .va-item-box {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .btn-copy {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .tab-nav {
+    flex-direction: column;
+  }
+
+  .tab-button {
+    text-align: left;
+  }
+
+  .action-footer {
+    flex-direction: column;
+  }
+
+  .action-footer .btn {
+    width: 100%;
+  }
+}

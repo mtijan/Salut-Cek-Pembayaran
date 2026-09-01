@@ -1,0 +1,66 @@
+/* Financial Summary 3-Card Grid Module */
+/* UT SALUT Awwabin Tangerang */
+
+.financial-section {
+  display: flex;
+  flex-direction: column;
+}
+
+.financial-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+
+.fin-card {
+  background: #ffffff;
+  border: 1.5px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  box-shadow: var(--shadow-card);
+}
+
+.fin-card.fin-total {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+}
+
+.fin-card.fin-paid {
+  background: #f0fdf4;
+  border-color: #86efac;
+}
+
+.fin-card.fin-remaining {
+  background: #f0fdfa;
+  border-color: #5eead4;
+}
+
+.fin-card.fin-remaining.is-settled {
+  background: #f0fdf4;
+  border-color: #86efac;
+}
+
+.fin-label {
+  font-size: 11.5px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-dim);
+}
+
+.fin-amount {
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--text-main);
+  letter-spacing: -0.01em;
+  line-height: 1.2;
+  margin: 2px 0;
+}
+
+.fin-sub {
+  font-size: 11.5px;
+  color: var(--text-dim);
+}

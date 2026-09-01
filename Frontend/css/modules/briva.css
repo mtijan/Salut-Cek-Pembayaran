@@ -1,0 +1,192 @@
+/* BRIVA & Virtual Account Payment Details Module */
+/* UT SALUT Awwabin Tangerang */
+
+.briva-card {
+  padding: 24px;
+  border: 2px solid #ccfbf1;
+  background: linear-gradient(180deg, #ffffff 0%, #f7fdfd 100%);
+}
+
+.briva-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.briva-title-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.briva-title {
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--text-main);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.bank-pill {
+  background: #00529c;
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 800;
+  padding: 3px 10px;
+  border-radius: var(--radius-pill);
+}
+
+/* Batas Aktif Pembayaran Highlighted */
+.due-date-container {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: #fff7ed;
+  border: 1.5px solid #fed7aa;
+  padding: 5px 14px;
+  border-radius: var(--radius-pill);
+}
+
+.due-date-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: #9a3412;
+  text-transform: uppercase;
+}
+
+.due-date-value {
+  font-size: 13px;
+  font-weight: 800;
+  color: #c2410c;
+}
+
+.va-container {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.va-item-box {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+  padding: 16px 20px;
+  background: #ffffff;
+  border: 2px solid #99f6e4;
+  border-radius: var(--radius-sm);
+  box-shadow: 0 2px 6px rgba(15, 118, 110, 0.06);
+}
+
+.va-details {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.va-meta-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.va-label-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-dim);
+  text-transform: uppercase;
+}
+
+.va-status-pill {
+  font-size: 10px;
+  font-weight: 800;
+  padding: 1px 7px;
+  border-radius: var(--radius-pill);
+  text-transform: uppercase;
+}
+
+.pill-paid {
+  background: var(--status-paid-bg);
+  color: var(--status-paid);
+}
+
+.pill-partial {
+  background: var(--status-partial-bg);
+  color: var(--status-partial);
+}
+
+.pill-unpaid {
+  background: var(--status-unpaid-bg);
+  color: var(--status-unpaid);
+}
+
+.va-number {
+  font-size: 26px;
+  font-weight: 800;
+  color: #042f2e;
+  letter-spacing: 0.06em;
+  line-height: 1.2;
+}
+
+.va-amount-note {
+  font-size: 13px;
+  color: var(--text-main);
+}
+
+.va-amount-note strong {
+  color: var(--brand-primary);
+  font-size: 14px;
+}
+
+.btn-copy {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 20px;
+  background: var(--brand-primary);
+  color: #ffffff;
+  border: none;
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.btn-copy:hover {
+  background: var(--brand-hover);
+  transform: translateY(-1px);
+  box-shadow: 0 3px 8px rgba(15, 118, 110, 0.3);
+}
+
+.briva-footer-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 14px;
+  padding-top: 14px;
+  border-top: 1.5px dashed var(--border-strong);
+}
+
+.briva-footer-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.footer-label {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--text-dim);
+  text-transform: uppercase;
+}
+
+.footer-value {
+  font-size: 14.5px;
+  font-weight: 800;
+  color: var(--text-main);
+}

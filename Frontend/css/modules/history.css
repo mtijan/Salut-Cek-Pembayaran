@@ -1,0 +1,138 @@
+/* Payment History Timeline Module */
+/* UT SALUT Awwabin Tangerang */
+
+.history-card {
+  padding: 24px;
+}
+
+.card-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.section-title {
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--text-main);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.section-subtitle {
+  font-size: 12.5px;
+  color: var(--text-dim);
+  margin-top: 2px;
+}
+
+.history-timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.history-timeline-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background: #f8fafc;
+  border: 1.5px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+}
+
+.history-badge-num {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--status-paid-bg);
+  color: var(--status-paid);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 800;
+  flex-shrink: 0;
+}
+
+.history-info-box {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.history-top-line {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.history-amount {
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--status-paid);
+}
+
+.history-amount-payment {
+  color: var(--status-paid);
+}
+
+.history-amount-reversal {
+  color: var(--status-unpaid);
+}
+
+.history-amount-correction {
+  color: var(--status-partial);
+}
+
+.method-tag {
+  background: var(--brand-light);
+  color: var(--brand-dark);
+  font-size: 11px;
+  font-weight: 800;
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+}
+
+.verified-tag {
+  background: var(--status-paid-bg);
+  color: var(--status-paid);
+  font-size: 11px;
+  font-weight: 800;
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+}
+
+.history-date-line {
+  font-size: 12.5px;
+  color: var(--text-muted);
+}
+
+.history-date-line strong {
+  color: var(--text-main);
+}
+
+.history-meta-line {
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.history-empty {
+  text-align: center;
+  padding: 24px 16px;
+  color: var(--text-dim);
+}
+
+.history-empty-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-muted);
+  margin-bottom: 2px;
+}
+
+.history-empty-desc {
+  font-size: 12.5px;
+}

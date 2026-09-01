@@ -1,0 +1,14 @@
+/* Main Stylesheet Entry Point */
+/* UT SALUT Awwabin Tangerang */
+
+@import "./variables.css";
+@import "./base.css";
+@import "./layout.css";
+@import "./components.css";
+@import "./modules/student-card.css";
+@import "./modules/financial.css";
+@import "./modules/briva.css";
+@import "./modules/history.css";
+@import "./modules/instructions.css";
+@import "./responsive.css";
+@import "./print.css";

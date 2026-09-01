@@ -1,0 +1,34 @@
+/* Print Stylesheet for Student Invoices & Payment Summaries */
+/* UT SALUT Awwabin Tangerang */
+
+@media print {
+  body {
+    background: #ffffff;
+  }
+
+  .lookup-sidebar,
+  .action-footer,
+  .instructions-card,
+  .btn-copy,
+  .toast {
+    display: none !important;
+  }
+
+  .app-layout {
+    display: block;
+    max-width: 100%;
+    margin: 0;
+    padding: 0;
+  }
+
+  .card {
+    box-shadow: none !important;
+    border: 1px solid #94a3b8 !important;
+    margin-bottom: 14px;
+    break-inside: avoid;
+  }
+
+  .financial-grid {
+    grid-template-columns: repeat(3, 1fr) !important;
+  }
+}

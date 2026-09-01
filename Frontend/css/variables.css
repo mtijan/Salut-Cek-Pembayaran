@@ -1,0 +1,51 @@
+/* CSS Design Tokens */
+/* UT SALUT Awwabin Tangerang */
+
+:root {
+  color-scheme: light;
+
+  /* Brand Colors */
+  --brand-primary: #0f766e;
+  --brand-hover: #0d5f58;
+  --brand-dark: #042f2e;
+  --brand-light: #ccfbf1;
+  --brand-gradient: linear-gradient(135deg, #0f766e 0%, #0d544f 100%);
+
+  /* Status Colors */
+  --status-paid: #047857;
+  --status-paid-bg: #dcfce7;
+  --status-paid-border: #86efac;
+
+  --status-partial: #b45309;
+  --status-partial-bg: #fef3c7;
+  --status-partial-border: #fcd34d;
+
+  --status-unpaid: #be123c;
+  --status-unpaid-bg: #ffe4e6;
+  --status-unpaid-border: #fda4af;
+
+  /* Surfaces & High-Contrast Neutrals */
+  --bg-page: #e9eef5;
+  --bg-card: #ffffff;
+  --bg-subtle: #f1f5f9;
+  --bg-input: #ffffff;
+
+  --text-main: #0f172a;
+  --text-muted: #334155;
+  --text-dim: #64748b;
+
+  --border-strong: #cbd5e1;
+  --border-subtle: #e2e8f0;
+
+  /* Shadows */
+  --shadow-card: 0 4px 14px rgba(15, 23, 42, 0.08), 0 1px 3px rgba(15, 23, 42, 0.04);
+  --shadow-md: 0 6px 18px rgba(15, 23, 42, 0.1);
+
+  /* Radii */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-pill: 9999px;
+
+  --transition: all 0.18s ease-in-out;
+}
