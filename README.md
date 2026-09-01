@@ -72,7 +72,12 @@ Salut-Cek-Pembayaran/
 │   ├── excel_reader.py          # Parser OpenXML streaming
 │   ├── import_excel.py          # Pipeline ingestion data
 │   └── server.py                # Development server runner
-├── Frontend/                    # Portal Mahasiswa (Vanilla JS + HTML + CSS) & admin-dist
+├── Frontend/                    # Portal Mahasiswa (Modular Vanilla JS + CSS + Assets) & admin-dist
+│   ├── assets/images/           # Logo & aset visual publik
+│   ├── css/                     # CSS modular (variables, layout, components, modules, responsive, print)
+│   ├── js/                      # ES Modules (config, services, utils, components, app.js)
+│   ├── index.html               # Entry point HTML portal mahasiswa
+│   └── admin-dist/              # Hasil build SPA React Admin yang disajikan FastAPI
 ├── Frontend-Admin/              # Admin Dashboard SPA (React 19 + Vite 6)
 │   ├── src/                     # Kode sumber aplikasi
 │   │   ├── components/          # Komponen modular per fitur (billing, bills, layout, master, dll.)
