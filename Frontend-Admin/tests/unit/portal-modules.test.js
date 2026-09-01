@@ -59,9 +59,7 @@ test('portal shareSummary: buildShareSummaryText creates valid message', async (
       paid_amount_formatted: 'Rp 500.000',
       remaining_amount_formatted: 'Rp 1.500.000',
     },
-    bills: [
-      { briva: '123450000000001' },
-    ],
+    bills: [{ briva: '123450000000001' }],
   };
 
   const text = buildShareSummaryText(sampleData, 'Lunas Sebagian');

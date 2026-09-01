@@ -16,7 +16,7 @@ from fastapi.responses import JSONResponse
 
 from Backend.app import config
 from Backend.app.responses import error_response, success_response
-from Backend.app.services import list_import_issues
+from Backend.app.services import count_import_issues, list_import_issues
 from Backend.app.use_cases.reporting import ReportingService
 
 # Type definitions for injected dependencies
@@ -63,9 +63,25 @@ def build_report_router(
     ) -> JSONResponse:
         """List validation and processing issues logged during Excel imports."""
         try:
-            limit = parse_limit(request, default=500, max_limit=2000)
+            limit = parse_limit(request, default=50, max_limit=200)
+            page = max(1, int(request.query_params.get("page") or 1))
+            filters = {
+                "batch_id": str(request.query_params.get("batch_id") or ""),
+                "severity": str(request.query_params.get("severity") or ""),
+                "resolution_status": str(request.query_params.get("resolution_status") or ""),
+                "query": str(request.query_params.get("query") or ""),
+            }
+            total = count_import_issues(config.DB_PATH, **filters)
+            issues = list_import_issues(
+                config.DB_PATH,
+                limit,
+                offset=(page - 1) * limit,
+                **filters,
+            )
         except ValueError as exc:
             return error_response(400, "VALIDATION_ERROR", str(exc))
-        return success_response({"issues": list_import_issues(config.DB_PATH, limit)})
+        response = success_response({"issues": issues, "pagination": {"page": page, "limit": limit, "total": total}})
+        response.headers["Cache-Control"] = "no-store"
+        return response
 
     return router

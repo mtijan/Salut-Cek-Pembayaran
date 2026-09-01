@@ -17,24 +17,82 @@ class ImportRepository:
         """Remove stale issue rows for an import source before replacing them."""
         self._connection.execute("delete from import_issues where source_file = ?", (source_file,))
 
-    def store_issue(self, issue: dict[str, object], source_file: str) -> None:
+    def admin_exists(self, admin_id: str) -> bool:
+        """Return whether an audit actor can be linked to an import batch."""
+        return self._connection.execute("select 1 from admin_users where id = ?", (admin_id,)).fetchone() is not None
+
+    def create_batch(
+        self,
+        *,
+        batch_id: str,
+        import_token: str | None,
+        admin_id: str | None,
+        source_file: str,
+        file_sha256: str,
+        period_code: str,
+        period_label: str,
+        billing_year: int | None,
+        semester_type: str | None,
+        status: str,
+        created: int,
+        updated: int,
+        unchanged: int,
+        quarantined: int,
+        warning_count: int,
+        critical_count: int,
+    ) -> None:
+        """Persist one immutable import result summary, including issue-only batches."""
+        self._connection.execute(
+            """
+            insert into import_batches (
+              id, import_token, admin_id, source_file, file_sha256, period_code, period_label,
+              billing_year, semester_type, status, created_count, updated_count, unchanged_count,
+              quarantined_count, warning_count, critical_count
+            ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                batch_id,
+                import_token,
+                admin_id,
+                source_file,
+                file_sha256,
+                period_code,
+                period_label,
+                billing_year,
+                semester_type,
+                status,
+                created,
+                updated,
+                unchanged,
+                quarantined,
+                warning_count,
+                critical_count,
+            ),
+        )
+
+    def store_issue(self, issue: dict[str, object], source_file: str, *, batch_id: str, period_code: str) -> None:
         """Persist one invalid or skipped workbook row."""
         self._connection.execute(
             """
             insert into import_issues
-              (id, sheet_name, row_number, nim, full_name, briva, amount, note, source_file)
-            values (?, ?, ?, ?, ?, ?, ?, ?, ?)
+              (id, batch_id, sheet_name, row_number, severity, issue_code, nim, full_name,
+               briva, amount, note, source_file, period_code, resolution_status)
+            values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'open')
             """,
             (
                 str(uuid.uuid4()),
-                str(issue["sheet_name"]),
+                batch_id,
+                str(issue.get("sheet_name") or issue.get("sheet") or ""),
                 int(cast(Any, issue["row_number"])),
+                str(issue.get("severity") or "warning"),
+                str(issue.get("issue_code") or "IMPORT_VALIDATION_ISSUE"),
                 str(issue.get("nim") or ""),
                 str(issue.get("full_name") or ""),
                 str(issue.get("briva") or ""),
                 str(issue.get("amount") or ""),
-                str(issue["note"]),
+                str(issue.get("note") or issue.get("message") or "Data perlu diperbaiki."),
                 source_file,
+                period_code,
             ),
         )
 
@@ -50,14 +108,15 @@ class ImportRepository:
         due_date: str | None,
         source_file: str,
         row_number: int,
+        import_batch_id: str | None = None,
     ) -> None:
         """Create a new unpaid billing row from one import action."""
         self._connection.execute(
             """
             insert into bills
               (id, student_id, briva, amount, period, bill_type, status, instructions,
-               due_date, source_file, source_row_number, updated_at)
-            values (?, ?, ?, ?, ?, ?, 'unpaid', ?, ?, ?, ?, datetime('now'))
+               due_date, source_file, source_row_number, import_batch_id, updated_at)
+            values (?, ?, ?, ?, ?, ?, 'unpaid', ?, ?, ?, ?, ?, datetime('now'))
             """,
             (
                 str(uuid.uuid4()),
@@ -70,6 +129,7 @@ class ImportRepository:
                 due_date,
                 source_file,
                 row_number,
+                import_batch_id,
             ),
         )
 
@@ -85,13 +145,14 @@ class ImportRepository:
         due_date: str | None,
         source_file: str,
         row_number: int,
+        import_batch_id: str | None = None,
     ) -> None:
         """Apply an approved import update to an existing billing row."""
         self._connection.execute(
             """
             update bills
             set student_id = ?, briva = ?, amount = ?, period = ?, bill_type = ?,
-                due_date = ?, source_file = ?, source_row_number = ?,
+                due_date = ?, source_file = ?, source_row_number = ?, import_batch_id = ?,
                 updated_at = datetime('now')
             where id = ?
             """,
@@ -104,6 +165,7 @@ class ImportRepository:
                 due_date,
                 source_file,
                 row_number,
+                import_batch_id,
                 bill_id,
             ),
         )

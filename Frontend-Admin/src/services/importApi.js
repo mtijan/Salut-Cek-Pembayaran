@@ -7,6 +7,8 @@ export const importApi = {
   /**
    * Fetches imported bill batch groups.
    *
+   * @param {number|string} billingYear
+   * @param {'ganjil'|'genap'} semesterType
    * @param {RequestInit} [options={}]
    * @returns {Promise<any>}
    */
@@ -34,14 +36,31 @@ export const importApi = {
    * @param {RequestInit} [options={}]
    * @returns {Promise<any>}
    */
-  preview: (file, options = {}) => {
+  preview: (file, billingYear, semesterType, options = {}) => {
     const formData = new FormData();
     formData.append('file', file);
+    formData.append('billing_year', String(billingYear));
+    formData.append('semester_type', semesterType);
     return apiFetch('/admin/import/preview', {
       ...options,
       method: 'POST',
       body: formData,
     });
+  },
+
+  /** Lists structured row-level issues retained for an active preview token. */
+  getPreviewIssues: (
+    token,
+    { page = 1, limit = 50, severity = '', query = '' } = {},
+    options = {},
+  ) => {
+    const params = new URLSearchParams({ page: String(page), limit: String(limit) });
+    if (severity) params.set('severity', severity);
+    if (query) params.set('query', query);
+    return apiFetch(
+      `/admin/import/previews/${encodeURIComponent(token)}/issues?${params}`,
+      options,
+    );
   },
 
   /**

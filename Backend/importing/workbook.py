@@ -120,6 +120,27 @@ class ImportLayout:
     default_period: str
 
 
+def build_billing_period(billing_year: object, semester_type: object) -> dict[str, object]:
+    """Validate UI period fields and return one canonical billing-period representation."""
+    year_text = clean_excel_text(billing_year)
+    semester = clean_excel_text(semester_type).casefold()
+    if not re.fullmatch(r"\d{4}", year_text):
+        raise ValueError("Tahun tagihan harus terdiri dari 4 digit.")
+    year = int(year_text)
+    if year < 2000 or year > 2100:
+        raise ValueError("Tahun tagihan harus berada antara 2000 dan 2100.")
+    if semester not in {"ganjil", "genap"}:
+        raise ValueError("Semester tagihan wajib dipilih: ganjil atau genap.")
+    semester_number = "1" if semester == "ganjil" else "2"
+    semester_label = "Ganjil" if semester == "ganjil" else "Genap"
+    return {
+        "code": f"{year}.{semester_number}",
+        "label": f"{year} {semester_label}",
+        "billing_year": year,
+        "semester_type": semester,
+    }
+
+
 def _amount_to_int(value: str) -> int | None:
     """Extract and convert numeric amount string from spreadsheet cell into integer."""
     cleaned = re.sub(r"\D+", "", clean_excel_text(value))
@@ -217,32 +238,42 @@ def _read_sync_rows(
             nim = validate_nim_value(raw_nim)
         except ValueError:
             nim = ""
-        full_name = normalize_imported_name(
-            _record_value(record, layout.headers, ("Nama", "Nama Mahasiswa", "Nama Lengkap"))
+        raw_name = _record_value(record, layout.headers, ("Nama", "Nama Mahasiswa", "Nama Lengkap"))
+        raw_briva = _record_value(
+            record, layout.headers, ("No Rek", "No. Rek", "No Rekening", "BRIVA", "Nomor BRIVA", "VA")
         )
-        briva = _normalize_briva(
-            _record_value(record, layout.headers, ("No Rek", "No. Rek", "No Rekening", "BRIVA", "Nomor BRIVA", "VA"))
-        )
-        amount = _amount_to_int(_record_value(record, layout.headers, ("Jumlah", "Nominal", "Tagihan", "Biaya")))
+        raw_amount = _record_value(record, layout.headers, ("Jumlah", "Nominal", "Tagihan", "Biaya"))
+        full_name = normalize_imported_name(raw_name)
+        briva = _normalize_briva(raw_briva)
+        amount = _amount_to_int(raw_amount)
         row_number = int(record.get("_row_number") or 0)
         if not nim or not full_name or not briva or amount is None:
             message = "Baris dilewati karena NIM, nama, BRIVA, atau nominal tidak valid."
             errors.append(
                 {
                     "sheet": layout.data_sheet,
+                    "sheet_name": layout.data_sheet,
                     "row_number": row_number,
                     "severity": "warning",
+                    "issue_code": "INVALID_REQUIRED_FIELD",
                     "message": message,
+                    "note": message,
+                    "nim": raw_nim,
+                    "full_name": clean_excel_text(raw_name),
+                    "briva": clean_excel_text(raw_briva),
+                    "amount": clean_excel_text(raw_amount),
                 }
             )
             skipped_issues.append(
                 {
                     "sheet_name": layout.data_sheet,
                     "row_number": row_number,
-                    "nim": nim,
-                    "full_name": full_name,
-                    "briva": briva,
-                    "amount": clean_excel_text(_record_value(record, layout.headers, ("Jumlah", "Nominal"))),
+                    "severity": "warning",
+                    "issue_code": "INVALID_REQUIRED_FIELD",
+                    "nim": raw_nim,
+                    "full_name": clean_excel_text(raw_name),
+                    "briva": clean_excel_text(raw_briva),
+                    "amount": clean_excel_text(raw_amount),
                     "note": message,
                 }
             )
@@ -301,9 +332,16 @@ def _read_sync_rows(
             errors.append(
                 {
                     "sheet": layout.data_sheet,
+                    "sheet_name": layout.data_sheet,
                     "row_number": row["row_number"],
                     "severity": "warning",
+                    "issue_code": "IDENTITY_NAME_MISMATCH",
                     "message": "NIM muncul dengan nama berbeda. Nama pada baris pertama digunakan untuk profil mahasiswa.",
+                    "note": "NIM muncul dengan nama berbeda. Nama pada baris pertama digunakan untuk profil mahasiswa.",
+                    "nim": row["nim"],
+                    "full_name": row["full_name"],
+                    "briva": row["briva"],
+                    "amount": row["amount"],
                 }
             )
         for field in (

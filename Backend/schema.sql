@@ -92,14 +92,22 @@ create table if not exists lookup_logs (
 
 create table if not exists import_issues (
   id text primary key,
+  batch_id text,
   sheet_name text not null,
   row_number integer not null,
+  severity text not null default 'warning' check (severity in ('warning', 'critical')),
+  issue_code text not null default 'LEGACY_IMPORT_ISSUE',
   nim text,
   full_name text,
   briva text,
   amount text,
   note text not null,
   source_file text not null,
+  period_code text,
+  resolution_status text not null default 'open' check (resolution_status in ('open', 'resolved', 'ignored')),
+  resolved_at text,
+  resolved_by text,
+  resolution_note text,
   created_at text not null default (datetime('now'))
 );
 
@@ -109,9 +117,50 @@ create table if not exists import_previews (
   file_name text not null,
   stored_path text not null,
   expires_at text not null,
+  file_sha256 text,
+  period_code text,
+  period_label text,
+  billing_year integer,
+  semester_type text,
   claim_id text,
   claimed_at text,
   created_at text not null default (datetime('now'))
+);
+
+create table if not exists import_preview_issues (
+  id text primary key,
+  token text not null references import_previews(token) on delete cascade,
+  sheet_name text not null,
+  row_number integer not null,
+  severity text not null check (severity in ('warning', 'critical')),
+  issue_code text not null,
+  nim text,
+  full_name text,
+  briva text,
+  amount text,
+  note text not null,
+  created_at text not null default (datetime('now'))
+);
+
+create table if not exists import_batches (
+  id text primary key,
+  import_token text unique,
+  admin_id text references admin_users(id) on delete set null,
+  source_file text not null,
+  file_sha256 text not null,
+  period_code text not null,
+  period_label text not null,
+  billing_year integer,
+  semester_type text,
+  status text not null check (status in ('completed', 'completed_with_issues', 'issues_only')),
+  created_count integer not null default 0,
+  updated_count integer not null default 0,
+  unchanged_count integer not null default 0,
+  quarantined_count integer not null default 0,
+  warning_count integer not null default 0,
+  critical_count integer not null default 0,
+  created_at text not null default (datetime('now')),
+  committed_at text not null default (datetime('now'))
 );
 
 create table if not exists admin_users (

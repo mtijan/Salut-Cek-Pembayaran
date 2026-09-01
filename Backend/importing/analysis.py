@@ -8,8 +8,8 @@ from pathlib import Path
 from typing import Any, cast
 
 from Backend.db import database_connection
-from Backend.excel_reader import normalize_name, normalize_text, read_sheet
-from Backend.importing.workbook import ImportLayout, _read_sync_rows, _require_headers
+from Backend.excel_reader import clean_excel_text, normalize_name, normalize_nim, normalize_text, read_sheet
+from Backend.importing.workbook import ImportLayout, _normalize_briva, _read_sync_rows, _require_headers
 
 
 def _existing_bills(
@@ -44,14 +44,47 @@ def _existing_bills(
         by_briva.setdefault(str(row["briva"]), []).append(row)
         if row["period"] == period:
             by_nim.setdefault(str(row["nim"]), []).append(row)
-        if row["source_file"] == source_file and row["source_row_number"] is not None:
+        if row["source_file"] == source_file and row["period"] == period and row["source_row_number"] is not None:
             by_source_row[int(row["source_row_number"])] = row
     return by_briva, by_nim, by_source_row
 
 
-def _append_limited(items: list[dict[str, object]], item: dict[str, object], limit: int = 12) -> None:
-    """Append item to list if count is strictly below the limit threshold."""
-    if len(items) < limit:
+def _row_issue(
+    row: dict[str, object],
+    layout: ImportLayout,
+    *,
+    severity: str,
+    issue_code: str,
+    message: str,
+) -> dict[str, object]:
+    """Build one structured, admin-visible issue without exposing it to public surfaces."""
+    return {
+        "sheet": layout.data_sheet,
+        "sheet_name": layout.data_sheet,
+        "row_number": int(cast(Any, row["row_number"])),
+        "severity": severity,
+        "issue_code": issue_code,
+        "message": message,
+        "note": message,
+        "nim": str(row.get("nim") or ""),
+        "full_name": str(row.get("full_name") or ""),
+        "briva": str(row.get("briva") or ""),
+        "amount": str(row.get("amount") or ""),
+    }
+
+
+def _append_issue(items: list[dict[str, object]], item: dict[str, object]) -> None:
+    """Append a unique structured issue while preserving every affected source row."""
+    identity = (item.get("sheet_name") or item.get("sheet"), item.get("row_number"), item.get("issue_code"))
+    if not any(
+        (
+            candidate.get("sheet_name") or candidate.get("sheet"),
+            candidate.get("row_number"),
+            candidate.get("issue_code"),
+        )
+        == identity
+        for candidate in items
+    ):
         items.append(item)
 
 
@@ -59,42 +92,48 @@ def _detect_in_file_conflicts(
     rows: list[dict[str, object]],
     layout: ImportLayout,
     errors: list[dict[str, object]],
-) -> tuple[int, int, int]:
+) -> tuple[int, int, int, set[int]]:
     """Check for in-file conflicts (duplicate BRIVA across different NIMs or multiple bills per NIM)."""
     briva_counts = Counter(str(row["briva"]) for row in rows)
     nim_counts = Counter(str(row["nim"]) for row in rows)
     duplicate_briva_conflict_rows = 0
     multiple_bill_rows = 0
     critical_in_file = 0
+    critical_row_numbers: set[int] = set()
+    briva_nims: dict[str, set[str]] = {}
+    for row in rows:
+        briva_nims.setdefault(str(row["briva"]), set()).add(str(row["nim"]))
 
     for row in rows:
-        rows_with_same_briva = [candidate for candidate in rows if candidate["briva"] == row["briva"]]
-        nims_for_same_briva = {str(candidate["nim"]) for candidate in rows_with_same_briva}
+        nims_for_same_briva = briva_nims[str(row["briva"])]
         if briva_counts[str(row["briva"])] > 1 and len(nims_for_same_briva) > 1:
             duplicate_briva_conflict_rows += 1
             critical_in_file += 1
-            _append_limited(
+            critical_row_numbers.add(int(cast(Any, row["row_number"])))
+            _append_issue(
                 errors,
-                {
-                    "sheet": layout.data_sheet,
-                    "row_number": row["row_number"],
-                    "severity": "critical",
-                    "message": "BRIVA yang sama muncul untuk NIM berbeda dalam file.",
-                },
+                _row_issue(
+                    row,
+                    layout,
+                    severity="critical",
+                    issue_code="CROSS_NIM_BRIVA_IN_FILE",
+                    message="BRIVA yang sama muncul untuk NIM berbeda dalam file.",
+                ),
             )
         if nim_counts[str(row["nim"])] > 1:
             multiple_bill_rows += 1
-            _append_limited(
+            _append_issue(
                 errors,
-                {
-                    "sheet": layout.data_sheet,
-                    "row_number": row["row_number"],
-                    "severity": "warning",
-                    "message": "NIM muncul lebih dari satu kali. Sistem akan menyimpan sebagai beberapa tagihan.",
-                },
+                _row_issue(
+                    row,
+                    layout,
+                    severity="warning",
+                    issue_code="MULTIPLE_BILLS_FOR_NIM",
+                    message="NIM muncul lebih dari satu kali. Sistem akan menyimpan sebagai beberapa tagihan.",
+                ),
             )
 
-    return duplicate_briva_conflict_rows, multiple_bill_rows, critical_in_file
+    return duplicate_briva_conflict_rows, multiple_bill_rows, critical_in_file, critical_row_numbers
 
 
 def _evaluate_row_diff(
@@ -134,14 +173,15 @@ def _evaluate_row_diff(
         if existing_source_row["nim"] != nim:
             counters["critical_rows"] += 1
             counters["conflict_rows"] += 1
-            _append_limited(
+            _append_issue(
                 errors,
-                {
-                    "sheet": layout.data_sheet,
-                    "row_number": row["row_number"],
-                    "severity": "critical",
-                    "message": "Baris sumber file ini sebelumnya terdaftar untuk NIM lain.",
-                },
+                _row_issue(
+                    row,
+                    layout,
+                    severity="critical",
+                    issue_code="SOURCE_ROW_NIM_CONFLICT",
+                    message="Baris sumber file ini sebelumnya terdaftar untuk NIM lain.",
+                ),
             )
             return
         if str(existing_source_row["id"]) not in used_existing_bill_ids:
@@ -150,14 +190,15 @@ def _evaluate_row_diff(
     if conflicting_briva_rows:
         counters["critical_rows"] += 1
         counters["conflict_rows"] += 1
-        _append_limited(
+        _append_issue(
             errors,
-            {
-                "sheet": layout.data_sheet,
-                "row_number": row["row_number"],
-                "severity": "critical",
-                "message": "BRIVA sudah terdaftar untuk NIM lain.",
-            },
+            _row_issue(
+                row,
+                layout,
+                severity="critical",
+                issue_code="CROSS_NIM_BRIVA_DATABASE",
+                message="BRIVA sudah terdaftar untuk NIM lain.",
+            ),
         )
         return
 
@@ -165,14 +206,15 @@ def _evaluate_row_diff(
         if existing_briva["period"] != effective_period:
             counters["critical_rows"] += 1
             counters["conflict_rows"] += 1
-            _append_limited(
+            _append_issue(
                 errors,
-                {
-                    "sheet": layout.data_sheet,
-                    "row_number": row["row_number"],
-                    "severity": "critical",
-                    "message": "BRIVA sudah terdaftar pada periode lain.",
-                },
+                _row_issue(
+                    row,
+                    layout,
+                    severity="critical",
+                    issue_code="SOURCE_ROW_PERIOD_CONFLICT",
+                    message="BRIVA sudah terdaftar pada periode lain.",
+                ),
             )
             return
 
@@ -187,14 +229,15 @@ def _evaluate_row_diff(
         if existing_briva["status"] != "unpaid" and amount_changed:
             counters["critical_rows"] += 1
             counters["conflict_rows"] += 1
-            _append_limited(
+            _append_issue(
                 errors,
-                {
-                    "sheet": layout.data_sheet,
-                    "row_number": row["row_number"],
-                    "severity": "critical",
-                    "message": "Nominal tagihan yang sudah lunas atau dicicil tidak boleh diubah melalui import.",
-                },
+                _row_issue(
+                    row,
+                    layout,
+                    severity="critical",
+                    issue_code="PAID_BILL_AMOUNT_CHANGE",
+                    message="Nominal tagihan yang sudah lunas atau dicicil tidak boleh diubah melalui import.",
+                ),
             )
             return
 
@@ -238,14 +281,15 @@ def _evaluate_row_diff(
     if existing["status"] != "unpaid":
         counters["critical_rows"] += 1
         counters["conflict_rows"] += 1
-        _append_limited(
+        _append_issue(
             errors,
-            {
-                "sheet": layout.data_sheet,
-                "row_number": row["row_number"],
-                "severity": "critical",
-                "message": "BRIVA tagihan yang sudah lunas atau dicicil tidak boleh diganti melalui import.",
-            },
+            _row_issue(
+                row,
+                layout,
+                severity="critical",
+                issue_code="PAID_BILL_BRIVA_CHANGE",
+                message="BRIVA tagihan yang sudah lunas atau dicicil tidak boleh diganti melalui import.",
+            ),
         )
         return
 
@@ -288,7 +332,7 @@ def _analyze_workbook(
     rows, errors, sample, identity_conflict_rows, skipped_issues = _read_sync_rows(workbook, layout, effective_period)
     valid_rows = len(rows)
 
-    dup_briva, multi_bill, crit_in_file = _detect_in_file_conflicts(rows, layout, errors)
+    dup_briva, multi_bill, _crit_in_file, in_file_critical_rows = _detect_in_file_conflicts(rows, layout, errors)
 
     by_briva: dict[str, list[sqlite3.Row]] = {}
     by_nim: dict[str, list[sqlite3.Row]] = {}
@@ -314,6 +358,8 @@ def _analyze_workbook(
     nim_counts = Counter(str(row["nim"]) for row in rows)
 
     for row in rows:
+        if int(cast(Any, row["row_number"])) in in_file_critical_rows:
+            continue
         _evaluate_row_diff(
             row=row,
             effective_period=effective_period,
@@ -329,24 +375,43 @@ def _analyze_workbook(
             counters=counters,
         )
 
-    issue_rows = len(errors)
     if layout.issue_sheet:
         for record in read_sheet(workbook, layout.issue_sheet):
-            issue_rows += 1
-            _append_limited(
+            message = normalize_text(record.get("Keterangan")) or "Data belum lengkap."
+            _append_issue(
                 errors,
                 {
                     "sheet": layout.issue_sheet,
+                    "sheet_name": layout.issue_sheet,
                     "row_number": int(record.get("_row_number") or 0),
                     "severity": "warning",
-                    "message": normalize_text(record.get("Keterangan")) or "Data belum lengkap.",
+                    "issue_code": "LEGACY_INCOMPLETE_DATA",
+                    "message": message,
+                    "note": message,
+                    "nim": normalize_nim(record.get("NIM")),
+                    "full_name": clean_excel_text(record.get("Nama Mahasiswa")),
+                    "briva": _normalize_briva(record.get("BRIVA")),
+                    "amount": clean_excel_text(record.get("Jumlah")),
                 },
             )
 
+    issue_rows = len(errors)
+    critical_rows = sum(1 for issue in errors if issue.get("severity") == "critical")
+    warning_rows = sum(1 for issue in errors if issue.get("severity") == "warning")
+    quarantined_keys = {
+        (issue.get("sheet_name") or issue.get("sheet"), issue.get("row_number"))
+        for issue in errors
+        if issue.get("severity") == "critical"
+        or issue.get("issue_code") in {"INVALID_REQUIRED_FIELD", "LEGACY_INCOMPLETE_DATA"}
+    }
+
     return {
         "valid_rows": valid_rows,
-        "critical_rows": counters["critical_rows"],
+        "safe_rows": len(actions),
+        "critical_rows": critical_rows,
+        "warning_rows": warning_rows,
         "issue_rows": issue_rows,
+        "quarantined_rows": len(quarantined_keys),
         "new_rows": counters["new_rows"],
         "unchanged_rows": counters["unchanged_rows"],
         "update_rows": counters["update_rows"],
@@ -361,8 +426,11 @@ def _analyze_workbook(
         "sample": sample,
         "changes": changes,
         "errors": errors,
+        "issues": errors,
         "_skipped_issues": skipped_issues,
+        "_issues": errors,
         "actions": actions,
+        "period_code": effective_period,
     }
 
 
@@ -374,4 +442,4 @@ def preview_workbook(
 ) -> dict[str, object]:
     """Generate user-facing preview response payload for Excel workbook import."""
     analysis = _analyze_workbook(workbook_path, db_path, period, source_file_name)
-    return {key: value for key, value in analysis.items() if key not in {"actions", "_skipped_issues"}}
+    return {key: value for key, value in analysis.items() if key not in {"actions", "_skipped_issues", "_issues"}}

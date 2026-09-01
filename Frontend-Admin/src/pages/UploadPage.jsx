@@ -31,6 +31,10 @@ export default function UploadPage({ navigateTo }) {
         <UploadStep1
           file={u.file}
           analyzing={u.analyzing}
+          billingYear={u.billingYear}
+          semesterType={u.semesterType}
+          onBillingYearChange={(e) => u.setBillingYear(e.target.value)}
+          onSemesterTypeChange={(e) => u.setSemesterType(e.target.value)}
           onFileChange={u.handleFileChange}
           onAnalyze={u.handleAnalyze}
         />
@@ -47,6 +51,8 @@ export default function UploadPage({ navigateTo }) {
           canCommit={u.canCommit}
           onBack={u.handleReset}
           onCommit={u.handleCommit}
+          loadingIssues={u.loadingIssues}
+          onLoadMoreIssues={u.handleLoadMoreIssues}
         />
       )}
 

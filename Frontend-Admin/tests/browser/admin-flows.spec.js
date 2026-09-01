@@ -679,26 +679,32 @@ test('bill activation flow: individual toggle and master period bulk entry point
   ).toBe(false);
   await activationPage.getByLabel('Periode Tagihan').selectOption('20261');
   await activationPage.getByLabel('Program Studi', { exact: true }).selectOption('prodi-1');
-  await activationPage.getByLabel('Mode Scope').selectOption('all');
-  await activationPage.getByRole('button', { name: 'Tampilkan Preview Dampak' }).click();
-  await expect(activationPage.getByText(/2 tagihan/)).toBeVisible();
+  await expect(activationPage.getByLabel('Mode Scope')).toHaveCount(0);
+  await expect(
+    activationPage.getByRole('button', { name: 'Tampilkan Preview Dampak' }),
+  ).toHaveCount(0);
   await activationPage
-    .getByPlaceholder(/Periode lama ditutup/)
+    .getByPlaceholder(/Tuliskan alasan perubahan status aktivasi massal/)
     .fill('Penutupan massal browser test');
-  await activationPage.getByRole('button', { name: 'Nonaktifkan Tagihan', exact: true }).click();
+  await activationPage
+    .locator('.footer-action-buttons')
+    .getByRole('button', { name: 'Nonaktifkan Tagihan', exact: true })
+    .click();
   await expect(page.getByRole('heading', { name: 'Tagihan Mahasiswa', level: 1 })).toBeVisible();
 
   await page.getByTitle('Status Aktivasi Tagihan').selectOption('inactive');
   await bulkButton.click();
   activationPage = page.locator('.activation-page-container');
-  await expect(activationPage.getByLabel('Aksi Aktivasi')).toHaveValue('active');
+  await expect(activationPage.locator('.card-activate')).toHaveClass(/is-selected-action/);
   await activationPage.getByLabel('Periode Tagihan').selectOption('20261');
   await activationPage.getByLabel('Program Studi', { exact: true }).selectOption('prodi-1');
-  await activationPage.getByRole('button', { name: 'Tampilkan Preview Dampak' }).click();
   await activationPage
-    .getByPlaceholder(/Periode lama ditutup/)
+    .getByPlaceholder(/Tuliskan alasan perubahan status aktivasi massal/)
     .fill('Aktivasi massal browser test');
-  await activationPage.getByRole('button', { name: 'Aktifkan Tagihan', exact: true }).click();
+  await activationPage
+    .locator('.footer-action-buttons')
+    .getByRole('button', { name: 'Aktifkan Kembali Tagihan', exact: true })
+    .click();
   await expect(page.getByRole('heading', { name: 'Tagihan Mahasiswa', level: 1 })).toBeVisible();
 
   await page.getByTitle('Status Aktivasi Tagihan').selectOption('active');
@@ -706,7 +712,9 @@ test('bill activation flow: individual toggle and master period bulk entry point
   await expect(page.getByText('Aktif', { exact: true }).first()).toBeVisible();
   await page.getByTitle('Nonaktifkan Tagihan', { exact: true }).first().click();
   await expect(page.getByRole('heading', { name: 'Nonaktifkan Tagihan' })).toBeVisible();
-  await page.getByPlaceholder(/Periode lama ditutup/).fill('Browser test penutupan periode');
+  await page
+    .getByPlaceholder(/Tuliskan alasan penonaktifan atau pengaktifan/)
+    .fill('Browser test penutupan periode');
   await page
     .getByRole('dialog')
     .getByRole('button', { name: 'Nonaktifkan Tagihan', exact: true })

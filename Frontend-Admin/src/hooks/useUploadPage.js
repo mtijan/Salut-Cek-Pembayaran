@@ -2,6 +2,14 @@ import { useState } from 'react';
 import { importApi } from '../services/importApi';
 import { useToast } from '../components/common/Toast';
 
+const currentBillingYear = () =>
+  Number(
+    new Intl.DateTimeFormat('en-US', {
+      year: 'numeric',
+      timeZone: 'Asia/Jakarta',
+    }).format(new Date()),
+  );
+
 /**
  * Feature hook untuk UploadPage.
  * Mengelola state wizard (step), file, analyze, commit, dan reset.
@@ -16,6 +24,9 @@ export function useUploadPage() {
   const [previewData, setPreviewData] = useState(null);
   const [confirmSensitive, setConfirmSensitive] = useState(false);
   const [commitResult, setCommitResult] = useState(null);
+  const [loadingIssues, setLoadingIssues] = useState(false);
+  const [billingYear, setBillingYear] = useState(currentBillingYear);
+  const [semesterType, setSemesterType] = useState('ganjil');
 
   const handleFileChange = (e) => {
     const selected = e.target.files?.[0];
@@ -35,7 +46,7 @@ export function useUploadPage() {
     }
     setAnalyzing(true);
     try {
-      const res = await importApi.preview(file);
+      const res = await importApi.preview(file, billingYear, semesterType);
       setPreviewData(res);
       setConfirmSensitive(false);
       setStep(2);
@@ -65,12 +76,34 @@ export function useUploadPage() {
     }
   };
 
+  const handleLoadMoreIssues = async () => {
+    const token = previewData?.import_token || previewData?.token;
+    const currentIssues = previewData?.issues || previewData?.errors || [];
+    if (!token || loadingIssues) return;
+    setLoadingIssues(true);
+    try {
+      const page = Math.floor(currentIssues.length / 50) + 1;
+      const res = await importApi.getPreviewIssues(token, { page, limit: 50 });
+      setPreviewData((current) => ({
+        ...current,
+        issues: [...(current?.issues || current?.errors || []), ...(res.issues || [])],
+        issue_pagination: res.pagination,
+      }));
+    } catch (err) {
+      showToast(err.message || 'Gagal memuat detail masalah berikutnya.', 'error');
+    } finally {
+      setLoadingIssues(false);
+    }
+  };
+
   const handleReset = () => {
     setStep(1);
     setFile(null);
     setPreviewData(null);
     setCommitResult(null);
     setConfirmSensitive(false);
+    setBillingYear(currentBillingYear());
+    setSemesterType('ganjil');
   };
 
   // Derived flags from previewData
@@ -81,23 +114,29 @@ export function useUploadPage() {
     (s.amount_change_rows || 0) > 0 ||
     (s.briva_change_rows || 0) > 0,
   );
-  const canCommit = !critical && (!hasSensitive || confirmSensitive);
+  const canCommit = !hasSensitive || confirmSensitive;
 
   return {
     step,
     file,
     analyzing,
     committing,
+    loadingIssues,
     previewData,
     confirmSensitive,
     setConfirmSensitive,
     commitResult,
+    billingYear,
+    setBillingYear,
+    semesterType,
+    setSemesterType,
     critical,
     hasSensitive,
     canCommit,
     handleFileChange,
     handleAnalyze,
     handleCommit,
+    handleLoadMoreIssues,
     handleReset,
   };
 }

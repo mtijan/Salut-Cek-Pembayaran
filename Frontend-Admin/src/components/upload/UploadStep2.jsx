@@ -16,8 +16,11 @@ export default function UploadStep2({
   canCommit,
   onBack,
   onCommit,
+  loadingIssues,
+  onLoadMoreIssues,
 }) {
   const s = previewData || {};
+  const issues = s.issues || s.errors || [];
 
   return (
     <div>
@@ -26,7 +29,9 @@ export default function UploadStep2({
         <div className="stat-card">
           <span className="stat-card-title">Baris Valid</span>
           <div className="stat-card-value text-success">{s.valid_rows || 0}</div>
-          <span className="stat-card-subtext">Dari file {s.file_name}</span>
+          <span className="stat-card-subtext">
+            {s.safe_rows ?? s.valid_rows ?? 0} aman dari file {s.file_name}
+          </span>
         </div>
 
         <div className="stat-card">
@@ -49,7 +54,7 @@ export default function UploadStep2({
             {s.critical_rows || 0}
           </div>
           <span className="stat-card-subtext">
-            {critical ? 'Commit ditolak' : 'Tidak ada konflik kritis'}
+            {critical ? 'Dikarantina, tidak membentuk tagihan' : 'Tidak ada konflik kritis'}
           </span>
         </div>
       </div>
@@ -60,14 +65,15 @@ export default function UploadStep2({
           <div className="flex-row-gap-8">
             <AlertCircle size={20} />
             <strong>
-              File memiliki error kritis. Mohon perbaiki file Excel Anda sebelum melanjutkan.
+              {s.critical_rows || 0} baris kritis akan dikarantina. Baris yang aman tetap dapat
+              disimpan ke sistem.
             </strong>
           </div>
         </div>
       )}
 
       {/* Sensitive Confirmation Warning */}
-      {hasSensitive && !critical && (
+      {hasSensitive && (
         <div className="upload-warning-box">
           <div className="upload-warning-title">
             <AlertTriangle size={20} />
@@ -124,28 +130,76 @@ export default function UploadStep2({
       )}
 
       {/* Issue / Warning List */}
-      {s.errors && s.errors.length > 0 && (
+      {issues.length > 0 && (
         <div className="panel-card mb-4">
           <h4 className="card-sub-title mb-3">
-            Pemberitahuan &amp; Catatan Validasi ({s.errors.length})
+            Detail Baris Bermasalah ({s.issue_pagination?.total ?? issues.length})
           </h4>
-          <div className="upload-issues-list">
-            {s.errors.map((err, i) => (
-              <div
-                key={i}
-                className={`upload-issue-entry ${err.severity === 'critical' ? 'critical' : 'warning'}`}
-              >
-                <span>
-                  <strong>Baris {err.row_number}:</strong> {err.message}
-                </span>
-                <span
-                  className={`issue-severity-tag ${err.severity === 'critical' ? 'text-danger' : 'text-amber'}`}
-                >
-                  {err.severity}
-                </span>
-              </div>
-            ))}
+          <p className="panel-header-desc upload-issue-help">
+            Baris kritis tidak diproses menjadi tagihan. Data mentah ditampilkan agar dapat langsung
+            ditelusuri dan diperbaiki.
+          </p>
+          <div className="table-responsive upload-issues-table-wrap">
+            <table className="data-table upload-issues-table">
+              <thead>
+                <tr>
+                  <th>Status</th>
+                  <th>Lokasi</th>
+                  <th>NIM</th>
+                  <th>Nama</th>
+                  <th>BRIVA</th>
+                  <th>Jumlah Mentah</th>
+                  <th>Kode &amp; Keterangan</th>
+                </tr>
+              </thead>
+              <tbody>
+                {issues.map((err, i) => (
+                  <tr
+                    key={`${err.sheet_name || err.sheet}-${err.row_number}-${err.issue_code}-${i}`}
+                  >
+                    <td>
+                      <span
+                        className={`upload-issue-badge ${err.severity === 'critical' ? 'critical' : 'warning'}`}
+                      >
+                        {err.severity === 'critical' ? 'Kritis' : 'Peringatan'}
+                      </span>
+                    </td>
+                    <td>
+                      <strong>{err.sheet_name || err.sheet || '-'}</strong>
+                      <span className="upload-issue-row">Baris {err.row_number || '-'}</span>
+                    </td>
+                    <td>{err.nim || '-'}</td>
+                    <td>{err.full_name || '-'}</td>
+                    <td>
+                      <code>{err.briva || '-'}</code>
+                    </td>
+                    <td>{err.amount || '-'}</td>
+                    <td>
+                      <code className="upload-issue-code">
+                        {err.issue_code || 'VALIDATION_ISSUE'}
+                      </code>
+                      <span className="upload-issue-message">{err.note || err.message}</span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
+          {(s.issue_pagination?.total || 0) > issues.length && (
+            <div className="upload-issue-footer">
+              <p className="upload-issue-footnote">
+                Menampilkan {issues.length} dari {s.issue_pagination.total} masalah.
+              </p>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={onLoadMoreIssues}
+                disabled={loadingIssues}
+              >
+                {loadingIssues ? 'Memuat Detail...' : 'Muat Masalah Berikutnya'}
+              </button>
+            </div>
+          )}
         </div>
       )}
 
@@ -162,7 +216,13 @@ export default function UploadStep2({
           disabled={!canCommit || committing}
         >
           <FileCheck size={16} />
-          <span>{committing ? 'Menyimpan ke Database...' : 'Simpan & Terapkan Data Tagihan'}</span>
+          <span>
+            {committing
+              ? 'Menyimpan ke Database...'
+              : critical
+                ? 'Simpan Baris Aman & Karantina Masalah'
+                : 'Simpan & Terapkan Data Tagihan'}
+          </span>
         </button>
       </div>
     </div>

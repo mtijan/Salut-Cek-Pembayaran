@@ -6,7 +6,21 @@ import { templateApi } from '../../services/masterApi';
  * Step 1 UploadPage: dropzone + file picker + template download.
  * Props: file, analyzing, onFileChange, onAnalyze
  */
-export default function UploadStep1({ file, analyzing, onFileChange, onAnalyze }) {
+export default function UploadStep1({
+  file,
+  analyzing,
+  billingYear,
+  semesterType,
+  onBillingYearChange,
+  onSemesterTypeChange,
+  onFileChange,
+  onAnalyze,
+}) {
+  const periodCode = billingYear ? `${billingYear}.${semesterType === 'genap' ? '2' : '1'}` : '-';
+  const periodLabel = billingYear
+    ? `${billingYear} ${semesterType === 'genap' ? 'Genap' : 'Ganjil'}`
+    : '-';
+
   return (
     <div className="panel-card">
       <div className="upload-header-row">
@@ -24,6 +38,41 @@ export default function UploadStep1({ file, analyzing, onFileChange, onAnalyze }
           <Download size={15} />
           <span>Unduh Template Master Data (.xlsx)</span>
         </a>
+      </div>
+
+      <div className="upload-period-panel">
+        <div className="upload-period-fields">
+          <div className="form-group upload-period-field">
+            <label htmlFor="billing-year">Tahun Tagihan</label>
+            <input
+              id="billing-year"
+              className="form-control"
+              type="number"
+              min="2000"
+              max="2100"
+              value={billingYear}
+              onChange={onBillingYearChange}
+              required
+            />
+          </div>
+          <div className="form-group upload-period-field">
+            <label htmlFor="semester-type">Semester</label>
+            <select
+              id="semester-type"
+              className="form-control"
+              value={semesterType}
+              onChange={onSemesterTypeChange}
+            >
+              <option value="ganjil">Ganjil</option>
+              <option value="genap">Genap</option>
+            </select>
+          </div>
+        </div>
+        <div className="upload-period-preview" aria-live="polite">
+          <span>Periode yang akan dikunci pada preview</span>
+          <strong>{periodLabel}</strong>
+          <code>{periodCode}</code>
+        </div>
       </div>
 
       <div className="upload-dropzone-box">

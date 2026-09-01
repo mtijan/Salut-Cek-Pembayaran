@@ -20,6 +20,7 @@ from Backend.app.services.billing_commands import (
 from Backend.app.services.billing_queries import (
     bill_filter_clause as bill_filter_clause,
     count_bills as count_bills,
+    count_import_issues as count_import_issues,
     get_bill_detail as get_bill_detail,
     get_bills_summary as get_bills_summary,
     list_bills as list_bills,
@@ -31,6 +32,7 @@ __all__ = [
     "bill_filter_clause",
     "bulk_update_bill_activation",
     "count_bills",
+    "count_import_issues",
     "create_bill",
     "delete_bill",
     "delete_imported_bill_group",

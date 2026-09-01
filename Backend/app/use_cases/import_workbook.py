@@ -3,21 +3,21 @@
 from __future__ import annotations
 
 import sqlite3
+import uuid
 from pathlib import Path
 from typing import Any, cast
 
 from Backend.app.repositories.imports import ImportRepository
 from Backend.app.repositories.students import StudentRepository
-from Backend.db import database_transaction, parse_entry_registration, resolve_study_program_id
+from Backend.db import database_transaction, ensure_academic_period, parse_entry_registration, resolve_study_program_id
 from Backend.excel_reader import (
     clean_demographic_value,
     clean_excel_text,
     normalize_imported_name,
     normalize_name,
     normalize_nim,
-    read_sheet,
 )
-from Backend.importing.workbook import DEFAULT_INSTRUCTIONS, _normalize_briva, _require_headers
+from Backend.importing.workbook import DEFAULT_INSTRUCTIONS
 
 
 def _import_student_profile(row: dict[str, object]) -> dict[str, object]:
@@ -62,18 +62,6 @@ def _upsert_import_student(conn: sqlite3.Connection, row: dict[str, object]) -> 
     return student_id
 
 
-def _issue_from_sheet(record: dict[str, str], sheet_name: str) -> dict[str, object]:
-    return {
-        "sheet_name": sheet_name,
-        "row_number": int(record.get("_row_number") or 0),
-        "nim": normalize_nim(record.get("NIM")),
-        "full_name": clean_excel_text(record.get("Nama Mahasiswa")),
-        "briva": _normalize_briva(record.get("BRIVA")),
-        "amount": clean_excel_text(record.get("Jumlah")),
-        "note": clean_excel_text(record.get("Keterangan")) or "Data belum lengkap.",
-    }
-
-
 def commit_analyzed_workbook(
     workbook: Path,
     db_path: str | Path,
@@ -82,22 +70,73 @@ def commit_analyzed_workbook(
     source_file: str,
     bill_type: str,
     actor_id: str | None,
+    import_token: str | None,
+    file_sha256: str,
+    period_code: str,
+    period_label: str,
+    billing_year: int | None,
+    semester_type: str | None,
 ) -> dict[str, object]:
     """Commit analyzed actions, issues, and audit metadata in one transaction."""
     issues = 0
     created = 0
     updated = 0
     issue_details: list[dict[str, object]] = []
+    batch_id = f"batch_{uuid.uuid4().hex}"
+    all_issues = cast(list[dict[str, object]], analysis.get("_issues") or [])
+    warning_count = sum(1 for issue in all_issues if issue.get("severity") == "warning")
+    critical_count = sum(1 for issue in all_issues if issue.get("severity") == "critical")
+    quarantined = int(cast(Any, analysis.get("quarantined_rows") or 0))
+    expected_created = int(cast(Any, analysis.get("new_rows") or 0))
+    expected_updated = int(cast(Any, analysis.get("update_rows") or 0))
+    unchanged = int(cast(Any, analysis.get("unchanged_rows") or 0))
+    if expected_created + expected_updated == 0 and unchanged == 0:
+        batch_status = "issues_only"
+    elif all_issues:
+        batch_status = "completed_with_issues"
+    else:
+        batch_status = "completed"
 
     with database_transaction(db_path) as conn:
         repository = ImportRepository(conn)
-        repository.clear_issues(source_file)
-        for issue in cast(list[dict[str, object]], analysis["_skipped_issues"]):
-            repository.store_issue(issue, source_file)
+        ensure_academic_period(conn, period_code, default_name=period_label)
+        batch_admin_id = actor_id
+        if batch_admin_id and not repository.admin_exists(batch_admin_id):
+            batch_admin_id = None
+        repository.create_batch(
+            batch_id=batch_id,
+            import_token=import_token,
+            admin_id=batch_admin_id,
+            source_file=source_file,
+            file_sha256=file_sha256,
+            period_code=period_code,
+            period_label=period_label,
+            billing_year=billing_year,
+            semester_type=semester_type,
+            status=batch_status,
+            created=expected_created,
+            updated=expected_updated,
+            unchanged=unchanged,
+            quarantined=quarantined,
+            warning_count=warning_count,
+            critical_count=critical_count,
+        )
+        for issue in all_issues:
+            repository.store_issue(issue, source_file, batch_id=batch_id, period_code=period_code)
             issues += 1
             if len(issue_details) < 5:
                 issue_details.append(
-                    {"sheet": issue["sheet_name"], "row_number": issue["row_number"], "note": issue["note"]}
+                    {
+                        "sheet": issue.get("sheet_name") or issue.get("sheet"),
+                        "row_number": issue["row_number"],
+                        "severity": issue.get("severity") or "warning",
+                        "issue_code": issue.get("issue_code") or "IMPORT_VALIDATION_ISSUE",
+                        "nim": issue.get("nim") or "",
+                        "full_name": issue.get("full_name") or "",
+                        "briva": issue.get("briva") or "",
+                        "amount": issue.get("amount") or "",
+                        "note": issue.get("note") or issue.get("message"),
+                    }
                 )
 
         for action in cast(list[dict[str, object]], analysis["actions"]):
@@ -122,6 +161,7 @@ def commit_analyzed_workbook(
                     due_date=due_date,
                     source_file=source_file,
                     row_number=row_number,
+                    import_batch_id=batch_id,
                 )
                 created += 1
             else:
@@ -136,19 +176,9 @@ def commit_analyzed_workbook(
                     due_date=due_date,
                     source_file=source_file,
                     row_number=row_number,
+                    import_batch_id=batch_id,
                 )
                 updated += 1
-
-        layout = _require_headers(workbook)
-        if layout.issue_sheet:
-            for record in read_sheet(workbook, layout.issue_sheet):
-                issues += 1
-                issue = _issue_from_sheet(record, layout.issue_sheet)
-                repository.store_issue(issue, source_file)
-                if len(issue_details) < 5:
-                    issue_details.append(
-                        {"sheet": issue["sheet_name"], "row_number": issue["row_number"], "note": issue["note"]}
-                    )
 
         if actor_id:
             from Backend.app.services import audit as _audit
@@ -157,16 +187,33 @@ def commit_analyzed_workbook(
                 conn,
                 actor_id,
                 "import.commit",
-                "excel_import",
-                source_file,
-                {"file_name": source_file, "created": created, "updated": updated, "issues": issues},
+                "import_batch",
+                batch_id,
+                {
+                    "file_name": source_file,
+                    "file_sha256": file_sha256,
+                    "period_code": period_code,
+                    "status": batch_status,
+                    "created": created,
+                    "updated": updated,
+                    "unchanged": unchanged,
+                    "quarantined": quarantined,
+                    "warning_count": warning_count,
+                    "critical_count": critical_count,
+                },
             )
 
     return {
+        "batch_id": batch_id,
+        "status": batch_status,
+        "period": {"code": period_code, "label": period_label},
         "imported": created + updated,
         "created": created,
         "updated": updated,
-        "unchanged": int(cast(Any, analysis["unchanged_rows"])),
+        "unchanged": unchanged,
         "issues": issues,
+        "quarantined": quarantined,
+        "warning_count": warning_count,
+        "critical_count": critical_count,
         "issue_details": issue_details,
     }

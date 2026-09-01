@@ -1,7 +1,7 @@
 """SQLite database connectivity, schema initialization, and migration management.
 
 This module provides SQLite connection factories, connection/transaction context managers,
-schema version migrations (v1 to v6), entry registration period parsing, and study program resolution.
+schema version migrations (v1 to v7), entry registration period parsing, and study program resolution.
 """
 
 from __future__ import annotations
@@ -16,7 +16,7 @@ from typing import Callable, Iterator
 BASE_DIR = Path(__file__).resolve().parent
 DEFAULT_DB_PATH = BASE_DIR / "data" / "salut.sqlite"
 SCHEMA_PATH = BASE_DIR / "schema.sql"
-LATEST_SCHEMA_VERSION = 6
+LATEST_SCHEMA_VERSION = 7
 
 
 def resolve_db_path(db_path: str | Path = DEFAULT_DB_PATH) -> Path:
@@ -163,6 +163,11 @@ def migrate_schema_v6(conn: sqlite3.Connection) -> None:
     migrate_bills_for_activation(conn)
 
 
+def migrate_schema_v7(conn: sqlite3.Connection) -> None:
+    """Add import batches, immutable preview periods, and row-level issue quarantine."""
+    migrate_import_batches_and_issues(conn)
+
+
 def _table_sql(conn: sqlite3.Connection, table: str) -> str:
     row = conn.execute("select sql from sqlite_master where type = 'table' and name = ?", (table,)).fetchone()
     return str(row["sql"] or "") if row else ""
@@ -239,6 +244,98 @@ def migrate_import_preview_claims(conn: sqlite3.Connection) -> None:
         conn.execute("alter table import_previews add column claim_id text")
     if "claimed_at" not in columns:
         conn.execute("alter table import_previews add column claimed_at text")
+
+
+def migrate_import_batches_and_issues(conn: sqlite3.Connection) -> None:
+    """Install additive schema used by period-bound partial Excel imports."""
+    # Some early databases were stamped at v2 while containing only the tables
+    # needed by that release. Replaying the idempotent schema definitions first
+    # restores any missing baseline tables before the additive ALTER statements.
+    _execute_sql_script(conn, SCHEMA_PATH.read_text(encoding="utf-8"))
+
+    preview_columns = _table_columns(conn, "import_previews")
+    for column, sql_type in (
+        ("file_sha256", "text"),
+        ("period_code", "text"),
+        ("period_label", "text"),
+        ("billing_year", "integer"),
+        ("semester_type", "text"),
+    ):
+        if column not in preview_columns:
+            conn.execute(f"alter table import_previews add column {column} {sql_type}")
+
+    conn.execute(
+        """
+        create table if not exists import_batches (
+          id text primary key,
+          import_token text unique,
+          admin_id text references admin_users(id) on delete set null,
+          source_file text not null,
+          file_sha256 text not null,
+          period_code text not null,
+          period_label text not null,
+          billing_year integer,
+          semester_type text,
+          status text not null check (status in ('completed', 'completed_with_issues', 'issues_only')),
+          created_count integer not null default 0,
+          updated_count integer not null default 0,
+          unchanged_count integer not null default 0,
+          quarantined_count integer not null default 0,
+          warning_count integer not null default 0,
+          critical_count integer not null default 0,
+          created_at text not null default (datetime('now')),
+          committed_at text not null default (datetime('now'))
+        )
+        """
+    )
+
+    issue_columns = _table_columns(conn, "import_issues")
+    for column, sql_type in (
+        ("batch_id", "text references import_batches(id) on delete cascade"),
+        ("severity", "text not null default 'warning'"),
+        ("issue_code", "text not null default 'LEGACY_IMPORT_ISSUE'"),
+        ("period_code", "text"),
+        ("resolution_status", "text not null default 'open'"),
+        ("resolved_at", "text"),
+        ("resolved_by", "text"),
+        ("resolution_note", "text"),
+    ):
+        if column not in issue_columns:
+            conn.execute(f"alter table import_issues add column {column} {sql_type}")
+
+    conn.execute(
+        """
+        create table if not exists import_preview_issues (
+          id text primary key,
+          token text not null references import_previews(token) on delete cascade,
+          sheet_name text not null,
+          row_number integer not null,
+          severity text not null check (severity in ('warning', 'critical')),
+          issue_code text not null,
+          nim text,
+          full_name text,
+          briva text,
+          amount text,
+          note text not null,
+          created_at text not null default (datetime('now'))
+        )
+        """
+    )
+
+    bill_columns = _table_columns(conn, "bills")
+    if "import_batch_id" not in bill_columns:
+        conn.execute(
+            "alter table bills add column import_batch_id text references import_batches(id) on delete set null"
+        )
+
+    conn.execute("create index if not exists idx_import_batches_period on import_batches(period_code, committed_at)")
+    conn.execute(
+        "create index if not exists idx_import_issues_batch on import_issues(batch_id, severity, resolution_status, row_number)"
+    )
+    conn.execute(
+        "create index if not exists idx_import_preview_issues_token on import_preview_issues(token, severity, row_number)"
+    )
+    conn.execute("create index if not exists idx_bills_import_batch on bills(import_batch_id)")
 
 
 def migrate_due_date_backfill_ledger(conn: sqlite3.Connection) -> None:
@@ -791,4 +888,5 @@ MIGRATIONS: dict[int, Callable[[sqlite3.Connection], None]] = {
     4: migrate_schema_v4,
     5: migrate_schema_v5,
     6: migrate_schema_v6,
+    7: migrate_schema_v7,
 }

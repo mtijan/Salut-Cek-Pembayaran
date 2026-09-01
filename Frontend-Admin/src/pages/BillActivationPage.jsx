@@ -101,7 +101,6 @@ export default function BillActivationPage({
               const count = result?.updated_count ?? 0;
               const actionText = isActive ? 'diaktifkan kembali' : 'dinonaktifkan';
               showToast(`${count} tagihan berhasil ${actionText}.`, 'success');
-              goBack();
             }}
           />
         </section>

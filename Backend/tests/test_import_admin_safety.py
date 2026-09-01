@@ -28,6 +28,160 @@ from Backend.tests.test_base import BackendBaseTestCase
 
 
 class ImportAdminSafetyTests(BackendBaseTestCase):
+    def test_commit_rejects_workbook_changed_after_preview(self) -> None:
+        from Backend.app.security import hash_password
+        from Backend.app.services import store_import_preview
+
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            temp = Path(temporary_directory)
+            database = temp / "salut.sqlite"
+            imports = temp / "imports"
+            imports.mkdir()
+            token = "imp_eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+            workbook = imports / f"{token}_changed.xlsx"
+            self._write_workbook(workbook, [("01111", "File Berubah", "81111", 100000)])
+            migrate_database(database)
+            conn = connect(database)
+            with conn:
+                conn.execute(
+                    "insert into admin_users (id, email, password_hash, role) values (?, ?, ?, ?)",
+                    ("admin-changed", "changed@imp.test", hash_password("Password123!"), "admin"),
+                )
+            conn.close()
+
+            original_db_path = app_config.DB_PATH
+            original_import_dir = app_config.IMPORT_DIR
+            app_config.DB_PATH = database
+            app_config.IMPORT_DIR = imports
+            client: TestClient | None = None
+            try:
+                store_import_preview(
+                    token,
+                    "admin-changed",
+                    "changed.xlsx",
+                    workbook,
+                    file_sha256="0" * 64,
+                    period_code="2026.2",
+                    period_label="2026 Genap",
+                    billing_year=2026,
+                    semester_type="genap",
+                )
+                client = TestClient(server.app)
+                client.post(
+                    "/api/admin/login",
+                    json={"email": "changed@imp.test", "password": "Password123!"},
+                )
+                response = client.post("/api/admin/import/commit", json={"import_token": token})
+                self.assertEqual(response.status_code, 409)
+                self.assertEqual(response.json()["error"]["code"], "IMPORT_FILE_CHANGED")
+                verify = sqlite3.connect(database)
+                try:
+                    self.assertEqual(verify.execute("select count(*) from bills").fetchone()[0], 0)
+                    self.assertEqual(
+                        verify.execute("select count(*) from import_previews where token = ?", (token,)).fetchone()[0],
+                        1,
+                    )
+                finally:
+                    verify.close()
+            finally:
+                if client:
+                    client.close()
+                app_config.DB_PATH = original_db_path
+                app_config.IMPORT_DIR = original_import_dir
+
+    def test_preview_binds_period_and_commit_quarantines_critical_rows(self) -> None:
+        from Backend.app.security import hash_password
+
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            temp = Path(temporary_directory)
+            database = temp / "salut.sqlite"
+            imports = temp / "imports"
+            imports.mkdir()
+            workbook = temp / "period-bound.xlsx"
+            self._write_workbook(
+                workbook,
+                [
+                    ("01101", "Konflik API Satu", "80101", 100000),
+                    ("01102", "Konflik API Dua", "80101", 100000),
+                    ("01103", "Aman API", "80102", 125000),
+                ],
+            )
+            migrate_database(database)
+            conn = connect(database)
+            with conn:
+                conn.execute(
+                    "insert into admin_users (id, email, password_hash, role) values (?, ?, ?, ?)",
+                    ("admin-period", "period@imp.test", hash_password("Password123!"), "admin"),
+                )
+            conn.close()
+
+            original_db_path = app_config.DB_PATH
+            original_import_dir = app_config.IMPORT_DIR
+            app_config.DB_PATH = database
+            app_config.IMPORT_DIR = imports
+            client: TestClient | None = None
+            try:
+                client = TestClient(server.app)
+                login = client.post(
+                    "/api/admin/login",
+                    json={"email": "period@imp.test", "password": "Password123!"},
+                )
+                self.assertEqual(login.status_code, 200)
+                with workbook.open("rb") as source:
+                    preview_response = client.post(
+                        "/api/admin/import/preview",
+                        data={"billing_year": "2026", "semester_type": "genap"},
+                        files={
+                            "file": (
+                                workbook.name,
+                                source,
+                                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                            )
+                        },
+                    )
+                self.assertEqual(preview_response.status_code, 200)
+                preview = preview_response.json()["data"]
+                self.assertEqual(preview["period"]["code"], "2026.2")
+                self.assertEqual(preview["period"]["label"], "2026 Genap")
+                self.assertEqual(preview["critical_rows"], 2)
+                self.assertEqual(preview["new_rows"], 1)
+                self.assertEqual(preview["issues"][0]["severity"], "critical")
+
+                issues_response = client.get(
+                    f"/api/admin/import/previews/{preview['import_token']}/issues",
+                    params={"severity": "critical"},
+                )
+                self.assertEqual(issues_response.status_code, 200)
+                issue_data = issues_response.json()["data"]
+                self.assertEqual(issue_data["pagination"]["total"], 2)
+                self.assertEqual(issue_data["issues"][0]["nim"], "01101")
+
+                committed_response = client.post(
+                    "/api/admin/import/commit",
+                    json={"import_token": preview["import_token"]},
+                )
+                self.assertEqual(committed_response.status_code, 200)
+                committed = committed_response.json()["data"]
+                self.assertEqual(committed["period"]["code"], "2026.2")
+                self.assertEqual(committed["status"], "completed_with_issues")
+                self.assertEqual(committed["created"], 1)
+                self.assertEqual(committed["quarantined"], 2)
+
+                verify = sqlite3.connect(database)
+                try:
+                    self.assertEqual(
+                        verify.execute("select period from bills").fetchone()[0],
+                        "2026.2",
+                    )
+                    self.assertEqual(verify.execute("select count(*) from import_issues").fetchone()[0], 2)
+                finally:
+                    verify.close()
+            finally:
+                if client:
+                    client.close()
+                app_config.DB_PATH = original_db_path
+                app_config.IMPORT_DIR = original_import_dir
+
     def test_current_customer_workbook_cleans_excel_markers_without_changing_due_date(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
             temp = Path(temporary_directory)

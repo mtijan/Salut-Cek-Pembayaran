@@ -18,11 +18,25 @@ from Backend.app.services import (
 )
 from import_excel import import_workbook, preview_workbook
 from db import migrate_database
+from Backend.importing.workbook import build_billing_period
 from fastapi.testclient import TestClient
 from Backend.tests.test_base import BackendBaseTestCase
 
 
 class ImportWorkbookTests(BackendBaseTestCase):
+    def test_billing_period_builder_uses_canonical_code_and_label(self) -> None:
+        self.assertEqual(
+            build_billing_period("2026", "genap"),
+            {
+                "code": "2026.2",
+                "label": "2026 Genap",
+                "billing_year": 2026,
+                "semester_type": "genap",
+            },
+        )
+        with self.assertRaisesRegex(ValueError, "Tahun tagihan"):
+            build_billing_period("26", "ganjil")
+
     def test_workbook_preview_has_no_critical_rows(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
             workbook = Path(temporary_directory) / "preview.xlsx"
@@ -158,6 +172,117 @@ class ImportWorkbookTests(BackendBaseTestCase):
             preview = preview_workbook(workbook)
             self.assertGreater(preview["critical_rows"], 0)
             self.assertEqual(preview["duplicate_briva_conflict_rows"], 2)
+
+    def test_critical_rows_are_quarantined_while_safe_rows_are_committed(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            temp = Path(temporary_directory)
+            database = temp / "partial-import.xlsx.sqlite"
+            workbook = temp / "partial-import.xlsx"
+            migrate_database(database)
+            self._write_workbook(
+                workbook,
+                [
+                    ("01021", "Konflik Satu", "70001", 100000),
+                    ("01022", "Konflik Dua", "70001", 100000),
+                    ("01023", "Baris Aman", "70002", 150000),
+                ],
+            )
+
+            preview = preview_workbook(workbook, database, period="2026.2")
+            self.assertEqual(preview["critical_rows"], 2)
+            self.assertEqual(preview["quarantined_rows"], 2)
+            self.assertEqual(preview["new_rows"], 1)
+            self.assertEqual(preview["issues"][0]["nim"], "01021")
+            self.assertEqual(preview["issues"][0]["briva"], "70001")
+
+            result = import_workbook(workbook, database, period="2026.2")
+            self.assertEqual(result["status"], "completed_with_issues")
+            self.assertEqual(result["created"], 1)
+            self.assertEqual(result["critical_count"], 2)
+            self.assertEqual(result["quarantined"], 2)
+
+            conn = sqlite3.connect(database)
+            try:
+                bills = conn.execute("select briva, period, import_batch_id from bills").fetchall()
+                issues = conn.execute(
+                    "select severity, issue_code, nim, briva, period_code, batch_id from import_issues order by row_number"
+                ).fetchall()
+                batch = conn.execute(
+                    "select status, created_count, quarantined_count, period_code from import_batches"
+                ).fetchone()
+            finally:
+                conn.close()
+            self.assertEqual(len(bills), 1)
+            self.assertEqual(bills[0][:2], ("70002", "2026.2"))
+            self.assertTrue(bills[0][2])
+            self.assertEqual(len(issues), 2)
+            self.assertTrue(all(issue[0] == "critical" for issue in issues))
+            self.assertTrue(all(issue[1] == "CROSS_NIM_BRIVA_IN_FILE" for issue in issues))
+            self.assertTrue(all(issue[4] == "2026.2" and issue[5] for issue in issues))
+            self.assertEqual(batch, ("completed_with_issues", 1, 2, "2026.2"))
+
+            from Backend.app.services import count_import_issues, list_import_issues
+
+            self.assertEqual(count_import_issues(database, severity="critical"), 2)
+            filtered = list_import_issues(database, severity="critical", query="Konflik Satu")
+            self.assertEqual(len(filtered), 1)
+            self.assertEqual(filtered[0]["nim"], "01021")
+            self.assertEqual(filtered[0]["period_code"], "2026.2")
+            with self.assertRaisesRegex(ValueError, "Severity"):
+                list_import_issues(database, severity="invalid")
+
+    def test_all_critical_rows_create_issue_only_batch_without_bills(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            temp = Path(temporary_directory)
+            database = temp / "issues-only.sqlite"
+            workbook = temp / "issues-only.xlsx"
+            migrate_database(database)
+            self._write_workbook(
+                workbook,
+                [
+                    ("01031", "Konflik Satu", "71001", 100000),
+                    ("01032", "Konflik Dua", "71001", 100000),
+                ],
+            )
+
+            result = import_workbook(workbook, database, period="2026.1")
+            self.assertEqual(result["status"], "issues_only")
+            self.assertEqual(result["created"], 0)
+            self.assertEqual(result["quarantined"], 2)
+
+            conn = sqlite3.connect(database)
+            try:
+                self.assertEqual(conn.execute("select count(*) from bills").fetchone()[0], 0)
+                self.assertEqual(conn.execute("select count(*) from import_issues").fetchone()[0], 2)
+                self.assertEqual(
+                    conn.execute("select status from import_batches").fetchone()[0],
+                    "issues_only",
+                )
+            finally:
+                conn.close()
+
+    def test_same_source_row_can_create_a_new_bill_in_another_period(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            temp = Path(temporary_directory)
+            database = temp / "multi-period.sqlite"
+            workbook = temp / "same-file.xlsx"
+            migrate_database(database)
+            self._write_workbook(workbook, [("01041", "Lintas Periode", "72001", 100000)])
+
+            first = import_workbook(workbook, database, period="2026.1")
+            second_preview = preview_workbook(workbook, database, period="2026.2")
+            second = import_workbook(workbook, database, period="2026.2")
+
+            self.assertEqual(first["created"], 1)
+            self.assertEqual(second_preview["critical_rows"], 0)
+            self.assertEqual(second_preview["new_rows"], 1)
+            self.assertEqual(second["created"], 1)
+            conn = sqlite3.connect(database)
+            try:
+                periods = [row[0] for row in conn.execute("select period from bills order by period").fetchall()]
+            finally:
+                conn.close()
+            self.assertEqual(periods, ["2026.1", "2026.2"])
 
     def test_same_nim_with_same_briva_imports_multiple_bills_idempotently(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:

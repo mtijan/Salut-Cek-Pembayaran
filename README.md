@@ -26,6 +26,13 @@ Project ini menggabungkan portal publik yang sederhana dengan dashboard admin be
 - Pengelolaan program studi serta periode akademik.
 - Kontrol akses berbasis role dan pencatatan aktivitas admin.
 
+### Import Parsial dan Periode Tagihan
+
+- Upload mewajibkan tahun dan semester tagihan; contoh `2026 + Genap` menjadi `2026.2` / `2026 Genap` dan periode dikunci pada token preview.
+- Baris aman tetap diproses ketika file memiliki warning/critical, sedangkan baris tidak aman dikarantina dan ditampilkan sebagai tabel detail kepada admin.
+- File terstruktur yang seluruh barisnya bermasalah dicatat sebagai batch `issues_only` tanpa membuat tagihan invalid.
+- Implementasi dan test telah diverifikasi lokal pada 2026-09-01; status Git/remote/staging/UAT/production belum dibuktikan. Detail requirement, schema/API, diagram, test, dan residual terdapat pada `docs/29-import-partial-commit-and-billing-period-plan.md`.
+
 ## Nilai Teknis
 
 - Migrasi database SQLite dijalankan secara versioned.
@@ -96,7 +103,7 @@ Salut-Cek-Pembayaran/
 │   ├── salut.db
 │   └── samples/                 # Sample workbook lokal & data import
 ├── deploy/                      # Unit systemd & template konfigurasi Nginx
-├── docs/                        # Dokumentasi internal & rencana remediasi (00-27)
+├── docs/                        # Dokumentasi internal & rencana implementasi (00-29)
 ├── scripts/                     # Skrip penjaminan kualitas, keamanan, dan developer
 │   ├── dev/                     # Utilitas developer lokal
 │   ├── quality/                 # Validasi inventory test & dependensi lock

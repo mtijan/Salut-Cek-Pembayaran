@@ -1,7 +1,7 @@
 """OpenAPI specification generator and schema definitions for Salut Cek Pembayaran.
 
 This module builds a comprehensive, schema-accurate OpenAPI 3.1 specification for all
-34 paths and 45 operations, defining exact query parameters, request bodies,
+35 paths and 46 operations, defining exact query parameters, request bodies,
 cookie-based security schemes, and standardized error response models without
 advertising unused 422 HTTPValidationError schemas.
 """
@@ -14,8 +14,8 @@ from fastapi import FastAPI
 
 from Backend.app.version import APP_VERSION
 
-EXPECTED_OPENAPI_PATHS = 34
-EXPECTED_OPENAPI_OPERATIONS = 45
+EXPECTED_OPENAPI_PATHS = 35
+EXPECTED_OPENAPI_OPERATIONS = 46
 
 
 def build_custom_openapi(app: FastAPI) -> dict[str, Any]:
@@ -931,10 +931,40 @@ def build_custom_openapi(app: FastAPI) -> dict[str, Any]:
                 "security": sec_cookie,
                 "parameters": [
                     {
+                        "name": "batch_id",
+                        "in": "query",
+                        "required": False,
+                        "schema": {"type": "string"},
+                    },
+                    {
+                        "name": "severity",
+                        "in": "query",
+                        "required": False,
+                        "schema": {"type": "string", "enum": ["warning", "critical"]},
+                    },
+                    {
+                        "name": "resolution_status",
+                        "in": "query",
+                        "required": False,
+                        "schema": {"type": "string", "enum": ["open", "resolved", "ignored"]},
+                    },
+                    {
+                        "name": "query",
+                        "in": "query",
+                        "required": False,
+                        "schema": {"type": "string"},
+                    },
+                    {
+                        "name": "page",
+                        "in": "query",
+                        "required": False,
+                        "schema": {"type": "integer", "minimum": 1, "default": 1},
+                    },
+                    {
                         "name": "limit",
                         "in": "query",
                         "required": False,
-                        "schema": {"type": "integer", "default": 500},
+                        "schema": {"type": "integer", "minimum": 1, "maximum": 200, "default": 50},
                         "description": "Max issues to return",
                     },
                 ],
@@ -1177,13 +1207,24 @@ def build_custom_openapi(app: FastAPI) -> dict[str, Any]:
                         "multipart/form-data": {
                             "schema": {
                                 "type": "object",
-                                "required": ["file"],
+                                "required": ["file", "billing_year", "semester_type"],
                                 "properties": {
                                     "file": {
                                         "type": "string",
                                         "format": "binary",
                                         "description": "Excel (.xlsx) workbook file (max 5 MB)",
-                                    }
+                                    },
+                                    "billing_year": {
+                                        "type": "integer",
+                                        "minimum": 2000,
+                                        "maximum": 2100,
+                                        "example": 2026,
+                                    },
+                                    "semester_type": {
+                                        "type": "string",
+                                        "enum": ["ganjil", "genap"],
+                                        "example": "genap",
+                                    },
                                 },
                             }
                         }
@@ -1200,6 +1241,62 @@ def build_custom_openapi(app: FastAPI) -> dict[str, Any]:
                     "401": resp_401,
                     "403": resp_403,
                     "429": resp_429,
+                },
+            }
+        },
+        "/api/admin/import/previews/{import_token}/issues": {
+            "get": {
+                "tags": ["Excel Import"],
+                "summary": "List Import Preview Issues",
+                "description": (
+                    "List structured row-level preview issues for the owning administrator, "
+                    "ordered with critical rows first. The preview period remains immutable."
+                ),
+                "operationId": "list_import_preview_issues",
+                "security": sec_cookie,
+                "parameters": [
+                    {
+                        "name": "import_token",
+                        "in": "path",
+                        "required": True,
+                        "schema": {"type": "string"},
+                    },
+                    {
+                        "name": "severity",
+                        "in": "query",
+                        "required": False,
+                        "schema": {"type": "string", "enum": ["warning", "critical"]},
+                    },
+                    {
+                        "name": "query",
+                        "in": "query",
+                        "required": False,
+                        "schema": {"type": "string"},
+                    },
+                    {
+                        "name": "page",
+                        "in": "query",
+                        "required": False,
+                        "schema": {"type": "integer", "minimum": 1, "default": 1},
+                    },
+                    {
+                        "name": "limit",
+                        "in": "query",
+                        "required": False,
+                        "schema": {"type": "integer", "minimum": 1, "maximum": 200, "default": 50},
+                    },
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Paginated Preview Issues",
+                        "content": {
+                            "application/json": {"schema": {"$ref": "#/components/schemas/ImportIssuesResponse"}}
+                        },
+                    },
+                    "400": resp_400,
+                    "401": resp_401,
+                    "403": resp_403,
+                    "404": resp_404,
                 },
             }
         },
@@ -2047,11 +2144,28 @@ def build_custom_openapi(app: FastAPI) -> dict[str, Any]:
                 "success": {"type": "boolean", "example": True},
                 "data": {
                     "type": "object",
-                    "required": ["issues"],
+                    "required": ["issues", "pagination"],
                     "properties": {
-                        "issues": {"type": "array", "items": {"type": "object"}},
+                        "issues": {"type": "array", "items": {"$ref": "#/components/schemas/ImportIssue"}},
+                        "pagination": {"$ref": "#/components/schemas/Pagination"},
                     },
                 },
+            },
+        },
+        "ImportIssue": {
+            "type": "object",
+            "required": ["sheet_name", "row_number", "severity", "issue_code"],
+            "properties": {
+                "sheet_name": {"type": "string"},
+                "row_number": {"type": "integer"},
+                "severity": {"type": "string", "enum": ["warning", "critical"]},
+                "issue_code": {"type": "string"},
+                "nim": {"type": ["string", "null"]},
+                "full_name": {"type": ["string", "null"]},
+                "briva": {"type": ["string", "null"]},
+                "amount": {"type": ["string", "null"]},
+                "message": {"type": ["string", "null"]},
+                "note": {"type": ["string", "null"]},
             },
         },
         "StudyProgramsListResponse": {
@@ -2163,14 +2277,19 @@ def build_custom_openapi(app: FastAPI) -> dict[str, Any]:
                         "import_token": {"type": "string", "example": "imp_0123456789abcdef0123456789abcdef"},
                         "file_name": {"type": "string", "example": "Data_Tagihan_2026.xlsx"},
                         "valid_rows": {"type": "integer"},
+                        "safe_rows": {"type": "integer"},
                         "critical_rows": {"type": "integer"},
+                        "warning_rows": {"type": "integer"},
+                        "quarantined_rows": {"type": "integer"},
                         "issue_rows": {"type": "integer"},
                         "new_rows": {"type": "integer"},
                         "update_rows": {"type": "integer"},
                         "unchanged_rows": {"type": "integer"},
                         "amount_change_rows": {"type": "integer"},
                         "briva_change_rows": {"type": "integer"},
-                        "issues": {"type": "array", "items": {"type": "object"}},
+                        "issues": {"type": "array", "items": {"$ref": "#/components/schemas/ImportIssue"}},
+                        "period": {"type": "object"},
+                        "issue_pagination": {"$ref": "#/components/schemas/Pagination"},
                     },
                 },
             },
@@ -2190,13 +2309,26 @@ def build_custom_openapi(app: FastAPI) -> dict[str, Any]:
                 "success": {"type": "boolean", "example": True},
                 "data": {
                     "type": "object",
-                    "required": ["imported_count", "file_name"],
+                    "required": ["batch_id", "status", "period", "created", "updated", "unchanged"],
                     "properties": {
-                        "imported_count": {"type": "integer"},
-                        "file_name": {"type": "string"},
-                        "new_students": {"type": "integer"},
-                        "updated_bills": {"type": "integer"},
-                        "new_bills": {"type": "integer"},
+                        "batch_id": {"type": "string"},
+                        "status": {
+                            "type": "string",
+                            "enum": ["completed", "completed_with_issues", "issues_only"],
+                        },
+                        "period": {"type": "object"},
+                        "imported": {"type": "integer"},
+                        "created": {"type": "integer"},
+                        "updated": {"type": "integer"},
+                        "unchanged": {"type": "integer"},
+                        "issues": {"type": "integer"},
+                        "quarantined": {"type": "integer"},
+                        "warning_count": {"type": "integer"},
+                        "critical_count": {"type": "integer"},
+                        "issue_details": {
+                            "type": "array",
+                            "items": {"$ref": "#/components/schemas/ImportIssue"},
+                        },
                     },
                 },
             },

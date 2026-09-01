@@ -10,16 +10,21 @@ export default function UploadStep3({ commitResult, onReset, onNavigate, onManag
     { label: 'Data Baru', value: commitResult?.created || 0, textClass: 'text-brand' },
     { label: 'Data Diperbarui', value: commitResult?.updated || 0, textClass: 'text-accent' },
     { label: 'Tidak Berubah', value: commitResult?.unchanged || 0, textClass: 'text-muted' },
-    { label: 'Catatan / Warning', value: commitResult?.issues || 0, textClass: 'text-amber' },
+    { label: 'Baris Dikarantina', value: commitResult?.quarantined || 0, textClass: 'text-danger' },
   ];
 
   return (
     <div className="panel-card upload-success-panel">
       <CheckCircle2 size={54} className="text-success upload-success-icon" />
-      <h3 className="upload-success-title">Import Data Berhasil!</h3>
+      <h3 className="upload-success-title">
+        {commitResult?.status === 'issues_only'
+          ? 'Masalah Import Tersimpan'
+          : 'Import Data Berhasil!'}
+      </h3>
       <p className="upload-success-desc">
-        Data mahasiswa dan tagihan dari file Excel telah berhasil diverifikasi dan disimpan secara
-        permanen ke dalam database.
+        Batch {commitResult?.batch_id || '-'} untuk periode{' '}
+        <strong>{commitResult?.period?.label || commitResult?.period?.code || '-'}</strong> telah
+        disimpan. Baris bermasalah tetap tercatat tanpa membentuk tagihan yang tidak aman.
       </p>
 
       <div className="upload-metrics-cards-grid">

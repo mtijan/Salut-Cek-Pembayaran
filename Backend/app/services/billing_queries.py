@@ -145,20 +145,90 @@ def get_bills_summary(
     }
 
 
-def list_import_issues(db_path: str | Path = config.DB_PATH, limit: int = 500) -> list[dict[str, object]]:
+def _import_issue_filter(
+    *, batch_id: str = "", severity: str = "", resolution_status: str = "", query: str = ""
+) -> tuple[str, list[object]]:
+    clauses: list[str] = []
+    params: list[object] = []
+    if batch_id.strip():
+        clauses.append("i.batch_id = ?")
+        params.append(batch_id.strip())
+    if severity.strip():
+        normalized = severity.strip().casefold()
+        if normalized not in {"warning", "critical"}:
+            raise ValueError("Severity issue tidak valid.")
+        clauses.append("i.severity = ?")
+        params.append(normalized)
+    if resolution_status.strip():
+        normalized_status = resolution_status.strip().casefold()
+        if normalized_status not in {"open", "resolved", "ignored"}:
+            raise ValueError("Status penyelesaian issue tidak valid.")
+        clauses.append("i.resolution_status = ?")
+        params.append(normalized_status)
+    if query.strip():
+        clauses.append(
+            "(i.nim like ? or i.full_name like ? or i.briva like ? or i.amount like ? or i.issue_code like ? or i.note like ?)"
+        )
+        like = f"%{query.strip()}%"
+        params.extend([like, like, like, like, like, like])
+    return (" where " + " and ".join(clauses) if clauses else ""), params
+
+
+def list_import_issues(
+    db_path: str | Path = config.DB_PATH,
+    limit: int = 500,
+    *,
+    offset: int = 0,
+    batch_id: str = "",
+    severity: str = "",
+    resolution_status: str = "",
+    query: str = "",
+) -> list[dict[str, object]]:
     """Retrieve recorded import validation warnings and anomalies."""
     limit = max(1, min(int(limit or 500), 2000))
+    offset = max(0, int(offset or 0))
+    where, params = _import_issue_filter(
+        batch_id=batch_id,
+        severity=severity,
+        resolution_status=resolution_status,
+        query=query,
+    )
     with database_connection(db_path) as conn:
         rows = conn.execute(
-            """
-            select id, source_file, sheet_name, row_number, nim, full_name, briva, amount, note, created_at
-            from import_issues
-            order by created_at desc, source_file asc, row_number asc
-            limit ?
+            f"""
+            select i.id, i.batch_id, i.source_file, i.period_code, i.sheet_name, i.row_number,
+                   i.severity, i.issue_code, i.nim, i.full_name, i.briva, i.amount, i.note,
+                   i.resolution_status, i.resolved_at, i.resolution_note, i.created_at,
+                   b.period_label, b.status as batch_status
+            from import_issues i
+            left join import_batches b on b.id = i.batch_id
+            {where}
+            order by case i.severity when 'critical' then 0 else 1 end,
+                     i.created_at desc, i.source_file asc, i.row_number asc
+            limit ? offset ?
             """,
-            (limit,),
+            (*params, limit, offset),
         ).fetchall()
     return [dict(row) for row in rows]
+
+
+def count_import_issues(
+    db_path: str | Path = config.DB_PATH,
+    *,
+    batch_id: str = "",
+    severity: str = "",
+    resolution_status: str = "",
+    query: str = "",
+) -> int:
+    """Count import issues using the same filter contract as the paginated list."""
+    where, params = _import_issue_filter(
+        batch_id=batch_id,
+        severity=severity,
+        resolution_status=resolution_status,
+        query=query,
+    )
+    with database_connection(db_path) as conn:
+        return int(conn.execute(f"select count(*) from import_issues i {where}", params).fetchone()[0])
 
 
 def get_bill_detail(db_path: str | Path, bill_id: str) -> dict[str, object] | None:

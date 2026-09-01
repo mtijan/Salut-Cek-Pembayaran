@@ -86,6 +86,47 @@
   margin: 6px auto 20px;
 }
 
+.upload-period-panel {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 16px;
+  margin-bottom: 20px;
+  border: 1px solid var(--line, #e2e8f0);
+  border-radius: var(--radius-md, 8px);
+  background: #f8fafc;
+}
+
+.upload-period-fields {
+  display: flex;
+  gap: 12px;
+  flex: 1;
+}
+
+.upload-period-field {
+  flex: 1;
+  margin-bottom: 0;
+}
+
+.upload-period-preview {
+  display: grid;
+  gap: 3px;
+  min-width: 220px;
+  color: var(--muted, #64748b);
+  font-size: 12px;
+}
+
+.upload-period-preview strong {
+  color: var(--ink, #0f172a);
+  font-size: 16px;
+}
+
+.upload-period-preview code {
+  width: fit-content;
+  color: var(--brand-strong, #047857);
+}
+
 .upload-selected-file-info {
   margin-top: 20px;
 }
@@ -113,6 +154,75 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
+}
+
+.upload-issue-help {
+  margin-bottom: 12px;
+}
+
+.upload-issues-table-wrap {
+  max-height: 430px;
+  overflow: auto;
+}
+
+.upload-issues-table {
+  min-width: 980px;
+}
+
+.upload-issue-badge {
+  display: inline-flex;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.upload-issue-badge.critical {
+  color: var(--danger, #991b1b);
+  background: var(--danger-bg, #fef2f2);
+}
+
+.upload-issue-badge.warning {
+  color: #92400e;
+  background: #fef3c7;
+}
+
+.upload-issue-row,
+.upload-issue-message {
+  display: block;
+  margin-top: 3px;
+  color: var(--muted, #64748b);
+}
+
+.upload-issue-code {
+  font-size: 11px;
+  color: var(--ink, #0f172a);
+}
+
+.upload-issue-footnote {
+  margin: 0;
+  color: var(--muted, #64748b);
+  font-size: 12px;
+}
+
+.upload-issue-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+@media (max-width: 720px) {
+  .upload-period-panel,
+  .upload-period-fields {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .upload-period-preview {
+    min-width: 0;
+  }
 }
 
 .upload-issue-entry {
