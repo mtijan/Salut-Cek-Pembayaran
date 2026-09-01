@@ -18,10 +18,11 @@ Project ini menggabungkan portal publik yang sederhana dengan dashboard admin be
 
 - Dashboard ringkasan mahasiswa, tagihan, penerimaan, dan piutang.
 - Pengelolaan data mahasiswa dan tagihan.
+- Aktivasi/nonaktivasi tagihan individual dan massal per periode/program studi tanpa menghapus histori.
 - Pencatatan pembayaran parsial maupun lunas.
 - Riwayat transaksi pembayaran per mahasiswa dan tagihan.
 - Import workbook Excel melalui proses upload, preview, validasi, dan commit.
-- Rekapitulasi keuangan berdasarkan program studi dan periode.
+- Rekapitulasi keuangan historis berdasarkan program studi dan periode, termasuk tagihan nonaktif.
 - Pengelolaan program studi serta periode akademik.
 - Kontrol akses berbasis role dan pencatatan aktivitas admin.
 
@@ -60,7 +61,7 @@ Salut-Cek-Pembayaran/
 │   │   ├── main.py              # Composition root FastAPI & middleware keamanan
 │   │   └── security.py          # Session & password hashing
 │   ├── importing/               # Parser & analisis validasi import Excel
-│   ├── tests/                   # 21 modul test backend (155 unit/integration tests)
+│   ├── tests/                   # Suite unit/integration backend
 │   ├── backup_sqlite.py         # Skrip backup SQLite hot
 │   ├── verify_backup.py         # Verifikasi integrity/schema/restore-smoke backup
 │   ├── due_date_backfill.py     # Dry-run/apply/rollback due date historis
@@ -90,7 +91,7 @@ Salut-Cek-Pembayaran/
 │   ├── salut.db
 │   └── samples/                 # Sample workbook lokal & data import
 ├── deploy/                      # Unit systemd & template konfigurasi Nginx
-├── docs/                        # Dokumentasi internal & rencana remediasi (00-26)
+├── docs/                        # Dokumentasi internal & rencana remediasi (00-27)
 ├── scripts/                     # Skrip penjaminan kualitas, keamanan, dan developer
 │   ├── dev/                     # Utilitas developer lokal
 │   ├── quality/                 # Validasi inventory test & dependensi lock
