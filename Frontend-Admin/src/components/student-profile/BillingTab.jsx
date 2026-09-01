@@ -1,5 +1,5 @@
 import React from 'react';
-import { Check, Copy, CreditCard, Plus } from 'lucide-react';
+import { Check, Copy, CreditCard, Plus, Power, PowerOff } from 'lucide-react';
 
 export function BillingTab({
   bills,
@@ -7,6 +7,7 @@ export function BillingTab({
   copiedKey,
   navigateTo,
   onCopy,
+  onToggleActivation,
   studentName,
 }) {
   return (
@@ -47,6 +48,7 @@ export function BillingTab({
                 <th className="text-right">Sisa</th>
                 <th>Jatuh Tempo</th>
                 <th>Status</th>
+                <th>Aktivasi</th>
                 <th className="text-center">Aksi</th>
               </tr>
             </thead>
@@ -95,18 +97,41 @@ export function BillingTab({
                           : 'BELUM BAYAR'}
                     </span>
                   </td>
+                  <td>
+                    <span
+                      className={`badge ${bill.is_active !== false ? 'badge-success' : 'badge-neutral'}`}
+                    >
+                      {bill.is_active !== false ? 'AKTIF' : 'NONAKTIF'}
+                    </span>
+                  </td>
                   <td className="text-center">
-                    {canManageBilling && (
-                      <button
-                        type="button"
-                        className="btn btn-sm btn-brand"
-                        onClick={() => navigateTo('bill-payment', { billId: bill.id })}
-                        title="Catat Pembayaran Tagihan Ini"
-                      >
-                        <CreditCard size={13} />
-                        <span>Bayar</span>
-                      </button>
-                    )}
+                    <div className="flex-row-gap-6">
+                      {canManageBilling && bill.is_active !== false && (
+                        <button
+                          type="button"
+                          className="btn btn-sm btn-brand"
+                          onClick={() => navigateTo('bill-payment', { billId: bill.id })}
+                          title="Catat Pembayaran Tagihan Ini"
+                        >
+                          <CreditCard size={13} />
+                          <span>Bayar</span>
+                        </button>
+                      )}
+                      {canManageBilling && (
+                        <button
+                          type="button"
+                          className={`btn btn-sm ${bill.is_active !== false ? 'btn-secondary' : 'btn-primary'}`}
+                          onClick={() => onToggleActivation(bill)}
+                          title={
+                            bill.is_active !== false
+                              ? 'Nonaktifkan Tagihan'
+                              : 'Aktifkan Kembali Tagihan'
+                          }
+                        >
+                          {bill.is_active !== false ? <PowerOff size={13} /> : <Power size={13} />}
+                        </button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}

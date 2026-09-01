@@ -20,6 +20,7 @@ export const billsApi = {
     if (params.period) query.set('period', params.period);
     if (params.bill_type) query.set('bill_type', params.bill_type);
     if (params.entry_period) query.set('entry_period', params.entry_period);
+    if (params.activation) query.set('activation', params.activation);
     if (params.sort_by) query.set('sort_by', params.sort_by);
     if (params.limit) query.set('limit', String(params.limit));
     if (params.offset) query.set('offset', String(params.offset));
@@ -69,6 +70,27 @@ export const billsApi = {
     apiFetch(`/admin/bills/${id}`, {
       ...options,
       method: 'PATCH',
+      body: JSON.stringify(data),
+    }),
+
+  updateActivation: (id, data, options = {}) =>
+    apiFetch(`/admin/bills/${id}/activation`, {
+      ...options,
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    }),
+
+  previewActivation: (data, options = {}) =>
+    apiFetch('/admin/bills/activation/preview', {
+      ...options,
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  bulkUpdateActivation: (data, options = {}) =>
+    apiFetch('/admin/bills/activation/bulk', {
+      ...options,
+      method: 'POST',
       body: JSON.stringify(data),
     }),
 

@@ -71,6 +71,7 @@ const bills = students.slice(0, 3).map((student, index) => ({
   remaining_amount: index === 0 ? 0 : 750000,
   remaining_amount_formatted: index === 0 ? 'Rp 0' : 'Rp 750.000',
   status: index === 0 ? 'paid' : 'partial',
+  is_active: true,
   source: 'manual',
   due_date_formatted: '31 Desember 2026',
 }));
@@ -294,6 +295,30 @@ async function installApiMocks(page, currentAdmin = admin, behavior = {}) {
           unpaid_count: 0,
         },
       });
+    }
+    if (path === '/api/admin/bills/activation/preview' && method === 'POST') {
+      return fulfillJson(route, {
+        scope: request.postDataJSON() || {},
+        summary: {
+          total_count: 2,
+          student_count: 2,
+          total_amount: 2000000,
+          total_paid: 500000,
+          total_remaining: 1500000,
+          paid_count: 0,
+          partial_count: 2,
+          unpaid_count: 0,
+        },
+      });
+    }
+    if (path === '/api/admin/bills/activation/bulk' && method === 'POST') {
+      return fulfillJson(route, { updated_count: 2, summary: { total_count: 2 } });
+    }
+    const billActivationMatch = path.match(/^\/api\/admin\/bills\/([^/]+)\/activation$/);
+    if (billActivationMatch && method === 'PATCH') {
+      const targetBill = bills.find((bill) => bill.id === billActivationMatch[1]);
+      if (targetBill) targetBill.is_active = Boolean(request.postDataJSON()?.is_active);
+      return fulfillJson(route, { bill: targetBill });
     }
     const billDetailMatch = path.match(/^\/api\/admin\/bills\/([^/]+)$/);
     if (billDetailMatch && method === 'GET') {
@@ -632,6 +657,73 @@ test('master data flow: switch prodi dan periode tab, open create modal, form va
   await page.getByRole('button', { name: 'Tambah Periode Akademik' }).click();
   await expect(page.getByRole('heading', { name: 'Tambah Periode Akademik' })).toBeVisible();
   await page.getByRole('button', { name: 'Batal' }).click();
+});
+
+test('bill activation flow: individual toggle and master period bulk entry point', async ({
+  page,
+}) => {
+  await installApiMocks(page);
+  await page.goto('/admin');
+  await page.getByRole('button', { name: 'Tagihan Mahasiswa', exact: true }).click();
+
+  const bulkButton = page.getByRole('button', { name: 'Kelola Aktivasi Massal' });
+  await expect(bulkButton).toBeEnabled();
+  await bulkButton.click();
+  let activationPage = page.locator('.activation-page-container');
+  await expect(
+    activationPage.getByRole('heading', { name: 'Kelola Aktivasi Tagihan Massal' }),
+  ).toBeVisible();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  expect(
+    await activationPage.evaluate((element) => element.scrollWidth > element.clientWidth + 1),
+  ).toBe(false);
+  await activationPage.getByLabel('Periode Tagihan').selectOption('20261');
+  await activationPage.getByLabel('Program Studi', { exact: true }).selectOption('prodi-1');
+  await activationPage.getByLabel('Mode Scope').selectOption('all');
+  await activationPage.getByRole('button', { name: 'Tampilkan Preview Dampak' }).click();
+  await expect(activationPage.getByText(/2 tagihan/)).toBeVisible();
+  await activationPage
+    .getByPlaceholder(/Periode lama ditutup/)
+    .fill('Penutupan massal browser test');
+  await activationPage.getByRole('button', { name: 'Nonaktifkan Tagihan', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Tagihan Mahasiswa', level: 1 })).toBeVisible();
+
+  await page.getByTitle('Status Aktivasi Tagihan').selectOption('inactive');
+  await bulkButton.click();
+  activationPage = page.locator('.activation-page-container');
+  await expect(activationPage.getByLabel('Aksi Aktivasi')).toHaveValue('active');
+  await activationPage.getByLabel('Periode Tagihan').selectOption('20261');
+  await activationPage.getByLabel('Program Studi', { exact: true }).selectOption('prodi-1');
+  await activationPage.getByRole('button', { name: 'Tampilkan Preview Dampak' }).click();
+  await activationPage
+    .getByPlaceholder(/Periode lama ditutup/)
+    .fill('Aktivasi massal browser test');
+  await activationPage.getByRole('button', { name: 'Aktifkan Tagihan', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Tagihan Mahasiswa', level: 1 })).toBeVisible();
+
+  await page.getByTitle('Status Aktivasi Tagihan').selectOption('active');
+
+  await expect(page.getByText('Aktif', { exact: true }).first()).toBeVisible();
+  await page.getByTitle('Nonaktifkan Tagihan', { exact: true }).first().click();
+  await expect(page.getByRole('heading', { name: 'Nonaktifkan Tagihan' })).toBeVisible();
+  await page.getByPlaceholder(/Periode lama ditutup/).fill('Browser test penutupan periode');
+  await page
+    .getByRole('dialog')
+    .getByRole('button', { name: 'Nonaktifkan Tagihan', exact: true })
+    .click();
+
+  await page.getByRole('button', { name: 'Master Data', exact: true }).click();
+  await page.getByRole('button', { name: /Master Periode Akademik/ }).click();
+  await page.getByRole('button', { name: 'Kelola Tagihan' }).first().click();
+  activationPage = page.locator('.activation-page-container');
+  await expect(
+    activationPage.getByRole('heading', { name: 'Kelola Aktivasi Tagihan Massal' }),
+  ).toBeVisible();
+  await expect(activationPage.getByLabel('Periode Tagihan')).toHaveValue('20261');
+  await expect(activationPage.getByLabel('Periode Tagihan')).toBeDisabled();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await activationPage.getByRole('button', { name: 'Batal' }).click();
+  await expect(page.getByText('Daftar Periode / Semester Akademik')).toBeVisible();
 });
 
 test('negative and empty states: search empty results dan api error handling', async ({ page }) => {

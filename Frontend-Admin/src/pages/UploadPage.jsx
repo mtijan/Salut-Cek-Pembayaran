@@ -7,7 +7,7 @@ import UploadStep1 from '../components/upload/UploadStep1';
 import UploadStep2 from '../components/upload/UploadStep2';
 import UploadStep3 from '../components/upload/UploadStep3';
 
-export default function UploadPage({ setActiveView }) {
+export default function UploadPage({ navigateTo }) {
   const { can } = useAuth();
   const u = useUploadPage();
 
@@ -54,7 +54,8 @@ export default function UploadPage({ setActiveView }) {
         <UploadStep3
           commitResult={u.commitResult}
           onReset={u.handleReset}
-          onNavigate={() => setActiveView('students')}
+          onNavigate={() => navigateTo('students')}
+          onManageBills={() => navigateTo('bill-activation', { returnView: 'bills' })}
         />
       )}
     </div>

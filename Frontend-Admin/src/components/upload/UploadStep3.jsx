@@ -1,11 +1,11 @@
 import React from 'react';
-import { CheckCircle2, ArrowRight } from 'lucide-react';
+import { CheckCircle2, ArrowRight, PowerOff } from 'lucide-react';
 
 /**
  * Step 3 UploadPage: success state dengan 4 metric card dan navigation buttons.
  * Props: commitResult, onReset, onNavigate
  */
-export default function UploadStep3({ commitResult, onReset, onNavigate }) {
+export default function UploadStep3({ commitResult, onReset, onNavigate, onManageBills }) {
   const metrics = [
     { label: 'Data Baru', value: commitResult?.created || 0, textClass: 'text-brand' },
     { label: 'Data Diperbarui', value: commitResult?.updated || 0, textClass: 'text-accent' },
@@ -31,9 +31,21 @@ export default function UploadStep3({ commitResult, onReset, onNavigate }) {
         ))}
       </div>
 
+      <div className="modal-alert-warning mb-3">
+        <PowerOff size={18} />
+        <span>
+          Import tidak menonaktifkan tagihan lama secara otomatis. Tinjau tagihan periode lama jika
+          semester baru sudah diterbitkan.
+        </span>
+      </div>
+
       <div className="upload-buttons-center">
         <button type="button" className="btn btn-secondary" onClick={onReset}>
           Import File Lain
+        </button>
+        <button type="button" className="btn btn-secondary" onClick={onManageBills}>
+          <PowerOff size={16} />
+          <span>Kelola Tagihan Lama</span>
         </button>
         <button type="button" className="btn btn-primary" onClick={onNavigate}>
           <span>Lihat Data Mahasiswa</span>

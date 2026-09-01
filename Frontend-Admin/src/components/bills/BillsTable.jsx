@@ -9,6 +9,7 @@ export default function BillsTable({
   stats,
   copiedKey,
   hasActiveFilter,
+  selectedActivation,
   pagination,
   canManage,
   actions,
@@ -23,7 +24,11 @@ export default function BillsTable({
             Menampilkan <strong>{bills.length}</strong> baris dari total{' '}
             <strong>{totalCount.toLocaleString('id-ID')}</strong> tagihan milik{' '}
             <strong>{stats.studentCount.toLocaleString('id-ID')}</strong> mahasiswa
-            {hasActiveFilter ? ' (sesuai filter yang diterapkan)' : ' (seluruh data)'}
+            {hasActiveFilter
+              ? ' (sesuai filter yang diterapkan)'
+              : selectedActivation === 'active'
+                ? ' (tagihan aktif)'
+                : ' (seluruh data)'}
           </span>
         </span>
         <span className="cell-xs text-muted font-semibold">

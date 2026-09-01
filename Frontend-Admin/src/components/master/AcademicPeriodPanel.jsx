@@ -1,12 +1,14 @@
 import React from 'react';
-import { Plus, Edit2, CheckCircle2 } from 'lucide-react';
+import { Plus, Edit2, CheckCircle2, Power } from 'lucide-react';
 
 export default function AcademicPeriodPanel({
   periods = [],
   loading = false,
   canManage = false,
+  canManageBilling = false,
   onOpenCreate,
   onOpenEdit,
+  onManageBills,
 }) {
   return (
     <div className="panel-card">
@@ -70,16 +72,29 @@ export default function AcademicPeriodPanel({
                       )}
                     </td>
                     <td className="text-right">
-                      {canManage && (
-                        <button
-                          type="button"
-                          className="btn btn-secondary btn-sm"
-                          onClick={() => onOpenEdit(p)}
-                        >
-                          <Edit2 size={14} />
-                          <span>Edit</span>
-                        </button>
-                      )}
+                      <div className="table-action-cell">
+                        {canManageBilling && (
+                          <button
+                            type="button"
+                            className="btn btn-primary btn-sm"
+                            onClick={() => onManageBills(p)}
+                            title="Aktifkan atau nonaktifkan tagihan pada periode ini"
+                          >
+                            <Power size={14} />
+                            <span>Kelola Tagihan</span>
+                          </button>
+                        )}
+                        {canManage && (
+                          <button
+                            type="button"
+                            className="btn btn-secondary btn-sm"
+                            onClick={() => onOpenEdit(p)}
+                          >
+                            <Edit2 size={14} />
+                            <span>Edit Master</span>
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 );

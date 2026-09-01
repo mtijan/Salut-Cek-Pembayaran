@@ -1,5 +1,5 @@
 import React from 'react';
-import { Plus, RefreshCw, Search, X } from 'lucide-react';
+import { Plus, PowerOff, RefreshCw, Search, X } from 'lucide-react';
 import FilterChips from '../common/FilterChips';
 
 export default function BillsFilters({
@@ -43,6 +43,24 @@ export default function BillsFilters({
             <RefreshCw size={15} />
             <span>Segarkan</span>
           </button>
+          {canManage && (
+            <button
+              type="button"
+              className="btn btn-danger btn-fixed-h"
+              onClick={() =>
+                navigateTo?.('bill-activation', {
+                  returnView: 'bills',
+                  period: filters.selectedPeriod,
+                  studyProgramId: filters.selectedProdi,
+                  initialIsActive: filters.selectedActivation === 'inactive',
+                })
+              }
+              title="Kelola status tagihan secara massal"
+            >
+              <PowerOff size={15} />
+              <span>Kelola Aktivasi Massal</span>
+            </button>
+          )}
           {canManage && (
             <button
               type="button"
@@ -104,6 +122,16 @@ export default function BillsFilters({
           <option value="unpaid">Belum Lunas</option>
           <option value="partial">Bayar Sebagian</option>
           <option value="paid">Lunas</option>
+        </select>
+        <select
+          className="select-filter select-status"
+          value={filters.selectedActivation}
+          onChange={(event) => actions.setSelectedActivation(event.target.value)}
+          title="Status Aktivasi Tagihan"
+        >
+          <option value="active">Tagihan Aktif</option>
+          <option value="inactive">Tagihan Nonaktif</option>
+          <option value="all">Semua Aktivasi</option>
         </select>
         <select
           className="select-filter select-sort"

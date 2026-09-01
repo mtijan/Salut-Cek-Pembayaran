@@ -47,6 +47,9 @@ test('billsApi exports all required billing methods', () => {
   assert.equal(typeof billsApi.updateStatus, 'function');
   assert.equal(typeof billsApi.create, 'function');
   assert.equal(typeof billsApi.update, 'function');
+  assert.equal(typeof billsApi.updateActivation, 'function');
+  assert.equal(typeof billsApi.previewActivation, 'function');
+  assert.equal(typeof billsApi.bulkUpdateActivation, 'function');
   assert.equal(typeof billsApi.delete, 'function');
   assert.equal(typeof billsApi.getDetail, 'function');
   assert.equal(typeof billsApi.recordPayment, 'function');

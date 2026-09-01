@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useState } from 'react';
+import BillActivationModal from '../components/bills/BillActivationModal';
 import { BillingTab } from '../components/student-profile/BillingTab';
 import { ProfileTab } from '../components/student-profile/ProfileTab';
 import { StatisticsTab } from '../components/student-profile/StatisticsTab';
@@ -9,6 +10,7 @@ import { StudentProfileTabs } from '../components/student-profile/StudentProfile
 import { TransactionHistoryTab } from '../components/student-profile/TransactionHistoryTab';
 import { useAuth } from '../context/AuthContext';
 import { useStudentProfile } from '../hooks/useStudentProfile';
+import { useToast } from '../components/common/Toast';
 
 function ProfileLoadingState() {
   return (
@@ -21,6 +23,8 @@ function ProfileLoadingState() {
 
 export default function StudentProfilePage({ studentId, initialTab = 'profile', navigateTo }) {
   const { can } = useAuth();
+  const { showToast } = useToast();
+  const [activationTarget, setActivationTarget] = useState(null);
   const profile = useStudentProfile({ studentId, initialTab });
 
   if (profile.loading && !profile.data) return <ProfileLoadingState />;
@@ -87,6 +91,7 @@ export default function StudentProfilePage({ studentId, initialTab = 'profile', 
                 copiedKey={profile.copiedKey}
                 navigateTo={navigateTo}
                 onCopy={profile.handleCopy}
+                onToggleActivation={setActivationTarget}
                 studentName={student.full_name}
               />
             )}
@@ -113,6 +118,15 @@ export default function StudentProfilePage({ studentId, initialTab = 'profile', 
           </div>
         </div>
       </div>
+      <BillActivationModal
+        isOpen={Boolean(activationTarget)}
+        targetBill={activationTarget}
+        onClose={() => setActivationTarget(null)}
+        onApplied={async () => {
+          showToast('Status aktivasi tagihan berhasil diperbarui.', 'success');
+          await profile.fetchStudentData();
+        }}
+      />
     </div>
   );
 }

@@ -20,11 +20,13 @@ export function useBillsPage() {
   const [selectedPeriod, setSelectedPeriod] = useState('');
   const [selectedEntryPeriod, setSelectedEntryPeriod] = useState('');
   const [selectedStatus, setSelectedStatus] = useState('');
+  const [selectedActivation, setSelectedActivation] = useState('active');
   const [sortBy, setSortBy] = useState('updated_desc');
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [historyTarget, setHistoryTarget] = useState(null);
   const [historyList, setHistoryList] = useState([]);
   const [historyLoading, setHistoryLoading] = useState(false);
+  const [activationTarget, setActivationTarget] = useState(null);
   const totalPages = Number(serverPagination.total_pages) || Math.ceil(totalCount / PAGE_SIZE) || 1;
   const { page, setPage } = usePagination(totalPages);
   const { prodis, periods, reloadMasterOptions } = useMasterOptions(
@@ -50,6 +52,7 @@ export function useBillsPage() {
           period: selectedPeriod,
           entry_period: selectedEntryPeriod,
           status: selectedStatus,
+          activation: selectedActivation,
           sort_by: sortBy,
           limit: PAGE_SIZE,
           offset: (page - 1) * PAGE_SIZE,
@@ -81,6 +84,7 @@ export function useBillsPage() {
     selectedPeriod,
     selectedEntryPeriod,
     selectedStatus,
+    selectedActivation,
     sortBy,
     page,
     showToast,
@@ -148,6 +152,7 @@ export function useBillsPage() {
     setSelectedPeriod('');
     setSelectedEntryPeriod('');
     setSelectedStatus('');
+    setSelectedActivation('active');
     setSortBy('updated_desc');
     setPage(1);
   };
@@ -157,6 +162,7 @@ export function useBillsPage() {
     selectedPeriod ||
     selectedEntryPeriod ||
     selectedStatus ||
+    selectedActivation !== 'active' ||
     sortBy !== 'updated_desc',
   );
   const activeProdi = prodis.find((item) => item.id === selectedProdi);
@@ -197,6 +203,12 @@ export function useBillsPage() {
             : 'Belum Lunas',
       onRemove: () => updateFilter(setSelectedStatus, ''),
     },
+    selectedActivation !== 'active' && {
+      key: 'activation',
+      label: 'Aktivasi',
+      value: selectedActivation === 'inactive' ? 'Nonaktif' : 'Semua',
+      onRemove: () => updateFilter(setSelectedActivation, 'active'),
+    },
     sortBy !== 'updated_desc' && {
       key: 'sort',
       label: 'Urutan',
@@ -230,6 +242,13 @@ export function useBillsPage() {
     }
   };
 
+  const handleActivationApplied = async (result) => {
+    const count = Number(result?.updated_count || (result?.bill ? 1 : 0));
+    showToast(`${count || 1} tagihan berhasil diperbarui status aktivasinya.`, 'success');
+    setActivationTarget(null);
+    await fetchBills();
+  };
+
   return {
     bills,
     loading,
@@ -238,17 +257,27 @@ export function useBillsPage() {
     copiedKey,
     hasActiveFilter,
     activeFilterChips,
-    filters: { query, selectedProdi, selectedPeriod, selectedEntryPeriod, selectedStatus, sortBy },
+    filters: {
+      query,
+      selectedProdi,
+      selectedPeriod,
+      selectedEntryPeriod,
+      selectedStatus,
+      selectedActivation,
+      sortBy,
+    },
     options: { prodis, periods },
     pagination: { page, totalPages, pageSize: PAGE_SIZE, setPage },
     history: { target: historyTarget, list: historyList, loading: historyLoading },
     deleteTarget,
+    activation: { target: activationTarget },
     actions: {
       setQuery: (value) => updateFilter(setQuery, value),
       setSelectedProdi: (value) => updateFilter(setSelectedProdi, value),
       setSelectedPeriod: (value) => updateFilter(setSelectedPeriod, value),
       setSelectedEntryPeriod: (value) => updateFilter(setSelectedEntryPeriod, value),
       setSelectedStatus: (value) => updateFilter(setSelectedStatus, value),
+      setSelectedActivation: (value) => updateFilter(setSelectedActivation, value),
       setSortBy: (value) => updateFilter(setSortBy, value),
       selectAllStatus: () => updateFilter(setSelectedStatus, ''),
       togglePaidStatus: () =>
@@ -269,6 +298,11 @@ export function useBillsPage() {
       closeHistory: () => setHistoryTarget(null),
       setDeleteTarget,
       confirmDelete,
+      setActivationTarget,
+      closeActivation: () => {
+        setActivationTarget(null);
+      },
+      handleActivationApplied,
     },
   };
 }

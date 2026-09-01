@@ -1,5 +1,15 @@
 import React from 'react';
-import { Calendar, Check, Clock, Copy, CreditCard, Edit2, Trash2 } from 'lucide-react';
+import {
+  Calendar,
+  Check,
+  Clock,
+  Copy,
+  CreditCard,
+  Edit2,
+  Power,
+  PowerOff,
+  Trash2,
+} from 'lucide-react';
 import { formatRupiah } from '../../utils/currency';
 import StatusBadge from '../common/StatusBadge';
 
@@ -7,6 +17,7 @@ export default function BillTableRow({ bill, copiedKey, canManage, actions, navi
   const amount = Number(bill.amount) || 0;
   const paid = Number(bill.paid_amount) || 0;
   const percentage = amount > 0 ? Math.min(100, Math.round((paid / amount) * 100)) : 0;
+  const isActive = bill.is_active !== false;
   return (
     <tr className="table-row-modern">
       <td>
@@ -38,6 +49,9 @@ export default function BillTableRow({ bill, copiedKey, canManage, actions, navi
         <div className="flex-column-gap-3">
           <span className="period-badge">{bill.period}</span>
           <span className="cell-prodi">{bill.bill_type || 'UKT'}</span>
+          <span className={`badge ${isActive ? 'badge-success' : 'badge-neutral'}`}>
+            {isActive ? 'Aktif' : 'Nonaktif'}
+          </span>
         </div>
       </td>
       <td>
@@ -117,7 +131,7 @@ export default function BillTableRow({ bill, copiedKey, canManage, actions, navi
       </td>
       <td className="text-right whitespace-nowrap">
         <div className="table-action-cell">
-          {canManage && (
+          {canManage && isActive && (
             <button
               type="button"
               className="btn btn-primary btn-sm btn-action-pay"
@@ -138,13 +152,23 @@ export default function BillTableRow({ bill, copiedKey, canManage, actions, navi
           </button>
           {canManage && (
             <>
+              {isActive && (
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-sm btn-action-icon"
+                  onClick={() => navigateTo?.('bill-edit', { billId: bill.id })}
+                  title="Edit Data Pokok Tagihan (Halaman Penuh)"
+                >
+                  <Edit2 size={13} />
+                </button>
+              )}
               <button
                 type="button"
-                className="btn btn-secondary btn-sm btn-action-icon"
-                onClick={() => navigateTo?.('bill-edit', { billId: bill.id })}
-                title="Edit Data Pokok Tagihan (Halaman Penuh)"
+                className={`btn btn-sm btn-action-icon ${isActive ? 'btn-secondary' : 'btn-primary'}`}
+                onClick={() => actions.setActivationTarget(bill)}
+                title={isActive ? 'Nonaktifkan Tagihan' : 'Aktifkan Kembali Tagihan'}
               >
-                <Edit2 size={13} />
+                {isActive ? <PowerOff size={13} /> : <Power size={13} />}
               </button>
               <button
                 type="button"

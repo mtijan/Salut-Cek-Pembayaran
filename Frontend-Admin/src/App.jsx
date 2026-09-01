@@ -9,6 +9,7 @@ import StudentProfilePage from './pages/StudentProfilePage';
 import BillsPage from './pages/BillsPage';
 import BillPaymentPage from './pages/BillPaymentPage';
 import BillEditPage from './pages/BillEditPage';
+import BillActivationPage from './pages/BillActivationPage';
 import ReportsPage from './pages/ReportsPage';
 import FilesPage from './pages/FilesPage';
 import UploadPage from './pages/UploadPage';
@@ -100,10 +101,22 @@ export default function App() {
               navigateTo={navigateTo}
             />
           )}
+          {activeView === 'bill-activation' && (
+            <BillActivationPage
+              fixedPeriod={viewParams.period || ''}
+              initialProdi={viewParams.studyProgramId || ''}
+              initialIsActive={Boolean(viewParams.initialIsActive)}
+              returnView={viewParams.returnView || 'bills'}
+              returnParams={viewParams.returnParams || {}}
+              navigateTo={navigateTo}
+            />
+          )}
           {activeView === 'reports' && <ReportsPage navigateTo={navigateTo} />}
           {activeView === 'files' && <FilesPage />}
-          {activeView === 'upload' && <UploadPage setActiveView={(view) => navigateTo(view, {})} />}
-          {activeView === 'master' && <MasterPage />}
+          {activeView === 'upload' && <UploadPage navigateTo={navigateTo} />}
+          {activeView === 'master' && (
+            <MasterPage initialTab={viewParams.initialTab || 'prodi'} navigateTo={navigateTo} />
+          )}
           {activeView === 'users' && <UsersPage />}
           {activeView === 'audit-logs' && <AuditLogsPage />}
         </main>

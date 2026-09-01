@@ -86,6 +86,10 @@ export function useBillPayment({ billId }) {
 
   const handleSubmitPayment = async (e) => {
     e.preventDefault();
+    if (bill.is_active === false) {
+      setFormError('Tagihan nonaktif harus diaktifkan kembali sebelum menerima pembayaran.');
+      return;
+    }
     if (remainingAmount <= 0 || bill.status === 'paid') {
       setFormError('Tagihan ini sudah lunas.');
       return;

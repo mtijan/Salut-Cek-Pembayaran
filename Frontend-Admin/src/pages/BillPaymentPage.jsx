@@ -10,6 +10,7 @@ import {
   Phone,
   GraduationCap,
   Wifi,
+  AlertTriangle,
 } from 'lucide-react';
 import { useBillPayment } from '../hooks/useBillPayment';
 import PaymentForm from '../components/billing/PaymentForm';
@@ -260,33 +261,46 @@ export default function BillPaymentPage({ billId, navigateTo }) {
 
         {/* Right Column: Payment Form & Ledger */}
         <div className="payment-right-col">
-          <PaymentForm
-            bill={p.bill}
-            remainingAmount={p.remainingAmount}
-            totalAmount={p.totalAmount}
-            paymentMode={p.paymentMode}
-            paymentAmount={p.paymentAmount}
-            setPaymentAmount={p.setPaymentAmount}
-            paymentDate={p.paymentDate}
-            setPaymentDate={p.setPaymentDate}
-            paymentMethod={p.paymentMethod}
-            setPaymentMethod={p.setPaymentMethod}
-            referenceNumber={p.referenceNumber}
-            setReferenceNumber={p.setReferenceNumber}
-            notes={p.notes}
-            setNotes={p.setNotes}
-            confirmFull={p.confirmFull}
-            setConfirmFull={p.setConfirmFull}
-            formError={p.formError}
-            formSuccess={p.formSuccess}
-            submitting={p.submitting}
-            numericPayment={p.numericPayment}
-            newRemaining={p.newRemaining}
-            willBePaid={p.willBePaid}
-            handleModeChange={p.handleModeChange}
-            handleQuickAmount={p.handleQuickAmount}
-            handleSubmitPayment={p.handleSubmitPayment}
-          />
+          {p.bill.is_active === false ? (
+            <div className="panel-card modal-alert-warning">
+              <AlertTriangle size={20} />
+              <div>
+                <strong>Tagihan ini sedang nonaktif.</strong>
+                <p>
+                  Aktifkan kembali tagihan dari Bills Page atau Profil 360 sebelum mencatat
+                  pembayaran.
+                </p>
+              </div>
+            </div>
+          ) : (
+            <PaymentForm
+              bill={p.bill}
+              remainingAmount={p.remainingAmount}
+              totalAmount={p.totalAmount}
+              paymentMode={p.paymentMode}
+              paymentAmount={p.paymentAmount}
+              setPaymentAmount={p.setPaymentAmount}
+              paymentDate={p.paymentDate}
+              setPaymentDate={p.setPaymentDate}
+              paymentMethod={p.paymentMethod}
+              setPaymentMethod={p.setPaymentMethod}
+              referenceNumber={p.referenceNumber}
+              setReferenceNumber={p.setReferenceNumber}
+              notes={p.notes}
+              setNotes={p.setNotes}
+              confirmFull={p.confirmFull}
+              setConfirmFull={p.setConfirmFull}
+              formError={p.formError}
+              formSuccess={p.formSuccess}
+              submitting={p.submitting}
+              numericPayment={p.numericPayment}
+              newRemaining={p.newRemaining}
+              willBePaid={p.willBePaid}
+              handleModeChange={p.handleModeChange}
+              handleQuickAmount={p.handleQuickAmount}
+              handleSubmitPayment={p.handleSubmitPayment}
+            />
+          )}
 
           <PaymentHistoryTable
             transactions={p.transactions}

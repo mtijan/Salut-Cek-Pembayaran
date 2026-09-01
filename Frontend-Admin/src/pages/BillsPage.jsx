@@ -1,5 +1,6 @@
 import React from 'react';
 import BillHistoryModal from '../components/bills/BillHistoryModal';
+import BillActivationModal from '../components/bills/BillActivationModal';
 import BillsFilters from '../components/bills/BillsFilters';
 import BillsStats from '../components/bills/BillsStats';
 import BillsTable from '../components/bills/BillsTable';
@@ -25,6 +26,7 @@ export default function BillsPage({ navigateTo }) {
           filters={page.filters}
           options={page.options}
           hasActiveFilter={page.hasActiveFilter}
+          selectedActivation={page.filters.selectedActivation}
           activeFilterChips={page.activeFilterChips}
           canManage={canManage}
           actions={page.actions}
@@ -44,6 +46,12 @@ export default function BillsPage({ navigateTo }) {
         />
       </div>
       <BillHistoryModal history={page.history} onClose={page.actions.closeHistory} />
+      <BillActivationModal
+        isOpen={Boolean(page.activation.target)}
+        onClose={page.actions.closeActivation}
+        onApplied={page.actions.handleActivationApplied}
+        targetBill={page.activation.target}
+      />
       {page.deleteTarget && (
         <ConfirmModal
           isOpen={Boolean(page.deleteTarget)}

@@ -6,11 +6,12 @@ import ProgramStudyModal from '../components/master/ProgramStudyModal';
 import AcademicPeriodPanel from '../components/master/AcademicPeriodPanel';
 import AcademicPeriodModal from '../components/master/AcademicPeriodModal';
 
-export default function MasterPage() {
+export default function MasterPage({ initialTab = 'prodi', navigateTo }) {
   const { can } = useAuth();
   const m = useMasterPage();
-  const [activeTab, setActiveTab] = useState('prodi');
+  const [activeTab, setActiveTab] = useState(initialTab);
   const canManage = can('manage_master_data');
+  const canManageBilling = can('manage_billing');
 
   return (
     <div>
@@ -49,8 +50,16 @@ export default function MasterPage() {
           periods={m.periods}
           loading={m.periodLoading}
           canManage={canManage}
+          canManageBilling={canManageBilling}
           onOpenCreate={m.handleOpenPeriodCreate}
           onOpenEdit={m.handleOpenPeriodEdit}
+          onManageBills={(period) =>
+            navigateTo('bill-activation', {
+              returnView: 'master',
+              returnParams: { initialTab: 'period' },
+              period: period.code,
+            })
+          }
         />
       )}
 
