@@ -190,15 +190,19 @@ class SecurityAndOperationsTests(BackendBaseTestCase):
 
     def test_python_systemd_jobs_use_package_module_entrypoints(self) -> None:
         project_root = Path(__file__).resolve().parents[2]
+        backup_unit_path = project_root / "deploy" / "salut-cek-pembayaran-backup.service"
         maintenance_unit_path = project_root / "deploy" / "salut-cek-pembayaran-maintenance.service"
         verify_unit_path = project_root / "deploy" / "salut-cek-pembayaran-backup-verify.service"
-        if not maintenance_unit_path.is_file() or not verify_unit_path.is_file():
+        if not backup_unit_path.is_file() or not maintenance_unit_path.is_file() or not verify_unit_path.is_file():
             self.skipTest("internal deployment bundle is not part of the public repository")
 
+        backup_unit = backup_unit_path.read_text(encoding="utf-8")
         maintenance_unit = maintenance_unit_path.read_text(encoding="utf-8")
         verify_unit = verify_unit_path.read_text(encoding="utf-8")
+        self.assertIn(".venv/bin/python -m Backend.backup_sqlite", backup_unit)
         self.assertIn("python -m Backend.maintenance", maintenance_unit)
         self.assertIn("python -m Backend.verify_backup", verify_unit)
+        self.assertNotIn("/usr/bin/python3 /opt/salut-cek-pembayaran/Backend/backup_sqlite.py", backup_unit)
         self.assertNotIn("python /opt/salut-cek-pembayaran/Backend/maintenance.py", maintenance_unit)
         self.assertNotIn("python3 /opt/salut-cek-pembayaran/Backend/verify_backup.py", verify_unit)
 
