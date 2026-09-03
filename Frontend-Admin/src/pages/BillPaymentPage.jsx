@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   ArrowLeft,
   User,
@@ -11,26 +11,193 @@ import {
   GraduationCap,
   Wifi,
   AlertTriangle,
+  Edit3,
 } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 import { useBillPayment } from '../hooks/useBillPayment';
+import { useBillEditor } from '../hooks/useBillEditor';
 import PaymentForm from '../components/billing/PaymentForm';
 import PaymentHistoryTable from '../components/billing/PaymentHistoryTable';
+import BillSummaryCard from '../components/billing/BillSummaryCard';
+import BillFormFields from '../components/billing/BillFormFields';
 import { formatRupiah } from '../utils/currency';
 
-export default function BillPaymentPage({ billId, navigateTo }) {
-  const p = useBillPayment({ billId });
+export default function BillPaymentPage({ billId, initialTab = 'payment', mode, navigateTo }) {
+  const { can } = useAuth();
+  const canManageBilling = can('manage_billing');
+  const isCreate = mode === 'create';
 
+  const [activeTab, setActiveTab] = useState(
+    initialTab === 'edit' && canManageBilling ? 'edit' : 'payment',
+  );
+
+  // Bill payment hook (cashier & transactions)
+  const p = useBillPayment({
+    billId: isCreate ? null : billId,
+    onPaymentSuccess: async () => {
+      await editor.fetchBillData();
+    },
+  });
+
+  // Bill editor hook (core bill fields)
+  const editor = useBillEditor({
+    billId: isCreate ? null : billId,
+    mode,
+    navigateTo,
+    enabled: canManageBilling,
+    onSaved: async () => {
+      if (isCreate) {
+        navigateTo('bills');
+        return;
+      }
+      await Promise.all([p.fetchBillDetail(), editor.fetchBillData()]);
+      setActiveTab('payment');
+    },
+  });
+
+  useEffect(() => {
+    if (!canManageBilling && activeTab === 'edit') {
+      setActiveTab('payment');
+    }
+  }, [activeTab, canManageBilling]);
+
+  if (!isCreate && !billId) {
+    return (
+      <div className="table-empty-container" role="alert">
+        <AlertTriangle size={42} className="empty-state-icon" />
+        <p className="empty-state-title">Tagihan tidak dapat dibuka</p>
+        <p className="empty-state-desc">ID tagihan tidak tersedia pada navigasi halaman ini.</p>
+        <button type="button" className="btn btn-secondary" onClick={() => navigateTo('bills')}>
+          Kembali ke Tagihan Mahasiswa
+        </button>
+      </div>
+    );
+  }
+
+  // Create Mode Rendering
+  if (isCreate) {
+    if (!canManageBilling) {
+      return (
+        <div className="table-empty-container" role="alert">
+          <AlertTriangle size={42} className="empty-state-icon" />
+          <p className="empty-state-title">Akses pembuatan tagihan ditolak</p>
+          <p className="empty-state-desc">
+            Akun ini tidak memiliki izin untuk membuat atau mengubah tagihan.
+          </p>
+          <button type="button" className="btn btn-secondary" onClick={() => navigateTo('bills')}>
+            Kembali ke Tagihan Mahasiswa
+          </button>
+        </div>
+      );
+    }
+    if (editor.loading) {
+      return (
+        <div className="table-empty-container">
+          <div className="loading-spinner-circle empty-state-icon" />
+          <p className="loading-state-text">Memuat formulir data tagihan baru...</p>
+        </div>
+      );
+    }
+
+    return (
+      <div className="payment-page-container">
+        <div className="profile-header-bar">
+          <div className="profile-breadcrumb-wrap">
+            <button
+              type="button"
+              className="btn btn-secondary back-btn-compact"
+              onClick={() => navigateTo('bills')}
+              title="Kembali ke Daftar Tagihan"
+            >
+              <ArrowLeft size={16} />
+              <span>Kembali</span>
+            </button>
+            <div className="profile-breadcrumb">
+              <span className="crumb-link" onClick={() => navigateTo('bills')}>
+                Tagihan Mahasiswa
+              </span>
+              <span className="crumb-sep">/</span>
+              <span className="crumb-active">Buat Tagihan Baru</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="payment-layout-grid">
+          <div className="payment-left-col">
+            <BillSummaryCard
+              formData={editor.formData}
+              loadedStudent={editor.loadedStudent}
+              loadedBill={editor.loadedBill}
+              isCreate={true}
+              copiedKey={editor.copiedKey}
+              onCopyNim={editor.handleCopy}
+            />
+          </div>
+          <div className="payment-right-col">
+            <BillFormFields
+              isCreate={true}
+              formData={editor.formData}
+              setFormData={editor.setFormData}
+              formError={editor.formError}
+              periods={editor.periods}
+              students={editor.students}
+              loadedStudent={editor.loadedStudent}
+              totalAmountNum={editor.totalAmountNum}
+              paidAmountNum={editor.paidAmountNum}
+              remainingAmountNum={editor.remainingAmountNum}
+              copiedKey={editor.copiedKey}
+              onCopyBriva={editor.handleCopy}
+              saving={editor.saving}
+              onSubmit={editor.handleSubmit}
+              onCancel={() => navigateTo('bills')}
+              handleStudentSelect={editor.handleStudentSelect}
+              handleStatusChange={editor.handleStatusChange}
+              handleAmountChange={editor.handleAmountChange}
+              handlePaidAmountChange={editor.handlePaidAmountChange}
+              canManage={canManageBilling}
+            />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Loading state for existing bill
   if (p.loading && !p.data) {
     return (
       <div className="table-empty-container">
         <div className="loading-spinner-circle empty-state-icon" />
-        <p className="loading-state-text">Memuat halaman pembayaran tagihan...</p>
+        <p className="loading-state-text">Memuat detail dan kelola tagihan mahasiswa...</p>
+      </div>
+    );
+  }
+
+  if (p.loadError && !p.data) {
+    return (
+      <div className="table-empty-container" role="alert">
+        <AlertTriangle size={42} className="empty-state-icon" />
+        <p className="empty-state-title">Detail tagihan gagal dimuat</p>
+        <p className="empty-state-desc">{p.loadError}</p>
+        <div className="flex-row-gap-8">
+          <button type="button" className="btn btn-secondary" onClick={() => navigateTo('bills')}>
+            Kembali
+          </button>
+          <button type="button" className="btn btn-primary" onClick={() => p.fetchBillDetail()}>
+            Coba Lagi
+          </button>
+        </div>
       </div>
     );
   }
 
   const percentPaid = p.totalAmount > 0 ? Math.round((p.currentPaid / p.totalAmount) * 100) : 0;
   const clampedPercent = Math.min(100, Math.max(0, percentPaid));
+
+  const handleRefreshAll = async () => {
+    const requests = [p.fetchBillDetail()];
+    if (canManageBilling) requests.push(editor.fetchBillData());
+    await Promise.all(requests);
+  };
 
   return (
     <div className="payment-page-container">
@@ -51,7 +218,7 @@ export default function BillPaymentPage({ billId, navigateTo }) {
               Tagihan Mahasiswa
             </span>
             <span className="crumb-sep">/</span>
-            <span className="crumb-active">Catat Pembayaran</span>
+            <span className="crumb-active">Kelola Tagihan</span>
             <span className="crumb-sep">/</span>
             <span className="crumb-target">{p.bill.briva || p.student.full_name || 'Tagihan'}</span>
           </div>
@@ -61,7 +228,7 @@ export default function BillPaymentPage({ billId, navigateTo }) {
           <button
             type="button"
             className="btn btn-secondary"
-            onClick={() => p.fetchBillDetail()}
+            onClick={handleRefreshAll}
             title="Segarkan Data"
           >
             <RefreshCw size={15} />
@@ -74,6 +241,7 @@ export default function BillPaymentPage({ billId, navigateTo }) {
               onClick={() =>
                 navigateTo('student-profile', { studentId: p.student.id, initialTab: 'profile' })
               }
+              title="Lihat Profil Mahasiswa"
             >
               <User size={15} />
               <span>Profil Mahasiswa</span>
@@ -82,9 +250,9 @@ export default function BillPaymentPage({ billId, navigateTo }) {
         </div>
       </div>
 
-      {/* 2-Column Layout */}
+      {/* 2-Column Unified Layout */}
       <div className="payment-layout-grid">
-        {/* Left Column: Student & Bill Summary */}
+        {/* Left Column: Student Identity & Live Balance Overview */}
         <div className="payment-left-col">
           {/* Student Identity Card */}
           <div className="panel-card payment-id-card">
@@ -259,56 +427,122 @@ export default function BillPaymentPage({ billId, navigateTo }) {
           </div>
         </div>
 
-        {/* Right Column: Payment Form & Ledger */}
+        {/* Right Column: Integrated Tabs (Catat Pembayaran & Edit Data Tagihan) */}
         <div className="payment-right-col">
-          {p.bill.is_active === false ? (
-            <div className="panel-card modal-alert-warning">
-              <AlertTriangle size={20} />
-              <div>
-                <strong>Tagihan ini sedang nonaktif.</strong>
-                <p>
-                  Aktifkan kembali tagihan dari Bills Page atau Profil 360 sebelum mencatat
-                  pembayaran.
-                </p>
-              </div>
+          <div className="payment-tabs-nav" role="tablist" aria-label="Kelola tagihan">
+            <button
+              id="bill-payment-tab"
+              type="button"
+              role="tab"
+              aria-selected={activeTab === 'payment'}
+              aria-controls="bill-payment-panel"
+              className={`payment-tab-btn ${activeTab === 'payment' ? 'is-active' : ''}`}
+              onClick={() => setActiveTab('payment')}
+            >
+              <CreditCard size={15} />
+              <span>Catat Pembayaran</span>
+            </button>
+            {canManageBilling && (
+              <button
+                id="bill-edit-tab"
+                type="button"
+                role="tab"
+                aria-selected={activeTab === 'edit'}
+                aria-controls="bill-edit-panel"
+                className={`payment-tab-btn ${activeTab === 'edit' ? 'is-active' : ''}`}
+                onClick={() => setActiveTab('edit')}
+              >
+                <Edit3 size={15} />
+                <span>Edit Data Tagihan</span>
+              </button>
+            )}
+          </div>
+
+          {activeTab === 'payment' && (
+            <div id="bill-payment-panel" role="tabpanel" aria-labelledby="bill-payment-tab">
+              {p.bill.is_active === false ? (
+                <div className="panel-card modal-alert-warning">
+                  <AlertTriangle size={20} />
+                  <div>
+                    <strong>Tagihan ini sedang nonaktif.</strong>
+                    <p>
+                      Aktifkan kembali tagihan dari Bills Page atau Profil Mahasiswa sebelum
+                      mencatat pembayaran.
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <PaymentForm
+                  bill={p.bill}
+                  remainingAmount={p.remainingAmount}
+                  totalAmount={p.totalAmount}
+                  paymentMode={p.paymentMode}
+                  paymentAmount={p.paymentAmount}
+                  setPaymentAmount={p.setPaymentAmount}
+                  paymentDate={p.paymentDate}
+                  setPaymentDate={p.setPaymentDate}
+                  paymentMethod={p.paymentMethod}
+                  setPaymentMethod={p.setPaymentMethod}
+                  referenceNumber={p.referenceNumber}
+                  setReferenceNumber={p.setReferenceNumber}
+                  notes={p.notes}
+                  setNotes={p.setNotes}
+                  formError={p.formError}
+                  submitting={p.submitting}
+                  numericPayment={p.numericPayment}
+                  newRemaining={p.newRemaining}
+                  willBePaid={p.willBePaid}
+                  handleModeChange={p.handleModeChange}
+                  handleQuickAmount={p.handleQuickAmount}
+                  handleSubmitPayment={p.handleSubmitPayment}
+                />
+              )}
+
+              <PaymentHistoryTable transactions={p.transactions} />
             </div>
-          ) : (
-            <PaymentForm
-              bill={p.bill}
-              remainingAmount={p.remainingAmount}
-              totalAmount={p.totalAmount}
-              paymentMode={p.paymentMode}
-              paymentAmount={p.paymentAmount}
-              setPaymentAmount={p.setPaymentAmount}
-              paymentDate={p.paymentDate}
-              setPaymentDate={p.setPaymentDate}
-              paymentMethod={p.paymentMethod}
-              setPaymentMethod={p.setPaymentMethod}
-              referenceNumber={p.referenceNumber}
-              setReferenceNumber={p.setReferenceNumber}
-              notes={p.notes}
-              setNotes={p.setNotes}
-              confirmFull={p.confirmFull}
-              setConfirmFull={p.setConfirmFull}
-              formError={p.formError}
-              formSuccess={p.formSuccess}
-              submitting={p.submitting}
-              numericPayment={p.numericPayment}
-              newRemaining={p.newRemaining}
-              willBePaid={p.willBePaid}
-              handleModeChange={p.handleModeChange}
-              handleQuickAmount={p.handleQuickAmount}
-              handleSubmitPayment={p.handleSubmitPayment}
-            />
           )}
 
-          <PaymentHistoryTable
-            transactions={p.transactions}
-            historyLoading={p.historyLoading}
-            historyError={p.historyError}
-            canManageBilling={true}
-            onRefresh={() => p.fetchTransactions()}
-          />
+          {activeTab === 'edit' && canManageBilling && (
+            <div id="bill-edit-panel" role="tabpanel" aria-labelledby="bill-edit-tab">
+              {editor.loading ? (
+                <div className="table-loading-container">
+                  <div className="loading-spinner-circle" />
+                  <p className="loading-state-text">Memuat formulir edit tagihan...</p>
+                </div>
+              ) : editor.loadError ? (
+                <div className="panel-card modal-alert-warning" role="alert">
+                  <AlertTriangle size={20} />
+                  <div>
+                    <strong>Formulir edit tidak dapat dimuat.</strong>
+                    <p>{editor.loadError}</p>
+                  </div>
+                </div>
+              ) : (
+                <BillFormFields
+                  isCreate={false}
+                  formData={editor.formData}
+                  setFormData={editor.setFormData}
+                  formError={editor.formError}
+                  periods={editor.periods}
+                  students={editor.students}
+                  loadedStudent={editor.loadedStudent}
+                  totalAmountNum={editor.totalAmountNum}
+                  paidAmountNum={editor.paidAmountNum}
+                  remainingAmountNum={editor.remainingAmountNum}
+                  copiedKey={editor.copiedKey}
+                  onCopyBriva={editor.handleCopy}
+                  saving={editor.saving}
+                  onSubmit={editor.handleSubmit}
+                  onCancel={() => setActiveTab('payment')}
+                  handleStudentSelect={editor.handleStudentSelect}
+                  handleStatusChange={editor.handleStatusChange}
+                  handleAmountChange={editor.handleAmountChange}
+                  handlePaidAmountChange={editor.handlePaidAmountChange}
+                  canManage={canManageBilling}
+                />
+              )}
+            </div>
+          )}
         </div>
       </div>
     </div>

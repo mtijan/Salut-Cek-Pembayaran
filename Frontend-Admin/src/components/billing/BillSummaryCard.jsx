@@ -3,7 +3,7 @@ import { Check, Copy, CreditCard, GraduationCap, ShieldCheck, FileSpreadsheet } 
 import { formatRupiah } from '../../utils/currency';
 
 /**
- * Kolom kiri BillEditPage.
+ * Kolom ringkasan mode create/edit pada halaman kelola tagihan terpadu.
  * Menampilkan identitas mahasiswa dan ringkasan saldo tagihan.
  * Props: formData, loadedStudent, loadedBill, isCreate, copiedKey, onCopyNim
  */

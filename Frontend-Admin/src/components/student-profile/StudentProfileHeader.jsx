@@ -26,7 +26,7 @@ export function StudentProfileHeader({
             Data Mahasiswa
           </span>
           <span className="crumb-sep">/</span>
-          <span className="crumb-active">Profil 360</span>
+          <span className="crumb-active">Profil Mahasiswa</span>
           <span className="crumb-sep">/</span>
           <span className="crumb-target">{student.full_name || 'Detail Mahasiswa'}</span>
         </div>

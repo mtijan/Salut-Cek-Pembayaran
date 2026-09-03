@@ -62,13 +62,14 @@
 }
 
 .sidebar-header {
-  padding: 16px 18px;
+  padding: 14px 16px;
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   border-bottom: 1px solid var(--line);
   min-height: 68px;
   box-sizing: border-box;
+  overflow: hidden;
 }
 
 .app-sidebar.is-collapsed .sidebar-header {
@@ -79,8 +80,9 @@
 .sidebar-brand-group {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   min-width: 0;
+  flex: 1;
 }
 
 .sidebar-logo {
@@ -94,6 +96,8 @@
 
 .sidebar-brand-text {
   min-width: 0;
+  flex: 1;
+  overflow: hidden;
 }
 
 .sidebar-brand-title {
@@ -105,12 +109,15 @@
 }
 
 .sidebar-brand-subtitle {
-  font-size: 10.5px;
+  font-size: 9.5px;
   font-weight: 600;
   color: var(--muted);
   text-transform: uppercase;
-  letter-spacing: 0.04em;
-  white-space: nowrap;
+  letter-spacing: 0.03em;
+  line-height: 1.35;
+  white-space: normal;
+  overflow-wrap: break-word;
+  word-break: normal;
 }
 
 .sidebar-nav {

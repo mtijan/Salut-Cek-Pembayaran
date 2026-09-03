@@ -200,6 +200,16 @@ app.include_router(build_user_router(require_admin, read_json))
 app.include_router(build_audit_router(require_admin, parse_limit, parse_offset))
 
 
+ADMIN_INDEX_CACHE_HEADERS = {
+    "Cache-Control": "no-cache, no-store, must-revalidate",
+    "Pragma": "no-cache",
+    "Expires": "0",
+}
+ADMIN_HASHED_ASSET_CACHE_HEADERS = {
+    "Cache-Control": "public, max-age=31536000, immutable",
+}
+
+
 @app.get("/admin", include_in_schema=False, response_model=None)
 @app.get("/admin/", include_in_schema=False, response_model=None)
 async def admin_page(request: Request) -> FileResponse | RedirectResponse | JSONResponse:
@@ -208,7 +218,7 @@ async def admin_page(request: Request) -> FileResponse | RedirectResponse | JSON
         return RedirectResponse(url="/admin", status_code=303)
     admin_dist_index = config.FRONTEND_DIR / "admin-dist" / "index.html"
     if admin_dist_index.exists():
-        return FileResponse(admin_dist_index)
+        return FileResponse(admin_dist_index, headers=ADMIN_INDEX_CACHE_HEADERS)
     return error_response(
         503,
         "ADMIN_BUNDLE_UNAVAILABLE",
@@ -230,10 +240,15 @@ async def frontend(full_path: str) -> FileResponse | JSONResponse:
             try:
                 admin_dist_file.relative_to(admin_dist_root)
                 if admin_dist_file.exists() and admin_dist_file.is_file():
-                    return FileResponse(admin_dist_file)
+                    cache_headers = (
+                        ADMIN_HASHED_ASSET_CACHE_HEADERS
+                        if sub_path.startswith("assets/")
+                        else ADMIN_INDEX_CACHE_HEADERS
+                    )
+                    return FileResponse(admin_dist_file, headers=cache_headers)
             except ValueError:
                 pass
-            return FileResponse(admin_dist_root / "index.html")
+            return FileResponse(admin_dist_root / "index.html", headers=ADMIN_INDEX_CACHE_HEADERS)
         return error_response(
             503,
             "ADMIN_BUNDLE_UNAVAILABLE",

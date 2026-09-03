@@ -120,12 +120,17 @@ class ContractOpenAPITests(BackendBaseTestCase):
             "Student360DetailResponse",
             "DashboardStatsResponse",
             "FinancialSummaryResponse",
+            "FinancialStudentSummary",
             "ImportPreviewResponse",
             "ImportCommitResponse",
         ]
         for name in required_schemas:
             with self.subTest(schema=name):
                 self.assertIn(name, schemas)
+
+        financial_student = schemas["FinancialStudentSummary"]
+        self.assertIn("briva", financial_student["required"])
+        self.assertEqual(financial_student["properties"]["briva"]["type"], "string")
 
         public_history = schemas["LookupPaymentHistoryItem"]["properties"]
         self.assertNotIn("reference_number", public_history)

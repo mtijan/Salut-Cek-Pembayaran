@@ -65,7 +65,7 @@ export default function BillsFilters({
             <button
               type="button"
               className="btn btn-primary btn-fixed-h"
-              onClick={() => navigateTo?.('bill-edit', { mode: 'create' })}
+              onClick={() => navigateTo?.('bill-payment', { mode: 'create' })}
             >
               <Plus size={16} />
               <span>Buat Tagihan Baru</span>

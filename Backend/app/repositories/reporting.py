@@ -92,6 +92,7 @@ class ReportingRepository:
               s.id as student_id,
               s.nim,
               s.full_name,
+              coalesce(group_concat(distinct nullif(b.briva, '')), '-') as briva,
               coalesce(s.phone_number, '-') as phone_number,
               coalesce(sp.name, s.program_study, 'Lainnya') as program_study,
               coalesce(nullif(s.entry_period, ''), nullif(s.initial_registration, ''), '-') as entry_period,

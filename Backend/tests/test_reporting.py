@@ -72,6 +72,9 @@ class ReportingAndAnalyticsTests(BackendBaseTestCase):
             self.assertEqual(fin["totals"]["paid_amount"], 2000000)
             self.assertEqual(fin["totals"]["outstanding_amount"], 3000000)
             self.assertEqual(len(fin["by_study_program"]), 2)
+            self.assertEqual(len(fin["by_student"]), 2)
+            briva_set = {s["briva"] for s in fin["by_student"]}
+            self.assertEqual(briva_set, {"17810011", "17810012"})
 
     def test_financial_summary_applies_period_program_and_entry_filters_together(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
@@ -128,6 +131,29 @@ class ReportingAndAnalyticsTests(BackendBaseTestCase):
             self.assertEqual(summary["totals"]["billed_amount"], 1000000)
             self.assertEqual(summary["totals"]["paid_amount"], 1000000)
             self.assertEqual([row["nim"] for row in summary["by_student"]], ["3001"])
+
+    def test_financial_summary_exports_distinct_briva_values_in_stable_order(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            database = Path(temporary_directory) / "salut.sqlite"
+            migrate_database(database)
+            student = create_student(database, {"nim": "4001", "full_name": "Student BRIVA"})
+
+            for briva in ("17810022", "17810011"):
+                create_bill(
+                    database,
+                    {
+                        "student_id": student["id"],
+                        "briva": briva,
+                        "amount": 1000000,
+                        "period": "2026.1",
+                        "status": "unpaid",
+                    },
+                )
+
+            summary = get_financial_summary(database)
+
+            self.assertEqual(len(summary["by_student"]), 1)
+            self.assertEqual(summary["by_student"][0]["briva"], "17810011, 17810022")
 
     def test_dashboard_and_financial_summary_with_partial_bills(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:

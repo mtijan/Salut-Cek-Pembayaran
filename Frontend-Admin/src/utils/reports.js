@@ -9,6 +9,7 @@ export function filterAndSortReportStudents(students, { query, selectedStatus, s
       (student) =>
         student.full_name?.toLowerCase().includes(normalizedQuery) ||
         student.nim?.toLowerCase().includes(normalizedQuery) ||
+        student.briva?.toLowerCase().includes(normalizedQuery) ||
         student.phone_number?.toLowerCase().includes(normalizedQuery) ||
         student.program_study?.toLowerCase().includes(normalizedQuery) ||
         student.entry_period?.toLowerCase().includes(normalizedQuery),
@@ -59,6 +60,7 @@ export function createFinancialReportCsv(students) {
   const headers = [
     'NIM',
     'Nama',
+    'No BRIVA',
     'Phone Number',
     'Program Studi',
     'Angkatan Masuk',
@@ -72,6 +74,7 @@ export function createFinancialReportCsv(students) {
   const rows = students.map((student) => [
     `'${student.nim || '-'}`,
     student.full_name || '-',
+    student.briva && student.briva !== '-' ? `'${student.briva}` : '-',
     student.phone_number && student.phone_number !== '-' ? `'${student.phone_number}` : '-',
     student.program_study || '-',
     student.entry_period || '-',

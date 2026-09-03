@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Eye, EyeOff, Lock, Mail, ArrowRight } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import logoSalut from '../assets/logo-salut.jpeg';
 
 export default function LoginPage() {
   const { login } = useAuth();
@@ -31,9 +32,9 @@ export default function LoginPage() {
     <div className="login-screen">
       <div className="login-box">
         <div className="login-brand">
-          <img src="/Logo%20Salut.jpeg" alt="Logo SALUT Awwabin" />
-          <h1>Admin SALUT Awwabin</h1>
-          <p>Sistem Informasi Akademik &amp; Cek Pembayaran</p>
+          <img src={logoSalut} alt="Logo SALUT Awwabin" />
+          <h1>SALUTKU</h1>
+          <p>Sistem Administrasi &amp; Keuangan SALUT AWWABIN</p>
         </div>
 
         {error && <div className="login-error-box">{error}</div>}

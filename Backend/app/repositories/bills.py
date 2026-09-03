@@ -276,13 +276,15 @@ class BillRepository:
                     )
                 )"""
             )
-            params.extend([
-                normalized_period,
-                normalized_period,
-                normalized_period,
-                normalized_period,
-                normalized_period,
-            ])
+            params.extend(
+                [
+                    normalized_period,
+                    normalized_period,
+                    normalized_period,
+                    normalized_period,
+                    normalized_period,
+                ]
+            )
         if normalized_type:
             where_clauses.append("b.bill_type = ?")
             params.append(normalized_type)

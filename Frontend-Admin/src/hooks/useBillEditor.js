@@ -11,15 +11,16 @@ import {
 } from '../features/billing/model/billEditorModel';
 
 /**
- * Feature hook untuk BillEditPage.
+ * Feature hook untuk mode create/edit pada halaman kelola tagihan terpadu.
  * Mengelola state, fetch, kalkulasi, dan handler form create/edit tagihan.
  * Container page bertanggung jawab atas navigasi dan layout.
  */
-export function useBillEditor({ billId, mode, navigateTo }) {
+export function useBillEditor({ billId, mode, navigateTo, onSaved, enabled = true }) {
   const { showToast } = useToast();
   const isCreate = mode === 'create' || !billId;
 
-  const [loading, setLoading] = useState(!isCreate);
+  const [loading, setLoading] = useState(enabled && !isCreate);
+  const [loadError, setLoadError] = useState('');
   const [saving, setSaving] = useState(false);
   const { copiedKey, copyToClipboard } = useCopyFeedback();
   const [formError, setFormError] = useState('');
@@ -36,6 +37,7 @@ export function useBillEditor({ billId, mode, navigateTo }) {
   const [formData, setFormData] = useState(initialBillFormData);
 
   const fetchMasterOptions = useCallback(async () => {
+    if (!enabled) return;
     const [periodResult, studentResult] = await Promise.allSettled([
       masterApi.listPeriods(),
       studentsApi.list({ limit: 1000 }),
@@ -65,11 +67,12 @@ export function useBillEditor({ billId, mode, navigateTo }) {
     } else {
       showToast(studentResult.reason?.message || 'Gagal memuat pilihan mahasiswa.', 'error');
     }
-  }, [isCreate, showToast]);
+  }, [enabled, isCreate, showToast]);
 
   const fetchBillData = useCallback(async () => {
-    if (isCreate || !billId) return;
+    if (!enabled || isCreate || !billId) return;
     setLoading(true);
+    setLoadError('');
     try {
       const res = await billsApi.getDetail(billId);
       const b = res.bill || {};
@@ -79,11 +82,13 @@ export function useBillEditor({ billId, mode, navigateTo }) {
 
       setFormData(createBillFormData({ bill: b, student: s, periods: periodsRef.current }));
     } catch (err) {
-      showToast(err.message || 'Gagal memuat data tagihan.', 'error');
+      const message = err.message || 'Gagal memuat data tagihan.';
+      setLoadError(message);
+      showToast(message, 'error');
     } finally {
       setLoading(false);
     }
-  }, [billId, isCreate, showToast]);
+  }, [billId, enabled, isCreate, showToast]);
 
   useEffect(() => {
     fetchMasterOptions();
@@ -124,64 +129,70 @@ export function useBillEditor({ billId, mode, navigateTo }) {
   const paidAmountNum = Number(formData.paid_amount) || 0;
   const remainingAmountNum = Math.max(0, totalAmountNum - paidAmountNum);
 
-  const handleStatusChange = (newStatus) => {
-    let updatedPaid = formData.paid_amount;
-    if (newStatus === 'paid') {
-      updatedPaid = String(totalAmountNum);
-    } else if (newStatus === 'unpaid') {
-      updatedPaid = '0';
-    } else if (newStatus === 'partial') {
-      if (Number(updatedPaid) <= 0 || Number(updatedPaid) >= totalAmountNum) {
-        updatedPaid = String(Math.round(totalAmountNum / 2) || 500000);
+  const handleStatusChange = (status) => {
+    setFormData((prev) => {
+      let paidAmount = prev.paid_amount;
+      const totalAmount = Number(prev.amount) || 0;
+      if (status === 'paid') {
+        paidAmount = String(totalAmount);
+      } else if (status === 'unpaid') {
+        paidAmount = '0';
+      } else if (Number(paidAmount) <= 0 || Number(paidAmount) >= totalAmount) {
+        paidAmount = String(Math.round(totalAmount / 2) || 500000);
       }
-    }
-    setFormData((prev) => ({ ...prev, status: newStatus, paid_amount: updatedPaid }));
+      return { ...prev, status, paid_amount: paidAmount };
+    });
   };
 
   const handleAmountChange = (e) => {
-    const val = e.target.value;
-    const num = Number(val) || 0;
+    const value = e.target.value;
+    const numericValue = Number(value) || 0;
     setFormData((prev) => {
-      let nextPaid = prev.paid_amount;
+      let paidAmount = prev.paid_amount;
       if (prev.status === 'paid') {
-        nextPaid = String(num);
-      } else if (prev.status === 'partial' && Number(nextPaid) > num) {
-        nextPaid = String(Math.round(num / 2));
+        paidAmount = String(numericValue);
+      } else if (prev.status === 'partial' && Number(paidAmount) >= numericValue) {
+        paidAmount = String(Math.round(numericValue / 2));
       }
-      return { ...prev, amount: val, paid_amount: nextPaid };
+      return { ...prev, amount: value, paid_amount: paidAmount };
     });
   };
 
   const handlePaidAmountChange = (e) => {
-    const val = e.target.value;
-    const num = Number(val) || 0;
+    const value = e.target.value;
+    const numericValue = Number(value) || 0;
     let nextStatus = formData.status;
-    if (num <= 0) {
+    if (numericValue <= 0) {
       nextStatus = 'unpaid';
-    } else if (num >= totalAmountNum && totalAmountNum > 0) {
+    } else if (numericValue >= totalAmountNum && totalAmountNum > 0) {
       nextStatus = 'paid';
     } else {
       nextStatus = 'partial';
     }
-    setFormData((prev) => ({ ...prev, paid_amount: val, status: nextStatus }));
+    setFormData((prev) => ({ ...prev, paid_amount: value, status: nextStatus }));
   };
 
-  const handleStudentSelect = (e) => {
-    const sId = e.target.value;
-    const st = students.find((s) => s.id === sId);
-    if (st) {
-      setFormData((prev) => ({ ...prev, student_id: st.id, nim: st.nim, full_name: st.full_name }));
-    } else {
+  const handleStudentSelect = (eventOrStudentId) => {
+    const studentId = eventOrStudentId?.target?.value ?? eventOrStudentId;
+    const student = students.find((s) => s.id === studentId);
+    if (!student) {
       setFormData((prev) => ({ ...prev, student_id: '', nim: '', full_name: '' }));
+      return;
     }
+    setFormData((prev) => ({
+      ...prev,
+      student_id: student.id,
+      nim: student.nim,
+      full_name: student.full_name,
+    }));
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setFormError('');
 
-    if (isCreate && !formData.student_id && !formData.nim) {
-      setFormError('Mahasiswa wajib dipilih.');
+    if (isCreate && !formData.student_id && (!formData.nim || !formData.full_name)) {
+      setFormError('Mahasiswa wajib dipilih atau lengkapi NIM & Nama.');
       return;
     }
     if (!formData.briva.trim()) {
@@ -237,7 +248,11 @@ export function useBillEditor({ billId, mode, navigateTo }) {
         await billsApi.update(billId, payload);
         showToast('Perubahan tagihan mahasiswa berhasil disimpan!', 'success');
       }
-      navigateTo('bills');
+      if (onSaved) {
+        await onSaved();
+      } else {
+        navigateTo('bills');
+      }
     } catch (err) {
       setFormError(err.message || 'Gagal menyimpan data tagihan.');
       showToast(err.message || 'Gagal menyimpan data tagihan.', 'error');
@@ -249,6 +264,7 @@ export function useBillEditor({ billId, mode, navigateTo }) {
   return {
     isCreate,
     loading,
+    loadError,
     saving,
     formData,
     setFormData,
@@ -267,5 +283,6 @@ export function useBillEditor({ billId, mode, navigateTo }) {
     handlePaidAmountChange,
     handleStudentSelect,
     handleSubmit,
+    fetchBillData,
   };
 }

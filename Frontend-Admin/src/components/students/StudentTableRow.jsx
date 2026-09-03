@@ -43,7 +43,7 @@ export default function StudentTableRow({
             type="button"
             className="table-link-btn"
             onClick={() => openProfile()}
-            title="Buka Halaman Profil 360 Mahasiswa"
+            title="Buka Halaman Profil Mahasiswa"
           >
             {student.full_name}
           </button>
@@ -111,10 +111,10 @@ export default function StudentTableRow({
             type="button"
             className="btn btn-secondary btn-sm btn-action-pay"
             onClick={() => openProfile('profile')}
-            title="Lihat Profil 360 Mahasiswa"
+            title="Lihat Profil Mahasiswa"
           >
             <Eye size={13} className="icon-primary" />
-            <span>Profil 360</span>
+            <span>Profil Mahasiswa</span>
           </button>
           {canManage && (
             <>

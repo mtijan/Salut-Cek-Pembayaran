@@ -112,6 +112,26 @@ export default function ReportsTable({
                           </button>
                         </>
                       )}
+                      {student.briva && student.briva !== '-' && (
+                        <>
+                          <span>&bull;</span>
+                          <span>
+                            BRIVA: <strong className="mono-font">{student.briva}</strong>
+                          </span>
+                          <button
+                            type="button"
+                            className="copy-btn-inline"
+                            onClick={() => actions.copy(student.briva, `BRIVA ${student.briva}`)}
+                            title="Salin Nomor BRIVA"
+                          >
+                            {copiedKey === `BRIVA ${student.briva}` ? (
+                              <Check size={11} color="var(--success)" />
+                            ) : (
+                              <Copy size={11} />
+                            )}
+                          </button>
+                        </>
+                      )}
                     </div>
                   </td>
                   <td>

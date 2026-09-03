@@ -58,13 +58,15 @@ export default function BillsTable({
           <table className="data-table">
             <thead>
               <tr>
-                <th className="col-w-28">MAHASISWA</th>
-                <th className="col-w-14">PERIODE &amp; JENIS</th>
-                <th className="col-w-18">NOMINAL &amp; TERBAYAR</th>
-                <th className="col-w-13 text-center">STATUS</th>
-                <th className="col-w-12">JATUH TEMPO</th>
-                <th className="col-w-15">NOMOR BRIVA</th>
-                <th className="col-w-10 text-right">AKSI</th>
+                <th>MAHASISWA</th>
+                <th>PERIODE</th>
+                <th>JENIS TAGIHAN</th>
+                <th className="text-center">AKTIVASI</th>
+                <th>NOMINAL &amp; TERBAYAR</th>
+                <th className="text-center">STATUS</th>
+                <th>JATUH TEMPO</th>
+                <th>NOMOR BRIVA</th>
+                <th className="text-right">AKSI</th>
               </tr>
             </thead>
             <tbody>

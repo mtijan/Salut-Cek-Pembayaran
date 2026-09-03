@@ -1,4 +1,4 @@
-# Salut Cek Pembayaran & SIAKAD
+# SALUTKU - Sistem Administrasi & Keuangan SALUT AWWABIN
 
 Aplikasi web untuk membantu mahasiswa SALUT mengecek tagihan secara mandiri dan membantu admin mengelola data akademik, pembayaran, serta import data Excel dalam satu sistem.
 
@@ -11,7 +11,8 @@ Project ini menggabungkan portal publik yang sederhana dengan dashboard admin be
 - Pencarian tagihan menggunakan NIM.
 - Informasi status `Belum lunas`, `Bayar sebagian`, dan `Lunas`.
 - Rincian nominal tagihan, jumlah yang sudah dibayar, dan sisa pembayaran.
-- Informasi BRIVA, periode, jenis tagihan, serta batas pembayaran.
+- Informasi nomor rekening pembayaran, periode, jenis tagihan, serta batas pembayaran.
+- Panduan tata cara pembayaran melalui Kantor SALUT, BRImo (transfer sesama BRI), ATM BRI (transfer sesama BRI), transfer antar-bank, dan Dompet Digital / E-Wallet.
 - Dukungan beberapa tagihan untuk satu mahasiswa.
 
 ### Portal Admin

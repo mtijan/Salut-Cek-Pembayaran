@@ -90,7 +90,10 @@ async function fulfillJson(route, data, status = 200) {
 
 function reportFixture() {
   return {
-    by_student: students,
+    by_student: students.map((student, index) => ({
+      ...student,
+      briva: `178100099${String(index + 1).padStart(3, '0')}`,
+    })),
     total_amount: 30000000,
     total_paid: 18750000,
     total_outstanding: 11250000,
@@ -321,6 +324,10 @@ async function installApiMocks(page, currentAdmin = admin, behavior = {}) {
       return fulfillJson(route, { bill: targetBill });
     }
     const billDetailMatch = path.match(/^\/api\/admin\/bills\/([^/]+)$/);
+    if (billDetailMatch && method === 'PATCH') {
+      const targetBill = bills.find((bill) => bill.id === billDetailMatch[1]) || bills[1];
+      return fulfillJson(route, { bill: { ...targetBill, ...(request.postDataJSON() || {}) } });
+    }
     if (billDetailMatch && method === 'GET') {
       const billId = billDetailMatch[1];
       const targetBill = bills.find((b) => b.id === billId) || bills[1];
@@ -488,7 +495,7 @@ test('login flow memakai bundle backend dan CSP tanpa console violation', async 
 
   const response = await page.goto('/admin');
   expect(response.headers()['content-security-policy']).toContain("script-src 'self'");
-  await expect(page.getByRole('heading', { name: 'Admin SALUT Awwabin' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'SALUTKU' })).toBeVisible();
   await page.getByLabel('Email Admin').fill('browser-admin@synthetic.test');
   await page.locator('#login-password').fill('Synthetic-Test-Password');
   await page.getByRole('button', { name: 'Masuk ke Panel Admin' }).click();
@@ -526,7 +533,7 @@ test('reports filter chip dan CSV memakai data sintetis', async ({ page }) => {
   await installApiMocks(page);
   await page.goto('/admin');
   await page.getByRole('button', { name: 'Rekap Keuangan', exact: true }).click();
-  const search = page.getByPlaceholder('Cari NIM, nama mahasiswa, prodi, angkatan...');
+  const search = page.getByPlaceholder('Cari NIM, nama, No. BRIVA, prodi, angkatan...');
   await search.fill('Synthetic Student 01');
   await expect(page.getByRole('button', { name: 'Hapus filter Cari' })).toBeVisible();
   await expect(page.getByText('Menampilkan 1 dari 1 mahasiswa')).toBeVisible();
@@ -594,6 +601,46 @@ test('bill payment flow: partial payment, live calculation, submit transaksi dan
   // Verify ledger row appears
   await expect(page.getByText('REF-SYNTH-001')).toBeVisible();
   await expect(page.getByText('PEMBAYARAN', { exact: true })).toBeVisible();
+});
+
+test('bill management memakai satu halaman untuk bayar, edit, dan buat tagihan', async ({
+  page,
+}) => {
+  await installApiMocks(page);
+  await page.goto('/admin');
+  await page.getByRole('button', { name: 'Tagihan Mahasiswa', exact: true }).click();
+  await expect(page.getByRole('columnheader', { name: 'PERIODE', exact: true })).toBeVisible();
+  await expect(
+    page.getByRole('columnheader', { name: 'JENIS TAGIHAN', exact: true }),
+  ).toBeVisible();
+  await expect(page.getByRole('columnheader', { name: 'AKTIVASI', exact: true })).toBeVisible();
+  await expect(page.getByRole('columnheader', { name: 'PERIODE & JENIS' })).toHaveCount(0);
+
+  const editRequest = page.waitForRequest(
+    (request) => request.method() === 'PATCH' && request.url().includes('/api/admin/bills/bill-2'),
+  );
+  await page.getByTitle('Edit Data Pokok Tagihan').nth(1).click();
+  await expect(page.getByRole('tab', { name: 'Edit Data Tagihan' })).toHaveAttribute(
+    'aria-selected',
+    'true',
+  );
+  await expect(page.getByText('Formulir Edit Data Tagihan')).toBeVisible();
+  await page.getByRole('button', { name: 'Simpan Perubahan Tagihan' }).click();
+  await editRequest;
+  await expect(page.getByRole('tab', { name: 'Catat Pembayaran' })).toHaveAttribute(
+    'aria-selected',
+    'true',
+  );
+  await expect(page.getByText('Formulir Pembayaran Tagihan')).toBeVisible();
+
+  await page.getByRole('button', { name: 'Kembali' }).click();
+  await page.getByRole('button', { name: 'Buat Tagihan Baru' }).click();
+  await page.locator('.bill-student-select').selectOption('student-01');
+  await expect(page.locator('.bill-nim-text')).toContainText('990000001');
+  await page.locator('.bill-currency-field').first().fill('1850000');
+  await page.locator('.bill-input-btn-wrap input').fill('178100099999');
+  await page.getByRole('button', { name: 'Buat Tagihan Mahasiswa' }).click();
+  await expect(page.getByRole('heading', { name: 'Tagihan Mahasiswa', level: 1 })).toBeVisible();
 });
 
 test('upload wizard flow: preview file sintetis, confirm sensitive changes, dan commit sukses', async ({
@@ -863,7 +910,7 @@ test('rendered responsive state mempertahankan dialog dan tabel dalam viewport k
   expect(hasHorizontalOverflow).toBe(false);
 });
 
-test('public lookup merender ringkasan dan histori sintetis tanpa XSS atau dependency eksternal', async ({
+test('public lookup merender ringkasan tanpa histori, XSS, atau dependency eksternal', async ({
   page,
 }) => {
   await page.setViewportSize({ width: 390, height: 844 });
@@ -927,7 +974,7 @@ test('public lookup merender ringkasan dan histori sintetis tanpa XSS atau depen
   await page.getByRole('button', { name: 'Periksa Tagihan' }).click();
 
   await expect(page.getByText('Rp 750.000', { exact: true }).first()).toBeVisible();
-  await expect(page.getByText('1 Transaksi', { exact: true })).toBeVisible();
+  await expect(page.getByText('1 Transaksi', { exact: true })).toHaveCount(0);
   await expect(
     page.getByRole('heading', { name: 'Synthetic <img src=x onerror=globalThis.__xss=true>' }),
   ).toBeVisible();

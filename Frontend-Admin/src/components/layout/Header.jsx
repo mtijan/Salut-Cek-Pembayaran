@@ -4,9 +4,8 @@ import { NAV_ITEMS } from '../../config/navigation';
 import { useAuth } from '../../context/AuthContext';
 
 const VIEW_TITLES = {
-  'student-profile': { label: 'Profil 360 Mahasiswa', kicker: 'Data Akademik & Biodata' },
-  'bill-payment': { label: 'Pencatatan Pembayaran', kicker: 'Manajemen Keuangan & Kasir' },
-  'bill-edit': { label: 'Kelola Tagihan Mahasiswa', kicker: 'Manajemen Data Finansial' },
+  'student-profile': { label: 'Profil Mahasiswa', kicker: 'Data Akademik & Biodata' },
+  'bill-payment': { label: 'Detail & Kelola Tagihan', kicker: 'Manajemen Keuangan & Kasir' },
   'bill-activation': { label: 'Aktivasi Tagihan Massal', kicker: 'Manajemen Keuangan' },
 };
 

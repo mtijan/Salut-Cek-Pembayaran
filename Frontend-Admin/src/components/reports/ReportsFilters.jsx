@@ -19,7 +19,7 @@ export default function ReportsFilters({
           <Search size={16} />
           <input
             type="text"
-            placeholder="Cari NIM, nama mahasiswa, prodi, angkatan..."
+            placeholder="Cari NIM, nama, No. BRIVA, prodi, angkatan..."
             value={filters.query}
             onChange={(event) => actions.setQuery(event.target.value)}
           />

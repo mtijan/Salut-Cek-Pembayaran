@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 import unittest
 from fastapi.testclient import TestClient
 
@@ -73,6 +74,34 @@ class FrontendAssetServingTests(unittest.TestCase):
         response = self.client.get("/assets/images/logo-salut.jpeg")
         self.assertEqual(response.status_code, 200)
         self.assertIn("image/jpeg", response.headers.get("content-type", ""))
+
+    def test_admin_index_revalidates_and_hashed_logo_is_immutable(self) -> None:
+        index_response = self.client.get("/admin")
+        self.assertEqual(index_response.status_code, 200)
+        self.assertEqual(
+            index_response.headers.get("cache-control"),
+            "no-cache, no-store, must-revalidate",
+        )
+
+        script_match = re.search(r'<script[^>]+src="([^"]+\.js)"', index_response.text)
+        self.assertIsNotNone(script_match)
+        script_response = self.client.get(script_match.group(1))
+        self.assertEqual(script_response.status_code, 200)
+        self.assertEqual(
+            script_response.headers.get("cache-control"),
+            "public, max-age=31536000, immutable",
+        )
+
+        logo_match = re.search(r'(/admin/assets/logo-salut-[^"\']+\.jpeg)', script_response.text)
+        self.assertIsNotNone(logo_match)
+        logo_response = self.client.get(logo_match.group(1))
+        self.assertEqual(logo_response.status_code, 200)
+        self.assertIn("image/jpeg", logo_response.headers.get("content-type", ""))
+        self.assertGreater(len(logo_response.content), 1_000)
+        self.assertEqual(
+            logo_response.headers.get("cache-control"),
+            "public, max-age=31536000, immutable",
+        )
 
 
 if __name__ == "__main__":

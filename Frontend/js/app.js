@@ -5,7 +5,6 @@ import { lookupStudentBilling } from "./services/api.js";
 import { renderStudentProfile } from "./components/studentCard.js";
 import { renderFinancialSummary } from "./components/financialGrid.js";
 import { renderBrivaList } from "./components/brivaList.js";
-import { renderPaymentHistory } from "./components/historyList.js";
 import { handleShareSummary } from "./components/shareSummary.js";
 import {
   setMessage,
@@ -39,7 +38,6 @@ function renderResult(data) {
 
   const student = data.student || {};
   const bills = data.bills || [];
-  const history = data.payment_history || [];
   const summary = data.summary || {};
 
   // 1. Calculate & Render Financial Cards
@@ -64,12 +62,7 @@ function renderResult(data) {
     accountName: student.full_name || "-",
   });
 
-  // 4. Render Payment History Timeline
-  renderPaymentHistory({
-    history,
-  });
-
-  // 5. Scroll to result on mobile viewports
+  // 4. Scroll to result on mobile viewports
   scrollToResultOnMobile(resultState);
 }
 

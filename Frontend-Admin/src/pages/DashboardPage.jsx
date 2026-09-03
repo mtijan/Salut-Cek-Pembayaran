@@ -140,7 +140,7 @@ export default function DashboardPage({ setActiveView }) {
           >
             <Users size={22} className="text-brand" />
             <strong>Kelola Data Mahasiswa</strong>
-            <span>Profil 360, status akademik &amp; angkatan</span>
+            <span>Profil Mahasiswa, status akademik &amp; angkatan</span>
           </button>
 
           <button

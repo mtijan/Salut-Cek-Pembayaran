@@ -32,7 +32,7 @@ export default function BillTableRow({ bill, copiedKey, canManage, actions, navi
                 type="button"
                 onClick={() => navigateTo('student-profile', { studentId: bill.student_id })}
                 className="student-name-link"
-                title="Buka Profil 360 Mahasiswa"
+                title="Buka Profil Mahasiswa"
               >
                 {bill.student_name || bill.full_name}
               </button>
@@ -47,13 +47,15 @@ export default function BillTableRow({ bill, copiedKey, canManage, actions, navi
         </div>
       </td>
       <td>
-        <div className="flex-column-gap-3">
-          <span className="period-badge">{bill.period}</span>
-          <span className="cell-prodi">{bill.bill_type || 'UKT'}</span>
-          <span className={`badge ${isActive ? 'badge-success' : 'badge-neutral'}`}>
-            {isActive ? 'Aktif' : 'Nonaktif'}
-          </span>
-        </div>
+        <span className="period-badge">{bill.period}</span>
+      </td>
+      <td>
+        <span className="font-semibold text-ink">{bill.bill_type || 'UKT'}</span>
+      </td>
+      <td className="text-center">
+        <span className={`badge ${isActive ? 'badge-success' : 'badge-neutral'}`}>
+          {isActive ? 'Aktif' : 'Nonaktif'}
+        </span>
       </td>
       <td>
         <div className="font-bold text-ink">
@@ -136,7 +138,7 @@ export default function BillTableRow({ bill, copiedKey, canManage, actions, navi
             <button
               type="button"
               className="btn btn-primary btn-sm btn-action-pay"
-              onClick={() => navigateTo?.('bill-payment', { billId: bill.id })}
+              onClick={() => navigateTo?.('bill-payment', { billId: bill.id, tab: 'payment' })}
               title="Buka Kasir Pembayaran Tagihan"
             >
               <CreditCard size={13} />
@@ -157,8 +159,8 @@ export default function BillTableRow({ bill, copiedKey, canManage, actions, navi
                 <button
                   type="button"
                   className="btn btn-secondary btn-sm btn-action-icon"
-                  onClick={() => navigateTo?.('bill-edit', { billId: bill.id })}
-                  title="Edit Data Pokok Tagihan (Halaman Penuh)"
+                  onClick={() => navigateTo?.('bill-payment', { billId: bill.id, tab: 'edit' })}
+                  title="Edit Data Pokok Tagihan"
                 >
                   <Edit2 size={13} />
                 </button>

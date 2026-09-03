@@ -9,12 +9,13 @@ import { toLocalDateInputValue } from '../utils/date';
  * Mengelola state, fetch, payment mode, quick amount chips, dan submit transaksi.
  * Container page bertanggung jawab atas layout.
  */
-export function useBillPayment({ billId }) {
+export function useBillPayment({ billId, onPaymentSuccess }) {
   const { showToast } = useToast();
   const { copiedKey, copyToClipboard } = useCopyFeedback();
 
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
 
   const [paymentMode, setPaymentMode] = useState('full');
   const [paymentAmount, setPaymentAmount] = useState('');
@@ -28,6 +29,7 @@ export function useBillPayment({ billId }) {
   const fetchBillDetail = useCallback(async () => {
     if (!billId) return;
     setLoading(true);
+    setLoadError('');
     try {
       const res = await billsApi.getDetail(billId);
       setData(res);
@@ -40,7 +42,9 @@ export function useBillPayment({ billId }) {
         setPaymentAmount('');
       }
     } catch (err) {
-      showToast(err.message || 'Gagal memuat data tagihan.', 'error');
+      const message = err.message || 'Gagal memuat data tagihan.';
+      setLoadError(message);
+      showToast(message, 'error');
     } finally {
       setLoading(false);
     }
@@ -117,6 +121,9 @@ export function useBillPayment({ billId }) {
       setReferenceNumber('');
       setNotes('');
       await fetchBillDetail();
+      if (onPaymentSuccess) {
+        await onPaymentSuccess();
+      }
     } catch (err) {
       setFormError(err.message || 'Gagal menyimpan transaksi pembayaran.');
     } finally {
@@ -127,6 +134,7 @@ export function useBillPayment({ billId }) {
   return {
     data,
     loading,
+    loadError,
     bill,
     student,
     transactions,

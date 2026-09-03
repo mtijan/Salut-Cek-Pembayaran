@@ -126,10 +126,12 @@ class ReportingService:
         rate = round((paid / billed * 100), 2) if billed > 0 else 0.0
         status_code = "paid" if billed > 0 and paid >= billed else "partial" if paid > 0 else "unpaid"
         status_label = "Lunas" if status_code == "paid" else "Sebagian" if status_code == "partial" else "Belum Bayar"
+        briva_values = sorted({value.strip() for value in str(row["briva"] or "").split(",") if value.strip()})
         return {
             "student_id": row["student_id"],
             "nim": row["nim"] or "-",
             "full_name": row["full_name"] or "-",
+            "briva": ", ".join(briva_values) or "-",
             "phone_number": row["phone_number"] or "-",
             "program_study": row["program_study"],
             "entry_period": row["entry_period"],

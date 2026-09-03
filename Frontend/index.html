@@ -3,10 +3,10 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Cek Tagihan & Pembayaran Mahasiswa - UT SALUT Awwabin Tangerang</title>
+    <title>SALUTKU - Sistem Administrasi &amp; Keuangan SALUT AWWABIN</title>
     <meta
       name="description"
-      content="Layanan resmi cek tagihan biaya pendidikan, status pembayaran, nomor BRIVA, dan riwayat transaksi mahasiswa Universitas Terbuka SALUT Awwabin Tangerang."
+      content="Layanan resmi cek tagihan biaya pendidikan, status pembayaran, nomor rekening, dan informasi mahasiswa Universitas Terbuka SALUT Awwabin Tangerang."
     />
     <link rel="stylesheet" href="./css/main.css?v=20260901-v3" />
   </head>
@@ -24,8 +24,8 @@
           <img class="brand-logo" src="./assets/images/logo-salut.jpeg" alt="Logo UT SALUT Awwabin" />
           <div class="brand-text">
             <span class="brand-institution">UNIVERSITAS TERBUKA</span>
-            <span class="brand-salut">SALUT AWWABIN TANGERANG</span>
-            <span class="brand-desc">Sistem Informasi Pembayaran & Layanan Mahasiswa</span>
+            <span class="brand-salut">SALUTKU</span>
+            <span class="brand-desc">Sistem Administrasi &amp; Keuangan SALUT AWWABIN</span>
           </div>
         </div>
       </div>
@@ -65,7 +65,7 @@
                 />
                 <button type="button" id="clear-nim" class="clear-btn hidden" title="Hapus input" aria-label="Hapus NIM">✕</button>
               </div>
-              <p class="input-help">Masukkan 9 digit NIM yang tertera pada KTM atau SIPAS</p>
+              <p class="input-help">Masukkan 9 digit NIM</p>
             </div>
 
             <button type="submit" id="submit-button" class="btn btn-primary btn-block">
@@ -201,31 +201,21 @@
               </div>
               <div class="briva-footer-item">
                 <span class="footer-label">Kanal Pembayaran</span>
-                <strong class="footer-value">BRImo, ATM BRI, Transfer Antar-Bank, atau Kantor SALUT</strong>
+                <strong class="footer-value">Kantor SALUT, BRImo, ATM BRI, Transfer Antar-Bank, atau E-Wallet</strong>
               </div>
             </div>
           </section>
 
-          <!-- 4. Payment History (Riwayat Pembayaran) Card -->
-          <section class="card history-card" aria-labelledby="history-heading">
-            <div class="card-section-header">
-              <div>
-                <h3 id="history-heading" class="section-title">Riwayat Pembayaran</h3>
-                <p class="section-subtitle">Daftar transaksi pembayaran yang telah diverifikasi oleh sistem administrasi</p>
-              </div>
-              <span id="history-count-badge" class="count-pill">0 Transaksi</span>
-            </div>
-
-            <div id="history-content" class="history-content-area"></div>
-          </section>
-
-          <!-- 5. Interactive Payment Instructions (Panduan Cara Bayar BRIVA) -->
+          <!-- 4. Interactive Payment Instructions -->
           <section class="card instructions-card" aria-labelledby="instructions-heading">
-            <h3 id="instructions-heading" class="section-title">Panduan Cara Pembayaran BRIVA</h3>
+            <h3 id="instructions-heading" class="section-title">Panduan Cara Pembayaran</h3>
             <p class="section-subtitle">Pilih kanal pembayaran yang Anda gunakan untuk melihat langkah-langkahnya:</p>
 
             <div class="tab-nav" role="tablist">
-              <button type="button" class="tab-button active" role="tab" aria-selected="true" data-tab="tab-brimo">
+              <button type="button" class="tab-button active" role="tab" aria-selected="true" data-tab="tab-salut">
+                <span>Kantor SALUT Awwabin</span>
+              </button>
+              <button type="button" class="tab-button" role="tab" aria-selected="false" data-tab="tab-brimo">
                 <span>Aplikasi BRImo</span>
               </button>
               <button type="button" class="tab-button" role="tab" aria-selected="false" data-tab="tab-atm">
@@ -234,58 +224,73 @@
               <button type="button" class="tab-button" role="tab" aria-selected="false" data-tab="tab-other-bank">
                 <span>Bank Lain / M-Banking Lain</span>
               </button>
-              <button type="button" class="tab-button" role="tab" aria-selected="false" data-tab="tab-salut">
-                <span>Kantor SALUT Awwabin</span>
+              <button type="button" class="tab-button" role="tab" aria-selected="false" data-tab="tab-ewallet">
+                <span>Dompet Digital / E-Wallet</span>
               </button>
             </div>
 
             <div class="tab-panels">
-              <!-- Tab 1: BRImo -->
-              <div id="tab-brimo" class="tab-panel active" role="tabpanel">
-                <ol class="steps-list">
-                  <li>Buka dan login ke aplikasi <strong>BRImo</strong> di smartphone Anda.</li>
-                  <li>Pilih menu <strong>Tagihan</strong> &gt; pilih <strong>BRIVA</strong>.</li>
-                  <li>Pilih <strong>Pembayaran Baru</strong> dan masukkan <strong>Nomor BRIVA</strong> yang tertera di atas.</li>
-                  <li>Periksa nama mahasiswa dan nominal tagihan yang muncul di layar konfirmasi.</li>
-                  <li>Jika membayar sebagian/cicilan, sesuaikan nominal transfer yang akan dibayarkan.</li>
-                  <li>Konfirmasi dan masukkan <strong>PIN BRImo</strong> Anda untuk menyelesaikan transaksi.</li>
-                  <li>Simpan bukti struk/resi digital pembayaran.</li>
-                </ol>
-              </div>
-
-              <!-- Tab 2: ATM BRI -->
-              <div id="tab-atm" class="tab-panel hidden" role="tabpanel">
-                <ol class="steps-list">
-                  <li>Masukkan Kartu ATM BRI dan <strong>PIN</strong> Anda di mesin ATM BRI.</li>
-                  <li>Pilih menu <strong>Transaksi Lain</strong> &gt; pilih <strong>Pembayaran</strong> &gt; pilih <strong>Lainnya</strong>.</li>
-                  <li>Pilih menu <strong>BRIVA</strong>.</li>
-                  <li>Masukkan <strong>Nomor BRIVA</strong> yang tertera di atas, lalu tekan <strong>Benar</strong>.</li>
-                  <li>Di layar konfirmasi, pastikan <strong>Nama Mahasiswa</strong> dan rincian pembayaran sesuai.</li>
-                  <li>Masukkan jumlah pembayaran yang diinginkan (bisa dicicil atau lunas) lalu pilih <strong>Ya</strong>.</li>
-                  <li>Ambil dan simpan struk ATM sebagai bukti pembayaran yang sah.</li>
-                </ol>
-              </div>
-
-              <!-- Tab 3: Bank Lain -->
-              <div id="tab-other-bank" class="tab-panel hidden" role="tabpanel">
-                <ol class="steps-list">
-                  <li>Buka Mobile Banking atau ATM bank Anda (BCA, Mandiri, BNI, BSI, CIMB, Dana/OVO, dll).</li>
-                  <li>Pilih menu <strong>Transfer Antar Bank</strong> (Kode Bank BRI: <strong>002</strong>).</li>
-                  <li>Masukkan nomor rekening tujuan dengan format: <strong>Nomor BRIVA</strong> Anda.</li>
-                  <li>Masukkan nominal transfer sesuai sisa tagihan atau jumlah cicilan yang ingin dibayarkan.</li>
-                  <li>Pastikan nama penerima yang muncul sesuai dengan <strong>Nama Mahasiswa</strong>.</li>
-                  <li>Selesaikan transaksi transfer dan simpan bukti transfer Anda.</li>
-                </ol>
-              </div>
-
-              <!-- Tab 4: SALUT Awwabin -->
-              <div id="tab-salut" class="tab-panel hidden" role="tabpanel">
+              <!-- Tab 1: SALUT Awwabin -->
+              <div id="tab-salut" class="tab-panel active" role="tabpanel">
                 <ol class="steps-list">
                   <li>Kunjungi Kantor SALUT Awwabin Tangerang pada hari dan jam operasional.</li>
                   <li>Sampaikan kepada staf administrasi mengenai keperluan pembayaran biaya kuliah.</li>
                   <li>Sebutkan <strong>NIM</strong> Anda untuk pengecekan data di sistem akademik.</li>
                   <li>Lakukan pembayaran dengan asistensi langsung oleh petugas kami.</li>
                   <li>Petugas akan mencetak tanda terima / kuitansi pembayaran resmi untuk Anda.</li>
+                </ol>
+              </div>
+
+              <!-- Tab 2: BRImo -->
+              <div id="tab-brimo" class="tab-panel hidden" role="tabpanel">
+                <ol class="steps-list">
+                  <li>Buka dan login ke aplikasi <strong>BRImo</strong> di smartphone Anda.</li>
+                  <li>Pilih menu <strong>Transfer</strong> &gt; pilih <strong>Tambah Penerima Baru</strong>.</li>
+                  <li>Pilih Bank Tujuan: <strong>Bank BRI</strong> (Transfer ke Rekening Sesama BRI).</li>
+                  <li>Masukkan <strong>Nomor Rekening / Pembayaran</strong> yang tertera di atas, lalu pilih <strong>Lanjutkan</strong>.</li>
+                  <li>Periksa kesesuaian <strong>Nama Penerima</strong> dan nominal tagihan yang muncul di layar konfirmasi.</li>
+                  <li>Masukkan nominal transfer yang akan dibayarkan (dapat dibayar lunas atau dicicil sesuai kemampuan).</li>
+                  <li>Konfirmasi transaksi dan masukkan <strong>PIN BRImo</strong> Anda untuk menyelesaikan transaksi.</li>
+                  <li>Simpan bukti resi/transfer digital sebagai bukti pembayaran yang sah.</li>
+                </ol>
+              </div>
+
+              <!-- Tab 3: ATM BRI -->
+              <div id="tab-atm" class="tab-panel hidden" role="tabpanel">
+                <ol class="steps-list">
+                  <li>Masukkan Kartu ATM BRI dan <strong>PIN</strong> Anda di mesin ATM BRI.</li>
+                  <li>Pilih menu <strong>Transaksi Lain</strong> &gt; pilih <strong>Transfer</strong>.</li>
+                  <li>Pilih <strong>Sesama Bank BRI</strong>.</li>
+                  <li>Masukkan <strong>Nomor Rekening / Pembayaran</strong> yang tertera di atas, lalu tekan <strong>Benar</strong>.</li>
+                  <li>Masukkan jumlah nominal transfer yang akan dibayarkan (bisa dicicil atau lunas), lalu tekan <strong>Benar</strong>.</li>
+                  <li>Di layar konfirmasi, pastikan <strong>Nama Penerima</strong> dan rincian pembayaran sesuai, lalu pilih <strong>Ya</strong>.</li>
+                  <li>Ambil dan simpan struk ATM sebagai bukti pembayaran yang sah.</li>
+                </ol>
+              </div>
+
+              <!-- Tab 4: Bank Lain -->
+              <div id="tab-other-bank" class="tab-panel hidden" role="tabpanel">
+                <ol class="steps-list">
+                  <li>Buka Mobile Banking atau ATM bank Anda (BCA, Mandiri, BNI, BSI, CIMB, dll).</li>
+                  <li>Pilih menu <strong>Transfer Antar Bank</strong> (Kode Bank BRI: <strong>002</strong>).</li>
+                  <li>Masukkan nomor rekening tujuan dengan format: <strong>Nomor Rekening / Pembayaran</strong> Anda.</li>
+                  <li>Masukkan nominal transfer sesuai sisa tagihan atau jumlah cicilan yang ingin dibayarkan.</li>
+                  <li>Pastikan nama penerima yang muncul sesuai dengan <strong>Nama Mahasiswa</strong>.</li>
+                  <li>Selesaikan transaksi transfer dan simpan bukti transfer Anda.</li>
+                </ol>
+              </div>
+
+              <!-- Tab 5: Dompet Digital / E-Wallet -->
+              <div id="tab-ewallet" class="tab-panel hidden" role="tabpanel">
+                <ol class="steps-list">
+                  <li>Buka aplikasi dompet digital pilihan Anda (<strong>DANA, GoPay, OVO, ShopeePay, atau LinkAja</strong>).</li>
+                  <li>Pilih menu <strong>Kirim / Transfer</strong> &gt; pilih <strong>Transfer ke Bank</strong>.</li>
+                  <li>Pilih Bank Tujuan: <strong>Bank BRI</strong> (Bank Rakyat Indonesia).</li>
+                  <li>Masukkan <strong>Nomor Rekening / Pembayaran</strong> yang tertera di atas sebagai nomor rekening tujuan.</li>
+                  <li>Masukkan nominal transfer sesuai jumlah sisa tagihan atau cicilan yang akan dibayarkan.</li>
+                  <li>Periksa kembali kesesuaian nama penerima dan rincian tagihan pada halaman konfirmasi.</li>
+                  <li>Masukkan <strong>PIN Dompet Digital</strong> Anda untuk menyelesaikan proses pembayaran.</li>
+                  <li>Simpan resi / tangkapan layar bukti transfer digital sebagai bukti pembayaran yang sah.</li>
                 </ol>
               </div>
             </div>
