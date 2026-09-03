@@ -6,6 +6,7 @@ import sqlite3
 from typing import cast
 
 from Backend.app.domain.billing import joined_bill_select
+from Backend.app.domain.common import escape_like_query
 from Backend.excel_reader import normalize_text
 
 
@@ -243,10 +244,11 @@ class BillRepository:
         params: list[object] = []
         where_clauses = ["b.deleted_at is null", "s.deleted_at is null"]
         if search:
+            escaped_search = escape_like_query(search)
             where_clauses.append(
-                "(s.nim like ? or s.full_name like ? or b.briva like ? or b.period like ? or b.bill_type like ?)"
+                "(s.nim like ? escape '\\' or s.full_name like ? escape '\\' or b.briva like ? escape '\\' or b.period like ? escape '\\' or b.bill_type like ? escape '\\')"
             )
-            params.extend([f"%{search}%", f"%{search}%", f"%{search}%", f"%{search}%", f"%{search}%"])
+            params.extend([f"%{escaped_search}%"] * 5)
         if normalized_status:
             where_clauses.append("b.status = ?")
             params.append(normalized_status)

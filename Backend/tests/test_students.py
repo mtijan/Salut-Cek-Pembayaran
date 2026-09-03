@@ -434,6 +434,35 @@ class StudentManagementTests(BackendBaseTestCase):
             self.assertTrue(any(s["nim"] == "1002" for s in year_2025_list))
             self.assertFalse(any(s["nim"] == "1001" for s in year_2025_list))
 
+    def test_list_students_supports_pagination_limit_and_offset(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            database = Path(temporary_directory) / "salut.sqlite"
+            conn = connect(database)
+            init_db(conn)
+            conn.close()
+
+            for i in range(1, 6):
+                create_student(
+                    database,
+                    {
+                        "nim": f"900{i}",
+                        "full_name": f"Mahasiswa {i}",
+                        "program_study": "S1 Akuntansi",
+                        "academic_status": "aktif",
+                    },
+                )
+
+            first_page = list_students(database, limit=2, offset=0)
+            second_page = list_students(database, limit=2, offset=2)
+            third_page = list_students(database, limit=2, offset=4)
+
+            self.assertEqual(len(first_page), 2)
+            self.assertEqual([s["nim"] for s in first_page], ["9001", "9002"])
+            self.assertEqual(len(second_page), 2)
+            self.assertEqual([s["nim"] for s in second_page], ["9003", "9004"])
+            self.assertEqual(len(third_page), 1)
+            self.assertEqual([s["nim"] for s in third_page], ["9005"])
+
 
 if __name__ == "__main__":
     unittest.main()

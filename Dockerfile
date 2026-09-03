@@ -30,8 +30,15 @@ COPY Frontend/ ./Frontend/
 # Copy built admin SPA assets from builder stage
 COPY --from=frontend-builder /app/Frontend/admin-dist ./Frontend/admin-dist
 
-# Create directory for persistent data (SQLite & imports)
-RUN mkdir -p /app/Backend/data/imports
+# Create unprivileged system user and group
+RUN groupadd -r -g 1001 salut && \
+    useradd -r -u 1001 -g salut -d /app -s /sbin/nologin salut
+
+# Create directory for persistent data (SQLite & imports) and set ownership
+RUN mkdir -p /app/Backend/data/imports && \
+    chown -R salut:salut /app/Backend/data
+
+USER salut
 
 EXPOSE 8000
 

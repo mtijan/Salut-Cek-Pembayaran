@@ -28,6 +28,7 @@ from Backend.app.services import (
 # Type definitions for injected dependencies
 AdminDependencyFactory = Callable[[str | None], Callable[[Request], sqlite3.Row]]
 JsonReader = Callable[[Request], Awaitable[dict[str, object]]]
+OffsetParser = Callable[[Request], int]
 
 
 class LimitParser(Protocol):
@@ -40,6 +41,7 @@ def build_student_router(
     require_admin: AdminDependencyFactory,
     read_json: JsonReader,
     parse_limit: LimitParser,
+    parse_offset: OffsetParser | None = None,
 ) -> APIRouter:
     """Build admin student management routes."""
     router = APIRouter()
@@ -58,6 +60,7 @@ def build_student_router(
         entry_year = int(raw_year) if raw_year and raw_year.isdigit() else None
         try:
             limit = parse_limit(request, default=2000, max_limit=5000)
+            offset = parse_offset(request) if parse_offset else 0
         except ValueError as exc:
             return error_response(400, "VALIDATION_ERROR", str(exc))
         return success_response(
@@ -66,6 +69,7 @@ def build_student_router(
                     config.DB_PATH,
                     query=query,
                     limit=limit,
+                    offset=offset,
                     study_program_id=study_program_id,
                     academic_status=academic_status,
                     entry_year=entry_year,

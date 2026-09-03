@@ -64,3 +64,8 @@ def format_entry_period(entry_period: str | None, entry_semester: str | None = N
         )
         return f"{period} ({semester_name})"
     return period
+
+
+def escape_like_query(value: str) -> str:
+    """Escape SQL LIKE wildcards (% and _) and backslash escape characters."""
+    return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")

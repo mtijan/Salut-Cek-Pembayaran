@@ -25,6 +25,31 @@ class DomainBoundaryTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             validate_paid_amount(1_000_000, 1_000_000, "partial")
 
+    def test_sanitize_filename_hardens_path_traversal_and_extensions(self) -> None:
+        self.assertEqual(sanitize_filename("../../test.xlsx"), "test.xlsx")
+        self.assertEqual(sanitize_filename("..."), "import.xlsx")
+        self.assertEqual(sanitize_filename(".."), "import.xlsx")
+        self.assertEqual(sanitize_filename("   "), "import.xlsx")
+        self.assertEqual(sanitize_filename("data.xlsx."), "data.xlsx")
+        self.assertEqual(sanitize_filename("valid_report"), "valid_report.xlsx")
+
+    def test_escape_like_query_escapes_sql_wildcards(self) -> None:
+        from Backend.app.domain.common import escape_like_query
+
+        self.assertEqual(escape_like_query("100%"), "100\\%")
+        self.assertEqual(escape_like_query("user_name"), "user\\_name")
+        self.assertEqual(escape_like_query("path\\dir"), "path\\\\dir")
+
+    def test_excel_reader_rejects_dtd_and_entity_expansion(self) -> None:
+        from Backend.excel_reader import _parse_xml
+
+        with self.assertRaisesRegex(ValueError, "Struktur XML file Excel tidak valid"):
+            _parse_xml(b'<!DOCTYPE foo [<!ENTITY xxe SYSTEM "file:///etc/passwd">]><foo>&xxe;</foo>')
+        with self.assertRaisesRegex(ValueError, "Struktur XML file Excel tidak valid"):
+            _parse_xml(b"<!doctype root []><root></root>")
+        root = _parse_xml(b"<root><child>value</child></root>")
+        self.assertEqual(root.tag, "root")
+
 
 if __name__ == "__main__":
     unittest.main()

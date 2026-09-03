@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   ShieldCheck,
   UserPlus,
@@ -35,8 +35,9 @@ export default function UsersPage() {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [toast, setToast] = useState(null);
   const [search, setSearch] = useState('');
+  const [toast, setToast] = useState(null);
+  const toastTimerRef = useRef(null);
 
   // Modal State
   const [formModalOpen, setFormModalOpen] = useState(false);
@@ -51,10 +52,24 @@ export default function UsersPage() {
   const [resetError, setResetError] = useState(null);
   const [resetSaving, setResetSaving] = useState(false);
 
-  const showToast = (message, type = 'success') => {
+  const showToast = useCallback((message, type = 'success') => {
+    if (toastTimerRef.current) {
+      clearTimeout(toastTimerRef.current);
+    }
     setToast({ message, type });
-    setTimeout(() => setToast(null), 4000);
-  };
+    toastTimerRef.current = setTimeout(() => {
+      setToast(null);
+      toastTimerRef.current = null;
+    }, 4000);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (toastTimerRef.current) {
+        clearTimeout(toastTimerRef.current);
+      }
+    };
+  }, []);
 
   const loadUsers = useCallback(async () => {
     setLoading(true);

@@ -13,7 +13,7 @@ from Backend.app.domain.students import student_row_to_dict, validate_academic_s
 from Backend.app.repositories.students import StudentRepository
 from Backend.app.services import audit as _audit
 from Backend.app.services.audit import list_payment_transactions
-from Backend.db import connect, database_connection, parse_entry_registration
+from Backend.db import connect, database_connection, parse_entry_registration, resolve_study_program_id
 from Backend.excel_reader import (
     clean_demographic_value,
     normalize_imported_name,
@@ -57,8 +57,6 @@ def ensure_student(
         if resolved_program_name and not norm_prodi:
             norm_prodi = resolved_program_name
     elif norm_prodi:
-        from Backend.db import resolve_study_program_id
-
         norm_prodi_id = resolve_study_program_id(conn, norm_prodi)
 
     norm_status = validate_academic_status(academic_status) if academic_status is not None else None
@@ -150,6 +148,7 @@ def list_students(
     db_path: str | Path = config.DB_PATH,
     query: str = "",
     limit: int = 2000,
+    offset: int = 0,
     study_program_id: str = "",
     academic_status: str = "",
     entry_year: int | None = None,
@@ -161,6 +160,7 @@ def list_students(
         rows = StudentRepository(conn).list_admin(
             query=query,
             limit=limit,
+            offset=offset,
             study_program_id=study_program_id,
             academic_status=academic_status,
             entry_year=entry_year,

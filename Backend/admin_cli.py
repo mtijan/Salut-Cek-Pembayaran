@@ -51,7 +51,13 @@ def handle_create_superadmin(args: argparse.Namespace) -> int:
         return 1
 
     password = args.password
-    if not password:
+    if password:
+        print(
+            "WARNING: Meneruskan password via flag CLI berisiko terekam di riwayat shell dan proses OS. "
+            "Disarankan menggunakan prompt interaktif atau environment variable.",
+            file=sys.stderr,
+        )
+    else:
         password = _prompt_password("Password super_admin (min 8 karakter): ")
 
     if not password or len(password) < 8:
@@ -98,7 +104,13 @@ def handle_reset_password(args: argparse.Namespace) -> int:
         target_email = str(row["email"])
 
     password = args.password
-    if not password:
+    if password:
+        print(
+            "WARNING: Meneruskan password via flag CLI berisiko terekam di riwayat shell dan proses OS. "
+            "Disarankan menggunakan prompt interaktif atau environment variable.",
+            file=sys.stderr,
+        )
+    else:
         password = _prompt_password(f"Password baru untuk {target_email} (min 8 karakter): ")
 
     if not password or len(password) < 8:

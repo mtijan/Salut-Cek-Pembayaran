@@ -192,7 +192,7 @@ app.include_router(
     )
 )
 app.include_router(build_billing_router(require_admin, read_json, parse_limit, parse_offset))
-app.include_router(build_student_router(require_admin, read_json, parse_limit))
+app.include_router(build_student_router(require_admin, read_json, parse_limit, parse_offset))
 app.include_router(build_report_router(require_admin, parse_limit))
 app.include_router(build_master_data_router(require_admin, read_json))
 app.include_router(build_import_router(require_admin, read_json, enforce_rate_limit))

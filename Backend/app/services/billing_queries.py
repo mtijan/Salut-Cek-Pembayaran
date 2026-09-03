@@ -7,6 +7,7 @@ from typing import cast
 
 from Backend.app import config
 from Backend.app.domain.billing import bill_row_to_dict
+from Backend.app.domain.common import escape_like_query
 from Backend.app.domain.students import student_row_to_dict
 from Backend.app.repositories.bills import BillRepository
 from Backend.app.repositories.students import StudentRepository
@@ -166,10 +167,11 @@ def _import_issue_filter(
         clauses.append("i.resolution_status = ?")
         params.append(normalized_status)
     if query.strip():
+        escaped_query = escape_like_query(query.strip())
         clauses.append(
-            "(i.nim like ? or i.full_name like ? or i.briva like ? or i.amount like ? or i.issue_code like ? or i.note like ?)"
+            "(i.nim like ? escape '\\' or i.full_name like ? escape '\\' or i.briva like ? escape '\\' or i.amount like ? escape '\\' or i.issue_code like ? escape '\\' or i.note like ? escape '\\')"
         )
-        like = f"%{query.strip()}%"
+        like = f"%{escaped_query}%"
         params.extend([like, like, like, like, like, like])
     return (" where " + " and ".join(clauses) if clauses else ""), params
 

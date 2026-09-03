@@ -6,6 +6,8 @@ import sqlite3
 import uuid
 from typing import cast
 
+from Backend.app.domain.billing import joined_bill_select
+from Backend.app.domain.common import escape_like_query
 from Backend.excel_reader import normalize_text
 
 
@@ -264,22 +266,25 @@ class StudentRepository:
         self,
         query: str = "",
         limit: int = 2000,
+        offset: int = 0,
         study_program_id: str = "",
         academic_status: str = "",
         entry_year: int | None = None,
         entry_period: str = "",
         sort_by: str = "",
     ) -> list[sqlite3.Row]:
-        """List students with dynamic filters, search, and sorting."""
+        """List students with dynamic filters, search, sorting, and pagination."""
         search = normalize_text(query)
         limit = max(1, min(int(limit or 2000), 5000))
+        offset = max(0, int(offset or 0))
         params: list[object] = []
         where_clauses = ["s.deleted_at is null"]
         if search:
+            escaped_search = escape_like_query(search)
             where_clauses.append(
-                "(s.nim like ? or s.full_name like ? or s.program_study like ? or sp.name like ? or sp.code like ? or s.no_ktp like ? or s.email like ? or s.phone_number like ?)"
+                "(s.nim like ? escape '\\' or s.full_name like ? escape '\\' or s.program_study like ? escape '\\' or sp.name like ? escape '\\' or sp.code like ? escape '\\' or s.no_ktp like ? escape '\\' or s.email like ? escape '\\' or s.phone_number like ? escape '\\')"
             )
-            params.extend([f"%{search}%"] * 8)
+            params.extend([f"%{escaped_search}%"] * 8)
         if study_program_id:
             where_clauses.append(
                 "(s.study_program_id = ? or sp.code = ? or lower(s.program_study) = lower(?) or lower(sp.name) = lower(?))"
@@ -292,8 +297,9 @@ class StudentRepository:
             where_clauses.append("s.entry_year = ?")
             params.append(int(entry_year))
         if entry_period:
-            where_clauses.append("(s.entry_period = ? or s.initial_registration like ?)")
-            params.extend([entry_period.strip(), f"%{entry_period.strip()}%"])
+            escaped_entry = escape_like_query(entry_period.strip())
+            where_clauses.append("(s.entry_period = ? or s.initial_registration like ? escape '\\')")
+            params.extend([entry_period.strip(), f"%{escaped_entry}%"])
 
         order_by = "order by s.nim asc"
         if sort_by == "entry_period_asc":
@@ -322,15 +328,13 @@ class StudentRepository:
                      s.program_study, s.study_program_id, s.academic_status, s.entry_year, s.entry_semester, s.entry_period,
                      s.email, s.address, s.phone_number, s.initial_registration, sp.name, sp.code
             {order_by}
-            limit ?
+            limit ? offset ?
             """,
-            (*params, limit),
+            (*params, limit, offset),
         ).fetchall()
 
     def get_bills_for_student(self, student_id: str) -> list[sqlite3.Row]:
         """Retrieve active bills for a student."""
-        from Backend.app.domain.billing import joined_bill_select
-
         return self._connection.execute(
             f"""
             {joined_bill_select()}

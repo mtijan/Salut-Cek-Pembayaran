@@ -13,6 +13,7 @@ import server
 from Backend.app import config as app_config
 from Backend.app.config import ROLE_PERMISSIONS
 from Backend.app.rate_limit import RateLimiter
+from Backend.app.security import hash_password
 from db import connect, init_db
 from fastapi.testclient import TestClient
 from Backend.tests.test_base import BackendBaseTestCase
@@ -203,6 +204,37 @@ class AuthAndRBACTests(BackendBaseTestCase):
         self.assertNotIn("manage_billing", ROLE_PERMISSIONS["viewer"])
 
         self.assertIn("manage_users", ROLE_PERMISSIONS["super_admin"])
+
+    def test_login_aggregate_ip_rate_limiting(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            database = Path(temporary_directory) / "salut.sqlite"
+            conn = connect(database)
+            init_db(conn)
+            with conn:
+                conn.execute(
+                    "insert into admin_users (id, email, password_hash, role) values (?, ?, ?, ?)",
+                    ("admin-spray", "target@spray.test", hash_password("Password123!"), "admin"),
+                )
+            conn.close()
+
+            original_db_path = app_config.DB_PATH
+            app_config.DB_PATH = database
+            try:
+                client = TestClient(server.app)
+                for i in range(20):
+                    res = client.post(
+                        "/api/admin/login",
+                        json={"email": f"victim{i}@spray.test", "password": "WrongPassword!"},
+                    )
+                    self.assertEqual(res.status_code, 401)
+                res21 = client.post(
+                    "/api/admin/login",
+                    json={"email": "target@spray.test", "password": "Password123!"},
+                )
+                self.assertEqual(res21.status_code, 429)
+                self.assertEqual(res21.json()["error"]["code"], "RATE_LIMITED")
+            finally:
+                app_config.DB_PATH = original_db_path
 
 
 if __name__ == "__main__":

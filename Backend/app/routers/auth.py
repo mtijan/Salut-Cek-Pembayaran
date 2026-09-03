@@ -60,9 +60,12 @@ def build_auth_router(
         if not email or not password:
             return error_response(400, "VALIDATION_ERROR", "Email dan password wajib diisi.")
 
-        # Rate limit based on client IP and target email (5 attempts per 15 min)
-        # Checked before password hashing to prevent brute force and resource exhaustion
-        retry_after = enforce_rate_limit("login", f"{client_ip(request)}:{email}", 5, 15 * 60)
+        # Dual-layer rate limit: aggregate per client IP (20 per 15 min) and per account (5 per 15 min)
+        # Checked before password hashing to prevent brute force, password spraying, and resource exhaustion
+        ip = client_ip(request)
+        retry_after = enforce_rate_limit("login_ip", ip, 20, 15 * 60) or enforce_rate_limit(
+            "login", f"{ip}:{email}", 5, 15 * 60
+        )
         if retry_after:
             return error_response(
                 429,

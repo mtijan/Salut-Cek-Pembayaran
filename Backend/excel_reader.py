@@ -74,6 +74,9 @@ def _validate_zip_archive(zf: zipfile.ZipFile) -> None:
 
 
 def _parse_xml(content: bytes) -> ET.Element:
+    lower_content = content.lower()
+    if b"<!doctype" in lower_content or b"<!entity" in lower_content:
+        raise ValueError("Struktur XML file Excel tidak valid.")
     try:
         return ET.fromstring(content)
     except ET.ParseError as exc:
