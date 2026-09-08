@@ -27,6 +27,7 @@ export function useUploadPage() {
   const [loadingIssues, setLoadingIssues] = useState(false);
   const [billingYear, setBillingYear] = useState(currentBillingYear);
   const [semesterType, setSemesterType] = useState('ganjil');
+  const [dueDate, setDueDate] = useState('');
 
   const handleFileChange = (e) => {
     const selected = e.target.files?.[0];
@@ -44,9 +45,13 @@ export function useUploadPage() {
       showToast('Pilih file Excel terlebih dahulu.', 'error');
       return;
     }
+    if (!dueDate) {
+      showToast('Tentukan tanggal deadline pembayaran terlebih dahulu.', 'error');
+      return;
+    }
     setAnalyzing(true);
     try {
-      const res = await importApi.preview(file, billingYear, semesterType);
+      const res = await importApi.preview(file, billingYear, semesterType, dueDate);
       setPreviewData(res);
       setConfirmSensitive(false);
       setStep(2);
@@ -104,6 +109,7 @@ export function useUploadPage() {
     setConfirmSensitive(false);
     setBillingYear(currentBillingYear());
     setSemesterType('ganjil');
+    setDueDate('');
   };
 
   // Derived flags from previewData
@@ -130,6 +136,8 @@ export function useUploadPage() {
     setBillingYear,
     semesterType,
     setSemesterType,
+    dueDate,
+    setDueDate,
     critical,
     hasSensitive,
     canCommit,

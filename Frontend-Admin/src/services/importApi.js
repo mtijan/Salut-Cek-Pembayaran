@@ -33,14 +33,18 @@ export const importApi = {
    * Uploads an Excel file for ingestion preview analysis.
    *
    * @param {File|Blob} file
+   * @param {number|string} billingYear
+   * @param {'ganjil'|'genap'} semesterType
+   * @param {string} dueDate Deadline dalam format YYYY-MM-DD
    * @param {RequestInit} [options={}]
    * @returns {Promise<any>}
    */
-  preview: (file, billingYear, semesterType, options = {}) => {
+  preview: (file, billingYear, semesterType, dueDate, options = {}) => {
     const formData = new FormData();
     formData.append('file', file);
     formData.append('billing_year', String(billingYear));
     formData.append('semester_type', semesterType);
+    formData.append('due_date', dueDate);
     return apiFetch('/admin/import/preview', {
       ...options,
       method: 'POST',

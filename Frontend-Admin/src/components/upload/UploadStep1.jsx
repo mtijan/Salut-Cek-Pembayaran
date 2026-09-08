@@ -11,8 +11,10 @@ export default function UploadStep1({
   analyzing,
   billingYear,
   semesterType,
+  dueDate,
   onBillingYearChange,
   onSemesterTypeChange,
+  onDueDateChange,
   onFileChange,
   onAnalyze,
 }) {
@@ -67,11 +69,23 @@ export default function UploadStep1({
               <option value="genap">Genap</option>
             </select>
           </div>
+          <div className="form-group upload-period-field">
+            <label htmlFor="upload-due-date">Tanggal Deadline</label>
+            <input
+              id="upload-due-date"
+              className="form-control"
+              type="date"
+              value={dueDate}
+              onChange={onDueDateChange}
+              required
+            />
+          </div>
         </div>
         <div className="upload-period-preview" aria-live="polite">
           <span>Periode yang akan dikunci pada preview</span>
           <strong>{periodLabel}</strong>
           <code>{periodCode}</code>
+          <span>Deadline: <strong>{dueDate || 'Belum ditentukan'}</strong></span>
         </div>
       </div>
 
@@ -107,7 +121,7 @@ export default function UploadStep1({
               type="button"
               className="btn btn-primary mt-3"
               onClick={onAnalyze}
-              disabled={analyzing}
+              disabled={analyzing || !dueDate}
             >
               <RefreshCw size={14} className={analyzing ? 'spin' : ''} />
               <span>{analyzing ? 'Menganalisis Format & Data...' : 'Periksa & Analisis File'}</span>

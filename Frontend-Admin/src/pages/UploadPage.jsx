@@ -33,8 +33,10 @@ export default function UploadPage({ navigateTo }) {
           analyzing={u.analyzing}
           billingYear={u.billingYear}
           semesterType={u.semesterType}
+          dueDate={u.dueDate}
           onBillingYearChange={(e) => u.setBillingYear(e.target.value)}
           onSemesterTypeChange={(e) => u.setSemesterType(e.target.value)}
+          onDueDateChange={(e) => u.setDueDate(e.target.value)}
           onFileChange={u.handleFileChange}
           onAnalyze={u.handleAnalyze}
         />
