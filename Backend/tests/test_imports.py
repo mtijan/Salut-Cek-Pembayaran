@@ -513,6 +513,60 @@ class ImportWorkbookTests(BackendBaseTestCase):
             self.assertEqual(stored_issues[0]["row_number"], 3)
             self.assertEqual(stored_issues[1]["row_number"], 4)
 
+    def test_reupload_with_inserted_rows_does_not_quarantine_shifted_rows(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            temp = Path(temporary_directory)
+            database = temp / "salut.sqlite"
+            migrate_database(database)
+            workbook = temp / "master_data.xlsx"
+
+            self._write_workbook(
+                workbook,
+                [
+                    ("01010", "Mahasiswa A", "10001", 100000),
+                    ("01011", "Mahasiswa B", "10002", 100000),
+                    ("01012", "Mahasiswa C", "10003", 100000),
+                ],
+            )
+            first_import = import_workbook(workbook, database, period="2026.1")
+            self.assertEqual(first_import["created"], 3)
+            self.assertEqual(first_import["quarantined"], 0)
+
+            self._write_workbook(
+                workbook,
+                [
+                    ("01010", "Mahasiswa A", "10001", 100000),
+                    ("01099", "Mahasiswa Sisipan", "10099", 150000),
+                    ("01011", "Mahasiswa B", "10002", 100000),
+                    ("01012", "Mahasiswa C", "10003", 100000),
+                ],
+            )
+
+            preview = preview_workbook(workbook, database, period="2026.1")
+            self.assertEqual(preview["critical_rows"], 0)
+            self.assertEqual(preview["quarantined_rows"], 0)
+            self.assertEqual(preview["new_rows"], 1)
+            self.assertEqual(preview["unchanged_rows"], 3)
+
+            second_import = import_workbook(workbook, database, period="2026.1")
+            self.assertEqual(second_import["created"], 1)
+            self.assertEqual(second_import["unchanged"], 3)
+            self.assertEqual(second_import["quarantined"], 0)
+
+            conn = sqlite3.connect(database)
+            try:
+                count = conn.execute("select count(*) from bills where period = '2026.1'").fetchone()[0]
+                self.assertEqual(count, 4)
+                new_bill = conn.execute(
+                    "select b.amount, s.full_name from bills b join students s on s.id = b.student_id where s.nim = '01099'"
+                ).fetchone()
+                self.assertIsNotNone(new_bill)
+                self.assertEqual(new_bill[0], 150000)
+                self.assertEqual(new_bill[1], "Mahasiswa Sisipan")
+            finally:
+                conn.close()
+
 
 if __name__ == "__main__":
     unittest.main()
+

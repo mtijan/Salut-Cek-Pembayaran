@@ -164,28 +164,25 @@ def _evaluate_row_diff(
         and str(candidate["id"]) not in used_existing_bill_ids
     ]
     conflicting_briva_rows = [candidate for candidate in by_briva.get(briva, []) if candidate["nim"] != nim]
-    existing_briva = matching_briva_rows[0] if matching_briva_rows else None
+
+    existing_briva: sqlite3.Row | None = None
+    if matching_briva_rows:
+        row_matched = [
+            candidate
+            for candidate in matching_briva_rows
+            if candidate["source_row_number"] is not None and int(candidate["source_row_number"]) == row_number
+        ]
+        existing_briva = row_matched[0] if row_matched else matching_briva_rows[0]
+    elif (
+        existing_source_row
+        and existing_source_row["nim"] == nim
+        and str(existing_source_row["id"]) not in used_existing_bill_ids
+    ):
+        existing_briva = existing_source_row
+
     current_bills = [
         candidate for candidate in by_nim.get(nim, []) if str(candidate["id"]) not in used_existing_bill_ids
     ]
-
-    if existing_source_row:
-        if existing_source_row["nim"] != nim:
-            counters["critical_rows"] += 1
-            counters["conflict_rows"] += 1
-            _append_issue(
-                errors,
-                _row_issue(
-                    row,
-                    layout,
-                    severity="critical",
-                    issue_code="SOURCE_ROW_NIM_CONFLICT",
-                    message="Baris sumber file ini sebelumnya terdaftar untuk NIM lain.",
-                ),
-            )
-            return
-        if str(existing_source_row["id"]) not in used_existing_bill_ids:
-            existing_briva = existing_source_row
 
     if conflicting_briva_rows:
         counters["critical_rows"] += 1

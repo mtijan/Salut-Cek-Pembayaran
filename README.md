@@ -30,6 +30,7 @@ Project ini menggabungkan portal publik yang sederhana dengan dashboard admin be
 ### Import Parsial dan Periode Tagihan
 
 - Upload mewajibkan tahun, semester, dan tanggal deadline; contoh `2026 + Genap` menjadi `2026.2` / `2026 Genap`, lalu periode serta deadline dikunci pada token preview.
+- Evaluasi perbedaan data menggunakan identitas domain (`NIM`, `BRIVA`, dan periode) dengan nomor baris Excel sebagai *tie-breaker* opsional, sehingga penyisipan atau pergeseran baris tidak memicu karantina keliru.
 - Baris aman tetap diproses ketika file memiliki warning/critical, sedangkan baris tidak aman dikarantina dan ditampilkan sebagai tabel detail kepada admin.
 - File terstruktur yang seluruh barisnya bermasalah dicatat sebagai batch `issues_only` tanpa membuat tagihan invalid.
 - Import periode/parsial schema v7 telah terverifikasi production pada release `35a7e7e`. Penambahan deadline immutable schema v8 serta ekspor PDF/XLSX telah terverifikasi lokal dan source-nya dipush ke `origin/main` pada 2026-09-08; deployment dan UAT perubahan baru belum dibuktikan.
