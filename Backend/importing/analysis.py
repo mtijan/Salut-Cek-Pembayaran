@@ -320,6 +320,7 @@ def _analyze_workbook(
     db_path: str | Path | None = None,
     period: str | None = None,
     source_file_name: str | None = None,
+    due_date: str | None = None,
 ) -> dict[str, object]:
     """Execute deep diff comparison between spreadsheet rows and existing database state."""
     workbook = Path(workbook_path)
@@ -330,6 +331,11 @@ def _analyze_workbook(
     effective_period = period or layout.default_period
     source_file = source_file_name or workbook.name
     rows, errors, sample, identity_conflict_rows, skipped_issues = _read_sync_rows(workbook, layout, effective_period)
+    if due_date is not None:
+        for row in rows:
+            row["due_date"] = due_date
+        for row in sample:
+            row["due_date"] = due_date
     valid_rows = len(rows)
 
     dup_briva, multi_bill, _crit_in_file, in_file_critical_rows = _detect_in_file_conflicts(rows, layout, errors)
@@ -439,7 +445,8 @@ def preview_workbook(
     db_path: str | Path | None = None,
     period: str | None = None,
     source_file_name: str | None = None,
+    due_date: str | None = None,
 ) -> dict[str, object]:
     """Generate user-facing preview response payload for Excel workbook import."""
-    analysis = _analyze_workbook(workbook_path, db_path, period, source_file_name)
+    analysis = _analyze_workbook(workbook_path, db_path, period, source_file_name, due_date)
     return {key: value for key, value in analysis.items() if key not in {"actions", "_skipped_issues", "_issues"}}

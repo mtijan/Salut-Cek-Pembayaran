@@ -122,10 +122,13 @@ class DatabaseLifecycleTests(unittest.TestCase):
 
             with database_connection(database) as migrated:
                 columns = {str(row["name"]) for row in migrated.execute("pragma table_info(import_previews)")}
+                batch_columns = {str(row["name"]) for row in migrated.execute("pragma table_info(import_batches)")}
                 version = migrated.execute("select max(version) from schema_migrations").fetchone()[0]
             self.assertEqual(version, LATEST_SCHEMA_VERSION)
             self.assertIn("claim_id", columns)
             self.assertIn("claimed_at", columns)
+            self.assertIn("due_date", columns)
+            self.assertIn("due_date", batch_columns)
 
     def test_legacy_version_four_backfill_ledger_is_completed_by_version_five(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:

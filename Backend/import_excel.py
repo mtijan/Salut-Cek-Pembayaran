@@ -42,11 +42,12 @@ def import_workbook(
     period_label: str | None = None,
     billing_year: int | None = None,
     semester_type: str | None = None,
+    due_date: str | None = None,
 ) -> dict[str, object]:
     """Execute spreadsheet import transaction, creating/updating students and billing items."""
     workbook = Path(workbook_path)
     source_file = source_file_name or workbook.name
-    analysis = _analyze_workbook(workbook, db_path, period, source_file)
+    analysis = _analyze_workbook(workbook, db_path, period, source_file, due_date)
     if analysis["requires_update_confirmation"] and not confirm_updates:
         raise ValueError("Perubahan nominal atau BRIVA memerlukan konfirmasi admin.")
 
@@ -80,6 +81,7 @@ def import_workbook(
         period_label=period_label or derived_label,
         billing_year=billing_year if billing_year is not None else derived_year,
         semester_type=semester_type or derived_semester,
+        due_date=due_date,
     )
 
 

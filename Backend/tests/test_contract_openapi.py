@@ -132,6 +132,14 @@ class ContractOpenAPITests(BackendBaseTestCase):
         self.assertIn("briva", financial_student["required"])
         self.assertEqual(financial_student["properties"]["briva"]["type"], "string")
 
+        preview_form = self.schema["paths"]["/api/admin/import/preview"]["post"]["requestBody"]["content"][
+            "multipart/form-data"
+        ]["schema"]
+        self.assertIn("due_date", preview_form["required"])
+        self.assertEqual(preview_form["properties"]["due_date"]["format"], "date")
+        self.assertIn("due_date", schemas["ImportPreviewResponse"]["properties"]["data"]["required"])
+        self.assertIn("due_date", schemas["ImportCommitResponse"]["properties"]["data"]["required"])
+
         public_history = schemas["LookupPaymentHistoryItem"]["properties"]
         self.assertNotIn("reference_number", public_history)
         self.assertNotIn("notes", public_history)

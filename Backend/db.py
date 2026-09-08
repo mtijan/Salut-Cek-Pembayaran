@@ -1,7 +1,7 @@
 """SQLite database connectivity, schema initialization, and migration management.
 
 This module provides SQLite connection factories, connection/transaction context managers,
-schema version migrations (v1 to v7), entry registration period parsing, and study program resolution.
+schema version migrations (v1 to v8), entry registration period parsing, and study program resolution.
 """
 
 from __future__ import annotations
@@ -16,7 +16,7 @@ from typing import Callable, Iterator
 BASE_DIR = Path(__file__).resolve().parent
 DEFAULT_DB_PATH = BASE_DIR / "data" / "salut.sqlite"
 SCHEMA_PATH = BASE_DIR / "schema.sql"
-LATEST_SCHEMA_VERSION = 7
+LATEST_SCHEMA_VERSION = 8
 
 
 def resolve_db_path(db_path: str | Path = DEFAULT_DB_PATH) -> Path:
@@ -166,6 +166,13 @@ def migrate_schema_v6(conn: sqlite3.Connection) -> None:
 def migrate_schema_v7(conn: sqlite3.Connection) -> None:
     """Add import batches, immutable preview periods, and row-level issue quarantine."""
     migrate_import_batches_and_issues(conn)
+
+
+def migrate_schema_v8(conn: sqlite3.Connection) -> None:
+    """Bind an admin-selected due date to import previews and committed batches."""
+    for table in ("import_previews", "import_batches"):
+        if "due_date" not in _table_columns(conn, table):
+            conn.execute(f"alter table {table} add column due_date text")
 
 
 def _table_sql(conn: sqlite3.Connection, table: str) -> str:
@@ -889,4 +896,5 @@ MIGRATIONS: dict[int, Callable[[sqlite3.Connection], None]] = {
     5: migrate_schema_v5,
     6: migrate_schema_v6,
     7: migrate_schema_v7,
+    8: migrate_schema_v8,
 }

@@ -130,7 +130,11 @@ class ImportAdminSafetyTests(BackendBaseTestCase):
                 with workbook.open("rb") as source:
                     preview_response = client.post(
                         "/api/admin/import/preview",
-                        data={"billing_year": "2026", "semester_type": "genap"},
+                        data={
+                            "billing_year": "2026",
+                            "semester_type": "genap",
+                            "due_date": "2026-12-31",
+                        },
                         files={
                             "file": (
                                 workbook.name,
@@ -143,6 +147,7 @@ class ImportAdminSafetyTests(BackendBaseTestCase):
                 preview = preview_response.json()["data"]
                 self.assertEqual(preview["period"]["code"], "2026.2")
                 self.assertEqual(preview["period"]["label"], "2026 Genap")
+                self.assertEqual(preview["due_date"], "2026-12-31")
                 self.assertEqual(preview["critical_rows"], 2)
                 self.assertEqual(preview["new_rows"], 1)
                 self.assertEqual(preview["issues"][0]["severity"], "critical")
@@ -163,6 +168,7 @@ class ImportAdminSafetyTests(BackendBaseTestCase):
                 self.assertEqual(committed_response.status_code, 200)
                 committed = committed_response.json()["data"]
                 self.assertEqual(committed["period"]["code"], "2026.2")
+                self.assertEqual(committed["due_date"], "2026-12-31")
                 self.assertEqual(committed["status"], "completed_with_issues")
                 self.assertEqual(committed["created"], 1)
                 self.assertEqual(committed["quarantined"], 2)
@@ -170,8 +176,12 @@ class ImportAdminSafetyTests(BackendBaseTestCase):
                 verify = sqlite3.connect(database)
                 try:
                     self.assertEqual(
-                        verify.execute("select period from bills").fetchone()[0],
-                        "2026.2",
+                        verify.execute("select period, due_date from bills").fetchone(),
+                        ("2026.2", "2026-12-31"),
+                    )
+                    self.assertEqual(
+                        verify.execute("select due_date from import_batches").fetchone()[0],
+                        "2026-12-31",
                     )
                     self.assertEqual(verify.execute("select count(*) from import_issues").fetchone()[0], 2)
                 finally:

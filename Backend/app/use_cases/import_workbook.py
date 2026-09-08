@@ -76,6 +76,7 @@ def commit_analyzed_workbook(
     period_label: str,
     billing_year: int | None,
     semester_type: str | None,
+    due_date: str | None,
 ) -> dict[str, object]:
     """Commit analyzed actions, issues, and audit metadata in one transaction."""
     issues = 0
@@ -113,6 +114,7 @@ def commit_analyzed_workbook(
             period_label=period_label,
             billing_year=billing_year,
             semester_type=semester_type,
+            due_date=due_date,
             status=batch_status,
             created=expected_created,
             updated=expected_updated,
@@ -193,6 +195,7 @@ def commit_analyzed_workbook(
                     "file_name": source_file,
                     "file_sha256": file_sha256,
                     "period_code": period_code,
+                    "due_date": due_date,
                     "status": batch_status,
                     "created": created,
                     "updated": updated,
@@ -207,6 +210,7 @@ def commit_analyzed_workbook(
         "batch_id": batch_id,
         "status": batch_status,
         "period": {"code": period_code, "label": period_label},
+        "due_date": due_date,
         "imported": created + updated,
         "created": created,
         "updated": updated,

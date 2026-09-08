@@ -122,6 +122,7 @@ create table if not exists import_previews (
   period_label text,
   billing_year integer,
   semester_type text,
+  due_date text,
   claim_id text,
   claimed_at text,
   created_at text not null default (datetime('now'))
@@ -152,6 +153,7 @@ create table if not exists import_batches (
   period_label text not null,
   billing_year integer,
   semester_type text,
+  due_date text,
   status text not null check (status in ('completed', 'completed_with_issues', 'issues_only')),
   created_count integer not null default 0,
   updated_count integer not null default 0,

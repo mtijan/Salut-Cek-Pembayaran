@@ -26,6 +26,7 @@ def store_import_preview(
     period_label: str | None = None,
     billing_year: int | None = None,
     semester_type: str | None = None,
+    due_date: str | None = None,
     issues: list[dict[str, object]] | None = None,
 ) -> None:
     """Store temporary metadata for an uploaded Excel import preview."""
@@ -34,9 +35,9 @@ def store_import_preview(
             """
             insert into import_previews (
               token, admin_id, file_name, stored_path, expires_at, file_sha256,
-              period_code, period_label, billing_year, semester_type
+              period_code, period_label, billing_year, semester_type, due_date
             )
-            values (?, ?, ?, ?, datetime('now', ?), ?, ?, ?, ?, ?)
+            values (?, ?, ?, ?, datetime('now', ?), ?, ?, ?, ?, ?, ?)
             on conflict(token) do update set
               admin_id = excluded.admin_id,
               file_name = excluded.file_name,
@@ -47,6 +48,7 @@ def store_import_preview(
               period_label = excluded.period_label,
               billing_year = excluded.billing_year,
               semester_type = excluded.semester_type,
+              due_date = excluded.due_date,
               claim_id = null,
               claimed_at = null
             """,
@@ -61,6 +63,7 @@ def store_import_preview(
                 period_label,
                 billing_year,
                 semester_type,
+                due_date,
             ),
         )
         conn.execute("delete from import_preview_issues where token = ?", (token,))
@@ -94,7 +97,8 @@ def get_import_preview_for_admin(token: str, admin: sqlite3.Row) -> sqlite3.Row 
         row = conn.execute(
             """
             select token, admin_id, file_name, stored_path, expires_at, file_sha256,
-                   period_code, period_label, billing_year, semester_type, claim_id, claimed_at
+                   period_code, period_label, billing_year, semester_type, due_date,
+                   claim_id, claimed_at
             from import_previews
             where token = ?
               and expires_at > datetime('now')
@@ -125,7 +129,8 @@ def claim_import_preview_for_admin(token: str, admin: sqlite3.Row) -> sqlite3.Ro
         return conn.execute(
             """
             select token, admin_id, file_name, stored_path, expires_at, file_sha256,
-                   period_code, period_label, billing_year, semester_type, claim_id, claimed_at
+                   period_code, period_label, billing_year, semester_type, due_date,
+                   claim_id, claimed_at
             from import_previews
             where token = ? and claim_id = ?
             """,

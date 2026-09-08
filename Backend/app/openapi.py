@@ -1207,7 +1207,7 @@ def build_custom_openapi(app: FastAPI) -> dict[str, Any]:
                         "multipart/form-data": {
                             "schema": {
                                 "type": "object",
-                                "required": ["file", "billing_year", "semester_type"],
+                                "required": ["file", "billing_year", "semester_type", "due_date"],
                                 "properties": {
                                     "file": {
                                         "type": "string",
@@ -1224,6 +1224,12 @@ def build_custom_openapi(app: FastAPI) -> dict[str, Any]:
                                         "type": "string",
                                         "enum": ["ganjil", "genap"],
                                         "example": "genap",
+                                    },
+                                    "due_date": {
+                                        "type": "string",
+                                        "format": "date",
+                                        "description": "Deadline yang diterapkan ke seluruh tagihan dalam batch.",
+                                        "example": "2026-12-31",
                                     },
                                 },
                             }
@@ -2320,6 +2326,7 @@ def build_custom_openapi(app: FastAPI) -> dict[str, Any]:
                         "new_rows",
                         "update_rows",
                         "unchanged_rows",
+                        "due_date",
                     ],
                     "properties": {
                         "import_token": {"type": "string", "example": "imp_0123456789abcdef0123456789abcdef"},
@@ -2337,6 +2344,7 @@ def build_custom_openapi(app: FastAPI) -> dict[str, Any]:
                         "briva_change_rows": {"type": "integer"},
                         "issues": {"type": "array", "items": {"$ref": "#/components/schemas/ImportIssue"}},
                         "period": {"type": "object"},
+                        "due_date": {"type": "string", "format": "date"},
                         "issue_pagination": {"$ref": "#/components/schemas/Pagination"},
                     },
                 },
@@ -2357,7 +2365,7 @@ def build_custom_openapi(app: FastAPI) -> dict[str, Any]:
                 "success": {"type": "boolean", "example": True},
                 "data": {
                     "type": "object",
-                    "required": ["batch_id", "status", "period", "created", "updated", "unchanged"],
+                    "required": ["batch_id", "status", "period", "due_date", "created", "updated", "unchanged"],
                     "properties": {
                         "batch_id": {"type": "string"},
                         "status": {
@@ -2365,6 +2373,7 @@ def build_custom_openapi(app: FastAPI) -> dict[str, Any]:
                             "enum": ["completed", "completed_with_issues", "issues_only"],
                         },
                         "period": {"type": "object"},
+                        "due_date": {"type": ["string", "null"], "format": "date"},
                         "imported": {"type": "integer"},
                         "created": {"type": "integer"},
                         "updated": {"type": "integer"},

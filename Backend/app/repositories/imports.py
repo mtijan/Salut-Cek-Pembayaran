@@ -33,6 +33,7 @@ class ImportRepository:
         period_label: str,
         billing_year: int | None,
         semester_type: str | None,
+        due_date: str | None,
         status: str,
         created: int,
         updated: int,
@@ -47,8 +48,8 @@ class ImportRepository:
             insert into import_batches (
               id, import_token, admin_id, source_file, file_sha256, period_code, period_label,
               billing_year, semester_type, status, created_count, updated_count, unchanged_count,
-              quarantined_count, warning_count, critical_count
-            ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+              quarantined_count, warning_count, critical_count, due_date
+            ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 batch_id,
@@ -67,6 +68,7 @@ class ImportRepository:
                 quarantined,
                 warning_count,
                 critical_count,
+                due_date,
             ),
         )
 

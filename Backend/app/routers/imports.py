@@ -15,6 +15,7 @@ from fastapi import APIRouter, Depends, File, Form, Request, UploadFile
 from fastapi.responses import JSONResponse
 
 from Backend.app import config
+from Backend.app.domain.billing import validate_due_date_value
 from Backend.app.responses import error_response, success_response
 from Backend.app.services import (
     claim_import_preview_for_admin,
@@ -64,6 +65,7 @@ def build_import_router(
         file: UploadFile = File(...),
         billing_year: str = Form(""),
         semester_type: str = Form(""),
+        due_date: str = Form(""),
         admin: sqlite3.Row = Depends(require_admin("import")),
     ) -> JSONResponse:
         retry_after = enforce_rate_limit("import_preview", admin["id"], 20, 60 * 60)
@@ -77,6 +79,9 @@ def build_import_router(
             if not (file.filename or "").lower().endswith(".xlsx"):
                 raise ValueError("File harus berformat .xlsx.")
             period = build_billing_period(billing_year, semester_type)
+            normalized_due_date = validate_due_date_value(due_date)
+            if not normalized_due_date:
+                raise ValueError("Tanggal deadline wajib diisi.")
 
             config.IMPORT_DIR.mkdir(parents=True, exist_ok=True)
             cleanup_stale_imports()
@@ -97,6 +102,7 @@ def build_import_router(
                 config.DB_PATH,
                 period=str(period["code"]),
                 source_file_name=safe_name,
+                due_date=normalized_due_date,
             )
             all_issues = sorted(
                 cast(list[dict[str, object]], preview.get("issues") or []),
@@ -115,6 +121,7 @@ def build_import_router(
                 period_label=str(period["label"]),
                 billing_year=int(cast(Any, period["billing_year"])),
                 semester_type=str(period["semester_type"]),
+                due_date=normalized_due_date,
                 issues=all_issues,
             )
             conn = connect(config.DB_PATH)
@@ -137,6 +144,7 @@ def build_import_router(
                             "amount_change_rows": preview["amount_change_rows"],
                             "briva_change_rows": preview["briva_change_rows"],
                             "period_code": period["code"],
+                            "due_date": normalized_due_date,
                             "quarantined_rows": preview["quarantined_rows"],
                         },
                     )
@@ -146,6 +154,7 @@ def build_import_router(
             preview_response["errors"] = all_issues[:50]
             preview_response["issues"] = all_issues[:50]
             preview_response["period"] = period
+            preview_response["due_date"] = normalized_due_date
             preview_response["issue_pagination"] = {"page": 1, "limit": 50, "total": len(all_issues)}
             return success_response({"import_token": import_token, "file_name": safe_name, **preview_response})
         except Exception as exc:
@@ -230,6 +239,7 @@ def build_import_router(
         try:
             source_file_name = str(preview_record["file_name"])
             period_code = str(preview_record["period_code"] or "") or None
+            due_date = str(preview_record["due_date"] or "") or None
             expected_file_sha256 = str(preview_record["file_sha256"] or "")
             if expected_file_sha256 and _file_sha256(workbook) != expected_file_sha256:
                 return error_response(
@@ -242,6 +252,7 @@ def build_import_router(
                 config.DB_PATH,
                 period=period_code,
                 source_file_name=source_file_name,
+                due_date=due_date,
             )
             if preview["requires_update_confirmation"] and not confirm_updates:
                 return error_response(
@@ -274,6 +285,7 @@ def build_import_router(
                         int(claimed_record["billing_year"]) if claimed_record["billing_year"] is not None else None
                     ),
                     semester_type=str(claimed_record["semester_type"] or "") or None,
+                    due_date=str(claimed_record["due_date"] or "") or None,
                 )
             except Exception:
                 try:
