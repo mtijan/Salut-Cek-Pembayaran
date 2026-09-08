@@ -106,7 +106,7 @@ export default function StudentEditorModal({ modal, editor, prodis, actions }) {
               </div>
               <div className="form-grid-2">
                 <div className="form-group">
-                  <label>Program Studi (31 Jurusan Tersedia)</label>
+                  <label>Program Studi ({prodis.length} Jurusan Tersedia)</label>
                   <select
                     className="form-control"
                     value={editor.formData.study_program_id}

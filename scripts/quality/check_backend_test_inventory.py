@@ -13,7 +13,7 @@ EXPECTED_TEST_COUNTS = {
     "Backend.tests.test_billing": 10,
     "Backend.tests.test_billing_payments": 5,
     "Backend.tests.test_contract_openapi": 10,
-    "Backend.tests.test_database_lifecycle": 23,
+    "Backend.tests.test_database_lifecycle": 24,
     "Backend.tests.test_domain": 6,
     "Backend.tests.test_due_date_backfill": 4,
     "Backend.tests.test_frontend_assets": 5,

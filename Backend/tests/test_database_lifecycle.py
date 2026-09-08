@@ -12,14 +12,16 @@ import openpyxl
 
 from Backend.app import services
 from Backend.db import (
+    DEFAULT_STUDY_PROGRAMS,
     LATEST_SCHEMA_VERSION,
     MIGRATIONS,
     connect,
     database_connection,
     database_transaction,
     init_db,
-    migrate_database,
     migrate_bills_for_duplicate_briva,
+    migrate_database,
+    migrate_schema_v9,
 )
 from Backend.import_excel import import_workbook
 
@@ -119,6 +121,9 @@ class DatabaseLifecycleTests(unittest.TestCase):
                 conn.close()
 
             migrate_database(database)
+            with database_transaction(database) as conn:
+                migrate_schema_v9(conn)
+                migrate_schema_v9(conn)
 
             with database_connection(database) as migrated:
                 columns = {str(row["name"]) for row in migrated.execute("pragma table_info(import_previews)")}
@@ -163,6 +168,36 @@ class DatabaseLifecycleTests(unittest.TestCase):
             self.assertEqual(version, LATEST_SCHEMA_VERSION)
             self.assertEqual(columns["old_updated_at"], (True, "''"))
             self.assertEqual(columns["new_updated_at"], (True, "''"))
+
+    def test_version_eight_database_synchronizes_all_study_programs(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            database = Path(temporary_directory) / "salut.sqlite"
+            migrate_database(database)
+            legacy_programs = DEFAULT_STUDY_PROGRAMS[:31]
+            legacy_codes = [program[1] for program in legacy_programs]
+            placeholders = ", ".join("?" for _ in legacy_codes)
+            with database_transaction(database) as conn:
+                conn.execute(f"delete from study_programs where code not in ({placeholders})", legacy_codes)
+                legacy_ids = {
+                    str(row["code"]): str(row["id"])
+                    for row in conn.execute("select id, code from study_programs").fetchall()
+                }
+                conn.execute("delete from schema_migrations")
+                conn.execute("insert into schema_migrations (version) values (8)")
+
+            migrate_database(database)
+
+            with database_connection(database) as migrated:
+                rows = migrated.execute("select id, code, is_active from study_programs").fetchall()
+                version = migrated.execute("select max(version) from schema_migrations").fetchone()[0]
+            migrated_ids = {str(row["code"]): str(row["id"]) for row in rows}
+            expected_codes = {program[1] for program in DEFAULT_STUDY_PROGRAMS}
+            self.assertEqual(version, LATEST_SCHEMA_VERSION)
+            self.assertEqual(len(rows), 54)
+            self.assertEqual(len(migrated_ids), 54)
+            self.assertEqual(set(migrated_ids), expected_codes)
+            self.assertEqual(sum(int(row["is_active"]) for row in rows), 54)
+            self.assertTrue(all(migrated_ids[code] == program_id for code, program_id in legacy_ids.items()))
 
     def test_future_schema_version_fails_fast_without_mutating_data(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:

@@ -33,7 +33,7 @@ Project ini menggabungkan portal publik yang sederhana dengan dashboard admin be
 - Evaluasi perbedaan data menggunakan identitas domain (`NIM`, `BRIVA`, dan periode) dengan nomor baris Excel sebagai *tie-breaker* opsional, sehingga penyisipan atau pergeseran baris tidak memicu karantina keliru.
 - Baris aman tetap diproses ketika file memiliki warning/critical, sedangkan baris tidak aman dikarantina dan ditampilkan sebagai tabel detail kepada admin.
 - File terstruktur yang seluruh barisnya bermasalah dicatat sebagai batch `issues_only` tanpa membuat tagihan invalid.
-- Import periode/parsial schema v7 telah terverifikasi production pada release `35a7e7e`. Penambahan deadline immutable schema v8 serta ekspor PDF/XLSX telah terverifikasi lokal dan source-nya dipush ke `origin/main` pada 2026-09-08; deployment dan UAT perubahan baru belum dibuktikan.
+- Source saat ini memakai schema v9: schema v8 mengikat deadline immutable dari preview sampai commit, sedangkan schema v9 menyinkronkan 54 program studi kanonik secara idempoten pada database hasil upgrade. Status deployment teknis dan UAT tetap dicatat terpisah pada handoff privat.
 
 ## Nilai Teknis
 

@@ -91,3 +91,11 @@ test('tab navigation components define selectable tab controls', () => {
     );
   }
 });
+
+test('student editor derives the available study-program count from loaded options', () => {
+  const editorPath = path.join(srcDir, 'components/students/StudentEditorModal.jsx');
+  const content = fs.readFileSync(editorPath, 'utf8');
+
+  assert.match(content, /Program Studi \(\{prodis\.length\} Jurusan Tersedia\)/);
+  assert.doesNotMatch(content, /Program Studi \(31 Jurusan Tersedia\)/);
+});
