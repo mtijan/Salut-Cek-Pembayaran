@@ -22,17 +22,17 @@ Project ini menggabungkan portal publik yang sederhana dengan dashboard admin be
 - Aktivasi/nonaktivasi tagihan individual dan massal per periode/program studi tanpa menghapus histori.
 - Pencatatan pembayaran parsial maupun lunas.
 - Riwayat transaksi pembayaran per mahasiswa dan tagihan.
-- Import workbook Excel melalui proses upload, preview, validasi, dan commit.
-- Rekapitulasi keuangan historis berdasarkan program studi dan periode, termasuk tagihan nonaktif.
+- Import workbook Excel melalui proses upload, preview, validasi, deadline wajib, dan commit.
+- Rekapitulasi keuangan historis berdasarkan program studi dan periode, termasuk tagihan nonaktif, dengan ekspor CSV, Excel `.xlsx`, dan PDF.
 - Pengelolaan program studi serta periode akademik.
 - Kontrol akses berbasis role dan pencatatan aktivitas admin.
 
 ### Import Parsial dan Periode Tagihan
 
-- Upload mewajibkan tahun dan semester tagihan; contoh `2026 + Genap` menjadi `2026.2` / `2026 Genap` dan periode dikunci pada token preview.
+- Upload mewajibkan tahun, semester, dan tanggal deadline; contoh `2026 + Genap` menjadi `2026.2` / `2026 Genap`, lalu periode serta deadline dikunci pada token preview.
 - Baris aman tetap diproses ketika file memiliki warning/critical, sedangkan baris tidak aman dikarantina dan ditampilkan sebagai tabel detail kepada admin.
 - File terstruktur yang seluruh barisnya bermasalah dicatat sebagai batch `issues_only` tanpa membuat tagihan invalid.
-- Implementasi dan test telah diverifikasi lokal pada 2026-09-01; status Git/remote/staging/UAT/production belum dibuktikan. Detail requirement, schema/API, diagram, test, dan residual terdapat pada `docs/29-import-partial-commit-and-billing-period-plan.md`.
+- Import periode/parsial schema v7 telah terverifikasi production pada release `35a7e7e`. Penambahan deadline immutable schema v8 serta ekspor PDF/XLSX telah terverifikasi lokal dan source-nya dipush ke `origin/main` pada 2026-09-08; deployment dan UAT perubahan baru belum dibuktikan.
 
 ## Nilai Teknis
 
