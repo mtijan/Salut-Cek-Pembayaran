@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 
 import { csvCell, toCsv } from './csv.js';
 import { createFinancialReportCsv, filterAndSortReportStudents } from './reports.js';
+import { createFinancialReportPdf, createFinancialReportXlsx } from './reportExports.js';
 
 test('csvCell neutralizes direct spreadsheet formula prefixes', () => {
   for (const value of ['=1+1', '+SUM(A1:A2)', '-10+20', '@cmd']) {
@@ -75,4 +76,32 @@ test('financial report keeps multiple BRIVA values as text and searchable', () =
     }).length,
     1,
   );
+});
+
+test('financial report exports valid PDF and XLSX download payloads', async () => {
+  const students = [
+    {
+      nim: '000000001',
+      full_name: 'Mahasiswa Sintetis',
+      briva: '111111110000',
+      program_study: 'S1 Manajemen',
+      total_bills: 1,
+      billed_amount: 1850000,
+      paid_amount: 500000,
+      outstanding_amount: 1350000,
+      percentage_paid: 27.03,
+      status: 'partial',
+    },
+  ];
+
+  const xlsx = new Uint8Array(await createFinancialReportXlsx(students).arrayBuffer());
+  assert.deepEqual([...xlsx.slice(0, 4)], [0x50, 0x4b, 0x03, 0x04]);
+  assert.match(new globalThis.TextDecoder().decode(xlsx), /Rekap Keuangan/);
+  assert.match(new globalThis.TextDecoder().decode(xlsx), /111111110000/);
+
+  const pdf = new Uint8Array(await createFinancialReportPdf(students).arrayBuffer());
+  const pdfText = new globalThis.TextDecoder().decode(pdf);
+  assert.match(pdfText, /^%PDF-1\.4/);
+  assert.match(pdfText, /Rekap Keuangan SALUT AWWABIN/);
+  assert.match(pdfText, /%%EOF$/);
 });

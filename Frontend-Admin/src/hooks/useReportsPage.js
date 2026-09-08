@@ -7,6 +7,10 @@ import {
   createFinancialReportCsv,
   filterAndSortReportStudents,
 } from '../utils/reports.js';
+import {
+  createFinancialReportPdf,
+  createFinancialReportXlsx,
+} from '../utils/reportExports.js';
 import { useCopyFeedback } from './useCopyFeedback';
 import { useMasterOptions } from './useMasterOptions.js';
 import { usePagination } from './usePagination.js';
@@ -175,26 +179,47 @@ export function useReportsPage() {
     },
   ];
 
-  const exportCsv = () => {
-    if (!students.length) {
-      showToast('Tidak ada data untuk diekspor.', 'error');
-      return;
-    }
-    const blob = new Blob([createFinancialReportCsv(students)], {
-      type: 'text/csv;charset=utf-8;',
-    });
+  const downloadReport = (blob, extension) => {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.setAttribute('href', url);
     link.setAttribute(
       'download',
-      `Rekap_Keuangan_SALUT_${new Date().toISOString().slice(0, 10)}.csv`,
+      `Rekap_Keuangan_SALUT_${new Date().toISOString().slice(0, 10)}.${extension}`,
     );
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
+  };
+
+  const ensureExportData = () => {
+    if (!students.length) {
+      showToast('Tidak ada data untuk diekspor.', 'error');
+      return false;
+    }
+    return true;
+  };
+
+  const exportCsv = () => {
+    if (!ensureExportData()) return;
+    const blob = new Blob([createFinancialReportCsv(students)], {
+      type: 'text/csv;charset=utf-8;',
+    });
+    downloadReport(blob, 'csv');
     showToast(`Berhasil mengekspor ${students.length} data ke CSV.`, 'success');
+  };
+
+  const exportExcel = () => {
+    if (!ensureExportData()) return;
+    downloadReport(createFinancialReportXlsx(students), 'xlsx');
+    showToast(`Berhasil mengekspor ${students.length} data ke Excel.`, 'success');
+  };
+
+  const exportPdf = () => {
+    if (!ensureExportData()) return;
+    downloadReport(createFinancialReportPdf(students), 'pdf');
+    showToast(`Berhasil mengekspor ${students.length} data ke PDF.`, 'success');
   };
 
   return {
@@ -219,6 +244,8 @@ export function useReportsPage() {
       refresh,
       copy,
       exportCsv,
+      exportExcel,
+      exportPdf,
       selectAllStatus,
       togglePaidStatus,
       cycleOutstandingStatus,

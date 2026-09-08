@@ -55,6 +55,26 @@ export default function ReportsFilters({
             <Download size={15} />
             <span>Ekspor CSV</span>
           </button>
+          <button
+            type="button"
+            className="btn btn-primary btn-fixed-h"
+            onClick={actions.exportExcel}
+            disabled={loading || totalCount === 0}
+            title="Ekspor Data Rekapitulasi ke Excel"
+          >
+            <Download size={15} />
+            <span>Ekspor Excel</span>
+          </button>
+          <button
+            type="button"
+            className="btn btn-primary btn-fixed-h"
+            onClick={actions.exportPdf}
+            disabled={loading || totalCount === 0}
+            title="Ekspor Data Rekapitulasi ke PDF"
+          >
+            <Download size={15} />
+            <span>Ekspor PDF</span>
+          </button>
         </div>
       </div>
 
