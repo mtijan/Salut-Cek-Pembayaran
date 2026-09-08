@@ -19,7 +19,7 @@ EXPECTED_TEST_COUNTS = {
     "Backend.tests.test_frontend_assets": 5,
     "Backend.tests.test_frontend_serving": 1,
     "Backend.tests.test_import_admin_safety": 14,
-    "Backend.tests.test_imports": 14,
+    "Backend.tests.test_imports": 15,
     "Backend.tests.test_lookup": 3,
     "Backend.tests.test_master_data": 6,
     "Backend.tests.test_operations": 9,
