@@ -257,7 +257,8 @@ function pageStream(students, pageNumber, totalPages, generatedDate) {
       compactNumber(student.paid_amount),
       compactNumber(student.outstanding_amount),
       `${Number(student.percentage_paid || 0)}%`,
-      student.status_label || (student.status === 'paid' ? 'Lunas' : student.status === 'partial' ? 'Sebagian' : 'Belum'),
+      student.status_label ||
+        (student.status === 'paid' ? 'Lunas' : student.status === 'partial' ? 'Sebagian' : 'Belum'),
     ];
     let rowX = 30;
     const y = 505 - index * 13;
@@ -288,8 +289,10 @@ function createPdfBytes(students) {
       pages,
       generatedDate,
     );
-    objects[pageObject - 1] = `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 842 595] /Resources << /Font << /F1 ${fontObject} 0 R >> >> /Contents ${contentObject} 0 R >>`;
-    objects[contentObject - 1] = `<< /Length ${encoder.encode(stream).length} >>\nstream\n${stream}\nendstream`;
+    objects[pageObject - 1] =
+      `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 842 595] /Resources << /Font << /F1 ${fontObject} 0 R >> >> /Contents ${contentObject} 0 R >>`;
+    objects[contentObject - 1] =
+      `<< /Length ${encoder.encode(stream).length} >>\nstream\n${stream}\nendstream`;
   }
   objects[fontObject - 1] = '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>';
 

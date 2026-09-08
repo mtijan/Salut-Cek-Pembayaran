@@ -7,10 +7,7 @@ import {
   createFinancialReportCsv,
   filterAndSortReportStudents,
 } from '../utils/reports.js';
-import {
-  createFinancialReportPdf,
-  createFinancialReportXlsx,
-} from '../utils/reportExports.js';
+import { createFinancialReportPdf, createFinancialReportXlsx } from '../utils/reportExports.js';
 import { useCopyFeedback } from './useCopyFeedback';
 import { useMasterOptions } from './useMasterOptions.js';
 import { usePagination } from './usePagination.js';

@@ -85,7 +85,9 @@ export default function UploadStep1({
           <span>Periode yang akan dikunci pada preview</span>
           <strong>{periodLabel}</strong>
           <code>{periodCode}</code>
-          <span>Deadline: <strong>{dueDate || 'Belum ditentukan'}</strong></span>
+          <span>
+            Deadline: <strong>{dueDate || 'Belum ditentukan'}</strong>
+          </span>
         </div>
       </div>
 

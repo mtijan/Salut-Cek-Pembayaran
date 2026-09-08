@@ -660,6 +660,7 @@ test('upload wizard flow: preview file sintetis, confirm sensitive changes, dan 
     mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
     buffer: Buffer.from('synthetic-excel-content'),
   });
+  await page.locator('#upload-due-date').fill('2026-12-31');
 
   await page.getByRole('button', { name: 'Periksa & Analisis File' }).click();
 
