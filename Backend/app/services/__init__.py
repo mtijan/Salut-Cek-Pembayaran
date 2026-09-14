@@ -52,6 +52,9 @@ from Backend.app.services.billing import (  # noqa: F401
 from Backend.app.services.master_data import (  # noqa: F401
     create_academic_period,
     create_study_program,
+    delete_academic_period,
+    delete_all_academic_periods,
+    delete_all_study_programs,
     delete_study_program,
     get_dashboard_stats,
     get_financial_summary,

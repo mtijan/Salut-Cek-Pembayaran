@@ -117,6 +117,16 @@ class StudyProgramRepository:
         )
         return cursor.rowcount > 0
 
+    def delete(self, program_id: str) -> bool:
+        """Permanently delete a study program record by ID."""
+        cursor = self._connection.execute("delete from study_programs where id = ?", (program_id,))
+        return cursor.rowcount > 0
+
+    def delete_all(self) -> int:
+        """Permanently delete all study program records."""
+        cursor = self._connection.execute("delete from study_programs")
+        return cursor.rowcount
+
 
 class AcademicPeriodRepository:
     """Data access object for querying and mutating academic period master data."""
@@ -219,3 +229,13 @@ class AcademicPeriodRepository:
             (code, name, semester_type, is_active, default_due_date, period_id),
         )
         return self.find_by_id(period_id)
+
+    def delete(self, period_id: str) -> bool:
+        """Permanently delete an academic period record by ID."""
+        cursor = self._connection.execute("delete from academic_periods where id = ?", (period_id,))
+        return cursor.rowcount > 0
+
+    def delete_all(self) -> int:
+        """Permanently delete all academic period records."""
+        cursor = self._connection.execute("delete from academic_periods")
+        return cursor.rowcount

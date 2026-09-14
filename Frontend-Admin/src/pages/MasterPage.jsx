@@ -5,6 +5,7 @@ import ProgramStudyPanel from '../components/master/ProgramStudyPanel';
 import ProgramStudyModal from '../components/master/ProgramStudyModal';
 import AcademicPeriodPanel from '../components/master/AcademicPeriodPanel';
 import AcademicPeriodModal from '../components/master/AcademicPeriodModal';
+import ConfirmModal from '../components/common/ConfirmModal';
 
 export default function MasterPage({ initialTab = 'prodi', navigateTo }) {
   const { can } = useAuth();
@@ -41,6 +42,8 @@ export default function MasterPage({ initialTab = 'prodi', navigateTo }) {
           canManage={canManage}
           onOpenCreate={m.handleOpenProdiCreate}
           onOpenEdit={m.handleOpenProdiEdit}
+          onDelete={m.handleDeleteProdi}
+          onDeleteAll={m.handleDeleteAllProdi}
         />
       )}
 
@@ -53,6 +56,8 @@ export default function MasterPage({ initialTab = 'prodi', navigateTo }) {
           canManageBilling={canManageBilling}
           onOpenCreate={m.handleOpenPeriodCreate}
           onOpenEdit={m.handleOpenPeriodEdit}
+          onDelete={m.handleDeletePeriod}
+          onDeleteAll={m.handleDeleteAllPeriods}
           onManageBills={(period) =>
             navigateTo('bill-activation', {
               returnView: 'master',
@@ -85,6 +90,16 @@ export default function MasterPage({ initialTab = 'prodi', navigateTo }) {
         error={m.periodError}
         saving={m.periodSaving}
         onSubmit={m.handleSavePeriod}
+      />
+
+      {/* Deletion Confirmation Modal */}
+      <ConfirmModal
+        isOpen={Boolean(m.confirmState)}
+        title={m.confirmState?.title}
+        description={m.confirmState?.description}
+        confirmText={m.confirmState?.confirmText}
+        onConfirm={m.handleExecuteConfirm}
+        onClose={m.handleCloseConfirm}
       />
     </div>
   );

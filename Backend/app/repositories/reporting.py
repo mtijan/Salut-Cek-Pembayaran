@@ -53,12 +53,14 @@ class ReportingRepository:
         period: str,
         study_program_id: str,
         entry_period: str,
+        activation: str = "",
     ) -> tuple[list[sqlite3.Row], list[sqlite3.Row]]:
         """Query aggregated study program rows and individual student breakdown rows for financial reporting."""
         filter_sql, params = self._financial_filter(
             period=period,
             study_program_id=study_program_id,
             entry_period=entry_period,
+            activation=activation,
         )
         program_rows = self._connection.execute(
             f"""
@@ -131,6 +133,7 @@ class ReportingRepository:
         period: str,
         study_program_id: str,
         entry_period: str,
+        activation: str = "",
     ) -> tuple[str, list[object]]:
         where_clauses = ["s.deleted_at is null", "b.deleted_at is null"]
         params: list[object] = []
@@ -160,4 +163,16 @@ class ReportingRepository:
         if entry_period:
             where_clauses.append("(s.entry_period = ? or s.initial_registration like ?)")
             params.extend([entry_period, f"%{entry_period}%"])
+
+        normalized_activation = str(activation or "").strip().lower()
+        if normalized_activation == "active":
+            where_clauses.append("coalesce(b.is_active, 1) = 1")
+        elif normalized_activation == "inactive":
+            where_clauses.append("coalesce(b.is_active, 1) = 0")
+        elif normalized_activation == "all":
+            pass
+        elif not period:
+            # Exclude deactivated bills by default when period is not filtered/called
+            where_clauses.append("coalesce(b.is_active, 1) = 1")
+
         return "where " + " and ".join(where_clauses), params

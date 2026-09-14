@@ -207,6 +207,57 @@ class MasterDataTests(BackendBaseTestCase):
             self.assertEqual(len(name_search), 1)
             self.assertEqual(name_search[0]["nim"], "1002")
 
+    def test_delete_academic_period_and_delete_all_periods(self) -> None:
+        from Backend.app.services import (
+            create_academic_period,
+            delete_academic_period,
+            delete_all_academic_periods,
+            list_academic_periods,
+        )
+
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            database = Path(temporary_directory) / "salut.sqlite"
+            migrate_database(database)
+
+            # Create test periods
+            p1 = create_academic_period(database, {"code": "TEST1", "name": "Period Test 1"})
+            p2 = create_academic_period(database, {"code": "TEST2", "name": "Period Test 2"})
+
+            # Delete single period
+            deleted = delete_academic_period(database, p1["id"])
+            self.assertTrue(deleted)
+            periods = list_academic_periods(database)
+            self.assertFalse(any(p["id"] == p1["id"] for p in periods))
+            self.assertTrue(any(p["id"] == p2["id"] for p in periods))
+
+            # Delete all periods
+            result = delete_all_academic_periods(database, reason="Testing delete all")
+            self.assertTrue(result["deleted"])
+            self.assertGreaterEqual(result["deleted_count"], 1)
+
+            periods_empty = list_academic_periods(database)
+            self.assertEqual(len(periods_empty), 0)
+
+    def test_delete_all_study_programs(self) -> None:
+        from Backend.app.services import (
+            delete_all_study_programs,
+            list_study_programs,
+        )
+
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            database = Path(temporary_directory) / "salut.sqlite"
+            migrate_database(database)
+
+            prodis_before = list_study_programs(database)
+            self.assertGreaterEqual(len(prodis_before), 1)
+
+            result = delete_all_study_programs(database, reason="Testing delete all prodis")
+            self.assertTrue(result["deleted"])
+            self.assertGreaterEqual(result["deleted_count"], 1)
+
+            prodis_after = list_study_programs(database)
+            self.assertEqual(len(prodis_after), 0)
+
 
 if __name__ == "__main__":
     unittest.main()

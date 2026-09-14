@@ -13,6 +13,9 @@ from Backend.app.responses import error_response, success_response
 from Backend.app.services import (
     create_academic_period,
     create_study_program,
+    delete_academic_period,
+    delete_all_academic_periods,
+    delete_all_study_programs,
     delete_study_program,
     list_academic_periods,
     list_study_programs,
@@ -73,6 +76,15 @@ def build_master_data_router(require_admin: AdminDependencyFactory, read_json: J
 
         return success_response({"deleted": True})
 
+    @router.delete("/api/admin/study-programs")
+    async def admin_delete_all_study_programs(
+        request: Request, admin: sqlite3.Row = Depends(require_admin("manage_master_data"))
+    ) -> JSONResponse:
+        payload = await read_json(request)
+        reason = str(payload.get("reason") or "").strip()
+        result = delete_all_study_programs(config.DB_PATH, actor_id=admin["id"], reason=reason)
+        return success_response(result)
+
     @router.get("/api/admin/academic-periods")
     async def admin_academic_periods(
         admin: sqlite3.Row = Depends(require_admin("view_master_data")),
@@ -104,6 +116,25 @@ def build_master_data_router(require_admin: AdminDependencyFactory, read_json: J
             return error_response(404, "NOT_FOUND", "Periode akademik tidak ditemukan.")
 
         return success_response({"academic_period": period})
+
+    @router.delete("/api/admin/academic-periods/{period_id}")
+    async def admin_delete_academic_period(
+        period_id: str, admin: sqlite3.Row = Depends(require_admin("manage_master_data"))
+    ) -> JSONResponse:
+        deleted = delete_academic_period(config.DB_PATH, period_id, actor_id=admin["id"])
+        if not deleted:
+            return error_response(404, "NOT_FOUND", "Periode akademik tidak ditemukan.")
+
+        return success_response({"deleted": True})
+
+    @router.delete("/api/admin/academic-periods")
+    async def admin_delete_all_academic_periods(
+        request: Request, admin: sqlite3.Row = Depends(require_admin("manage_master_data"))
+    ) -> JSONResponse:
+        payload = await read_json(request)
+        reason = str(payload.get("reason") or "").strip()
+        result = delete_all_academic_periods(config.DB_PATH, actor_id=admin["id"], reason=reason)
+        return success_response(result)
 
     @router.get("/api/admin/template/master-data")
     async def admin_download_master_data_template(

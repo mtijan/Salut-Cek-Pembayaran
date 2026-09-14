@@ -90,6 +90,47 @@ export const masterApi = {
       method: 'PATCH',
       body: JSON.stringify(data),
     }),
+
+  /**
+   * Deletes an academic period.
+   *
+   * @param {string} id
+   * @param {RequestInit} [options={}]
+   * @returns {Promise<any>}
+   */
+  deletePeriod: (id, options = {}) =>
+    apiFetch(`/admin/academic-periods/${id}`, {
+      ...options,
+      method: 'DELETE',
+    }),
+
+  /**
+   * Deletes all study programs.
+   *
+   * @param {string} [reason='']
+   * @param {RequestInit} [options={}]
+   * @returns {Promise<any>}
+   */
+  deleteAllProdi: (reason = '', options = {}) =>
+    apiFetch('/admin/study-programs', {
+      ...options,
+      method: 'DELETE',
+      body: JSON.stringify({ reason }),
+    }),
+
+  /**
+   * Deletes all academic periods.
+   *
+   * @param {string} [reason='']
+   * @param {RequestInit} [options={}]
+   * @returns {Promise<any>}
+   */
+  deleteAllPeriods: (reason = '', options = {}) =>
+    apiFetch('/admin/academic-periods', {
+      ...options,
+      method: 'DELETE',
+      body: JSON.stringify({ reason }),
+    }),
 };
 
 /**

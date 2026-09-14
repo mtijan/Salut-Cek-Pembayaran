@@ -37,13 +37,32 @@ class LookupService:
             bills = bill_repository.list_active_for_public_lookup(student_id)
             transactions = bill_repository.list_recent_transactions_for_public_lookup(student_id)
 
-        return self._build_result(student, bills, transactions)
+            active_period_name = ""
+            period_name_map: dict[str, str] = {}
+            try:
+                period_rows = connection.execute(
+                    "select code, name, is_active from academic_periods"
+                ).fetchall()
+                for pr in period_rows:
+                    code_val = str(pr["code"] or "").strip()
+                    name_val = str(pr["name"] or "").strip()
+                    if code_val and name_val:
+                        period_name_map[code_val.lower()] = name_val
+                        period_name_map[name_val.lower()] = name_val
+                    if int(pr["is_active"] or 0) == 1:
+                        active_period_name = name_val or code_val
+            except sqlite3.OperationalError:
+                pass
+
+        return self._build_result(student, bills, transactions, active_period_name, period_name_map)
 
     def _build_result(
         self,
         student: sqlite3.Row,
         bills: list[sqlite3.Row],
         transactions: list[sqlite3.Row] | None = None,
+        active_period_name: str = "",
+        period_name_map: dict[str, str] | None = None,
     ) -> dict[str, object]:
         txs = transactions or []
         unpaid_due_dates = [bill["due_date"] for bill in bills if bill["due_date"] and bill["status"] != "paid"]
@@ -55,12 +74,29 @@ class LookupService:
         total_paid_amount = sum(int(str(b["paid_amount"])) for b in bill_dicts)
         total_remaining_amount = sum(int(str(b["remaining_amount"])) for b in bill_dicts)
 
+        pmap = period_name_map or {}
+        payment_period = ""
+        if bills and bills[0]["period"]:
+            raw_period = str(bills[0]["period"]).strip()
+            payment_period = pmap.get(raw_period.lower(), "")
+            if not payment_period:
+                if active_period_name and raw_period.lower() == active_period_name.lower():
+                    payment_period = active_period_name
+                elif self._default_payment_period_label:
+                    payment_period = self._default_payment_period_label
+                else:
+                    payment_period = raw_period
+        elif active_period_name:
+            payment_period = active_period_name
+        else:
+            payment_period = self._default_payment_period_label or ""
+
         return {
             "student": {
                 "nim": student["nim"],
                 "full_name": student["full_name"],
                 "program_study": student["program_study"] or self._default_program_study,
-                "payment_period": self._default_payment_period_label or (bills[0]["period"] if bills else ""),
+                "payment_period": payment_period,
                 "due_date": primary_due_date,
                 "due_date_formatted": format_due_date(primary_due_date),
             },

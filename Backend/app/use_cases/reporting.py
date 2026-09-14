@@ -55,17 +55,20 @@ class ReportingService:
         period: str = "",
         study_program_id: str = "",
         entry_period: str = "",
+        activation: str = "",
     ) -> dict[str, object]:
         """Generate financial recap partitioned by study program and individual student records."""
         normalized_period = normalize_text(period)
         normalized_program = normalize_text(study_program_id)
         normalized_entry_period = normalize_text(entry_period)
+        normalized_activation = str(activation or "").strip().lower()
 
         with database_connection(self._db_path) as connection:
             program_rows, student_rows = ReportingRepository(connection).financial_rows(
                 period=normalized_period,
                 study_program_id=normalized_program,
                 entry_period=normalized_entry_period,
+                activation=normalized_activation,
             )
 
         by_study_program = [self._program_summary(row) for row in program_rows]
@@ -80,6 +83,7 @@ class ReportingService:
             "period": normalized_period or None,
             "study_program_id": normalized_program or None,
             "entry_period": normalized_entry_period or None,
+            "activation": normalized_activation or None,
             "by_study_program": by_study_program,
             "by_student": by_student,
             "totals": {

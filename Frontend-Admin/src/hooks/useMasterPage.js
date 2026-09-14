@@ -172,6 +172,73 @@ export function useMasterPage() {
     }
   };
 
+  // ── Confirmation Modal State ────────────────────────────────
+  const [confirmState, setConfirmState] = useState(null);
+
+  const handleCloseConfirm = () => setConfirmState(null);
+
+  const handleExecuteConfirm = async (reason) => {
+    if (confirmState?.onConfirm) {
+      await confirmState.onConfirm(reason);
+    }
+  };
+
+  const handleDeleteProdi = (prodi) => {
+    setConfirmState({
+      title: 'Hapus Program Studi',
+      description: `Apakah Anda yakin ingin menghapus program studi "${prodi.code} - ${prodi.name}"?`,
+      confirmText: 'Hapus Program Studi',
+      onConfirm: async () => {
+        await masterApi.deleteProdi(prodi.id);
+        showToast(`Program Studi ${prodi.code} berhasil dihapus.`);
+        fetchProdis();
+      },
+    });
+  };
+
+  const handleDeleteAllProdi = () => {
+    setConfirmState({
+      title: 'Hapus Seluruh Data Program Studi',
+      description: `PERINGATAN: Seluruh data master program studi (${prodis.length} program studi) akan dihapus secara permanen. Masukkan alasan penghapusan untuk audit log:`,
+      confirmText: 'Hapus Seluruh Program Studi',
+      onConfirm: async (reason) => {
+        const res = await masterApi.deleteAllProdi(reason);
+        showToast(
+          `Seluruh program studi (${res.deleted_count ?? prodis.length} data) berhasil dihapus.`,
+        );
+        fetchProdis();
+      },
+    });
+  };
+
+  const handleDeletePeriod = (period) => {
+    setConfirmState({
+      title: 'Hapus Periode Akademik',
+      description: `Apakah Anda yakin ingin menghapus periode akademik "${period.code} - ${period.name}"?`,
+      confirmText: 'Hapus Periode Akademik',
+      onConfirm: async () => {
+        await masterApi.deletePeriod(period.id);
+        showToast(`Periode Akademik ${period.code} berhasil dihapus.`);
+        fetchPeriods();
+      },
+    });
+  };
+
+  const handleDeleteAllPeriods = () => {
+    setConfirmState({
+      title: 'Hapus Seluruh Data Periode Akademik',
+      description: `PERINGATAN: Seluruh data master periode akademik (${periods.length} periode) akan dihapus secara permanen. Masukkan alasan penghapusan untuk audit log:`,
+      confirmText: 'Hapus Seluruh Periode Akademik',
+      onConfirm: async (reason) => {
+        const res = await masterApi.deleteAllPeriods(reason);
+        showToast(
+          `Seluruh periode akademik (${res.deleted_count ?? periods.length} data) berhasil dihapus.`,
+        );
+        fetchPeriods();
+      },
+    });
+  };
+
   return {
     // Prodi
     prodis,
@@ -186,6 +253,8 @@ export function useMasterPage() {
     handleOpenProdiCreate,
     handleOpenProdiEdit,
     handleSaveProdi,
+    handleDeleteProdi,
+    handleDeleteAllProdi,
     // Period
     periods,
     periodLoading,
@@ -199,5 +268,11 @@ export function useMasterPage() {
     handleOpenPeriodCreate,
     handleOpenPeriodEdit,
     handleSavePeriod,
+    handleDeletePeriod,
+    handleDeleteAllPeriods,
+    // Confirm Modal
+    confirmState,
+    handleCloseConfirm,
+    handleExecuteConfirm,
   };
 }

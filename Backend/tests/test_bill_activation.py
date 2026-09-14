@@ -285,10 +285,20 @@ class BillActivationLifecycleTests(BackendBaseTestCase):
                 actor_id="admin-activation",
             )
             dashboard = get_dashboard_stats(database)
+            report_default = get_financial_summary(database)
             report = get_financial_summary(database, period="2026.1")
+            report_inactive = get_financial_summary(database, activation="inactive")
+
             self.assertEqual(dashboard["total_bills"], 2)
+            # Default financial summary (Semua Periode) excludes deactivated bills
+            self.assertEqual(report_default["totals"]["billed_amount"], 350000)
+            self.assertEqual(report_default["totals"]["total_bills"], 2)
+            # Filtered by period includes historical bills of that period (active + inactive)
             self.assertEqual(report["totals"]["billed_amount"], 300000)
             self.assertEqual(report["totals"]["total_bills"], 2)
+            # Explicit activation filter returns only inactive bills
+            self.assertEqual(report_inactive["totals"]["billed_amount"], 100000)
+            self.assertEqual(report_inactive["totals"]["total_bills"], 1)
 
     def test_activation_api_preview_apply_filter_and_payment_conflict(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:

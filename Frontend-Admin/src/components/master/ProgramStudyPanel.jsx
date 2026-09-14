@@ -1,5 +1,5 @@
 import React from 'react';
-import { Plus, Edit2 } from 'lucide-react';
+import { Plus, Edit2, Trash2 } from 'lucide-react';
 
 export default function ProgramStudyPanel({
   prodis = [],
@@ -7,6 +7,8 @@ export default function ProgramStudyPanel({
   canManage = false,
   onOpenCreate,
   onOpenEdit,
+  onDelete,
+  onDeleteAll,
 }) {
   return (
     <div className="panel-card">
@@ -18,10 +20,23 @@ export default function ProgramStudyPanel({
           </p>
         </div>
         {canManage && (
-          <button type="button" className="btn btn-primary" onClick={onOpenCreate}>
-            <Plus size={16} />
-            <span>Tambah Program Studi</span>
-          </button>
+          <div className="toolbar-actions">
+            {prodis.length > 0 && (
+              <button
+                type="button"
+                className="btn btn-danger btn-sm"
+                onClick={onDeleteAll}
+                title="Hapus seluruh data program studi"
+              >
+                <Trash2 size={15} />
+                <span>Hapus Seluruh Data</span>
+              </button>
+            )}
+            <button type="button" className="btn btn-primary" onClick={onOpenCreate}>
+              <Plus size={16} />
+              <span>Tambah Program Studi</span>
+            </button>
+          </div>
         )}
       </div>
 
@@ -64,14 +79,25 @@ export default function ProgramStudyPanel({
                   </td>
                   <td className="text-right">
                     {canManage && (
-                      <button
-                        type="button"
-                        className="btn btn-secondary btn-sm"
-                        onClick={() => onOpenEdit(p)}
-                      >
-                        <Edit2 size={14} />
-                        <span>Edit</span>
-                      </button>
+                      <div className="table-action-cell">
+                        <button
+                          type="button"
+                          className="btn btn-secondary btn-sm"
+                          onClick={() => onOpenEdit(p)}
+                        >
+                          <Edit2 size={14} />
+                          <span>Edit</span>
+                        </button>
+                        <button
+                          type="button"
+                          className="btn btn-danger btn-sm"
+                          onClick={() => onDelete(p)}
+                          title="Hapus program studi"
+                        >
+                          <Trash2 size={14} />
+                          <span>Hapus</span>
+                        </button>
+                      </div>
                     )}
                   </td>
                 </tr>

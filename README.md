@@ -23,7 +23,7 @@ Project ini menggabungkan portal publik yang sederhana dengan dashboard admin be
 - Pencatatan pembayaran parsial maupun lunas.
 - Riwayat transaksi pembayaran per mahasiswa dan tagihan.
 - Import workbook Excel melalui proses upload, preview, validasi, deadline wajib, dan commit.
-- Rekapitulasi keuangan historis berdasarkan program studi dan periode, termasuk tagihan nonaktif, dengan ekspor CSV, Excel `.xlsx`, dan PDF.
+- Rekapitulasi keuangan historis berdasarkan program studi dan periode (mengecualikan tagihan nonaktif secara default dan menyertakannya saat periode difilter), dengan ekspor CSV, Excel `.xlsx`, dan PDF.
 - Pengelolaan program studi serta periode akademik.
 - Kontrol akses berbasis role dan pencatatan aktivitas admin.
 

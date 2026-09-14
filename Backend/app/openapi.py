@@ -1,7 +1,7 @@
 """OpenAPI specification generator and schema definitions for Salut Cek Pembayaran.
 
 This module builds a comprehensive, schema-accurate OpenAPI 3.1 specification for all
-35 paths and 46 operations, defining exact query parameters, request bodies,
+35 paths and 49 operations, defining exact query parameters, request bodies,
 cookie-based security schemes, and standardized error response models without
 advertising unused 422 HTTPValidationError schemas.
 """
@@ -15,7 +15,7 @@ from fastapi import FastAPI
 from Backend.app.version import APP_VERSION
 
 EXPECTED_OPENAPI_PATHS = 35
-EXPECTED_OPENAPI_OPERATIONS = 46
+EXPECTED_OPENAPI_OPERATIONS = 49
 
 
 def build_custom_openapi(app: FastAPI) -> dict[str, Any]:
@@ -909,6 +909,13 @@ def build_custom_openapi(app: FastAPI) -> dict[str, Any]:
                         "schema": {"type": "string"},
                         "description": "Filter by student entry period",
                     },
+                    {
+                        "name": "activation",
+                        "in": "query",
+                        "required": False,
+                        "schema": {"type": "string", "enum": ["active", "inactive", "all"]},
+                        "description": "Filter by bill activation status (defaults to active when period is empty, or all when period is specified)",
+                    },
                 ],
                 "responses": {
                     "200": {
@@ -1023,6 +1030,23 @@ def build_custom_openapi(app: FastAPI) -> dict[str, Any]:
                     "403": resp_403,
                 },
             },
+            "delete": {
+                "tags": ["Master Data"],
+                "summary": "Delete All Study Programs",
+                "description": "Permanently delete all study program master data records.",
+                "operationId": "delete_all_study_programs",
+                "security": sec_cookie,
+                "responses": {
+                    "200": {
+                        "description": "All Study Programs Deleted",
+                        "content": {
+                            "application/json": {"schema": {"$ref": "#/components/schemas/StandardSuccessResponse"}}
+                        },
+                    },
+                    "401": resp_401,
+                    "403": resp_403,
+                },
+            },
         },
         "/api/admin/study-programs/{program_id}": {
             "patch": {
@@ -1131,6 +1155,23 @@ def build_custom_openapi(app: FastAPI) -> dict[str, Any]:
                     "403": resp_403,
                 },
             },
+            "delete": {
+                "tags": ["Master Data"],
+                "summary": "Delete All Academic Periods",
+                "description": "Permanently delete all academic period master data records.",
+                "operationId": "delete_all_academic_periods",
+                "security": sec_cookie,
+                "responses": {
+                    "200": {
+                        "description": "All Academic Periods Deleted",
+                        "content": {
+                            "application/json": {"schema": {"$ref": "#/components/schemas/StandardSuccessResponse"}}
+                        },
+                    },
+                    "401": resp_401,
+                    "403": resp_403,
+                },
+            },
         },
         "/api/admin/academic-periods/{period_id}": {
             "patch": {
@@ -1168,7 +1209,34 @@ def build_custom_openapi(app: FastAPI) -> dict[str, Any]:
                     "403": resp_403,
                     "404": resp_404,
                 },
-            }
+            },
+            "delete": {
+                "tags": ["Master Data"],
+                "summary": "Delete Academic Period",
+                "description": "Permanently delete an academic period record by ID.",
+                "operationId": "delete_academic_period",
+                "security": sec_cookie,
+                "parameters": [
+                    {
+                        "name": "period_id",
+                        "in": "path",
+                        "required": True,
+                        "schema": {"type": "string"},
+                        "description": "Academic period ID",
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Academic Period Deleted",
+                        "content": {
+                            "application/json": {"schema": {"$ref": "#/components/schemas/StandardSuccessResponse"}}
+                        },
+                    },
+                    "401": resp_401,
+                    "403": resp_403,
+                    "404": resp_404,
+                },
+            },
         },
         "/api/admin/template/master-data": {
             "get": {

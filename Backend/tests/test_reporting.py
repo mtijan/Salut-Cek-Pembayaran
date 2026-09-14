@@ -12,6 +12,7 @@ from Backend.app.services import (
     create_student,
     get_dashboard_stats,
     get_financial_summary,
+    update_bill_activation,
 )
 from db import connect, init_db, migrate_database
 from Backend.tests.test_base import BackendBaseTestCase
@@ -219,6 +220,76 @@ class ReportingAndAnalyticsTests(BackendBaseTestCase):
             self.assertEqual(fin["totals"]["billed_amount"], 3500000)
             self.assertEqual(fin["totals"]["paid_amount"], 2500000)
             self.assertEqual(fin["totals"]["outstanding_amount"], 1000000)
+
+    def test_financial_summary_excludes_deactivated_period_bills_by_default(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            database = Path(temporary_directory) / "salut.sqlite"
+            migrate_database(database)
+
+            st_a = create_student(
+                database,
+                {"nim": "5001", "full_name": "Student Period Old", "study_program_id": "sp_hkum"},
+            )
+            st_b = create_student(
+                database,
+                {"nim": "5002", "full_name": "Student Period New", "study_program_id": "sp_sifo"},
+            )
+
+            bill_old = create_bill(
+                database,
+                {
+                    "student_id": st_a["id"],
+                    "briva": "5001001",
+                    "amount": 2000000,
+                    "period": "2024.1",
+                    "status": "unpaid",
+                },
+            )
+            create_bill(
+                database,
+                {
+                    "student_id": st_b["id"],
+                    "briva": "5002001",
+                    "amount": 3000000,
+                    "period": "2024.2",
+                    "status": "unpaid",
+                },
+            )
+
+            # Deactivate the old period bill
+            update_bill_activation(
+                database,
+                bill_old["id"],
+                False,
+                "Penutupan periode lama",
+            )
+
+            # 1. Default (Semua Periode): Inactive bill from old period must NOT appear
+            default_summary = get_financial_summary(database)
+            self.assertEqual(default_summary["totals"]["total_students"], 1)
+            self.assertEqual(default_summary["totals"]["total_bills"], 1)
+            self.assertEqual(default_summary["totals"]["billed_amount"], 3000000)
+            self.assertEqual([s["nim"] for s in default_summary["by_student"]], ["5002"])
+
+            # 2. Filtered by period "2024.1": Inactive bill for that specific period DOES appear
+            old_summary = get_financial_summary(database, period="2024.1")
+            self.assertEqual(old_summary["totals"]["total_students"], 1)
+            self.assertEqual(old_summary["totals"]["total_bills"], 1)
+            self.assertEqual(old_summary["totals"]["billed_amount"], 2000000)
+            self.assertEqual([s["nim"] for s in old_summary["by_student"]], ["5001"])
+
+            # 3. Filtered by period "2024.2": Active bill appears
+            new_summary = get_financial_summary(database, period="2024.2")
+            self.assertEqual(new_summary["totals"]["total_students"], 1)
+            self.assertEqual(new_summary["totals"]["total_bills"], 1)
+            self.assertEqual(new_summary["totals"]["billed_amount"], 3000000)
+            self.assertEqual([s["nim"] for s in new_summary["by_student"]], ["5002"])
+
+            # 4. Explicit activation="all": Both bills appear
+            all_summary = get_financial_summary(database, activation="all")
+            self.assertEqual(all_summary["totals"]["total_students"], 2)
+            self.assertEqual(all_summary["totals"]["total_bills"], 2)
+            self.assertEqual(all_summary["totals"]["billed_amount"], 5000000)
 
 
 if __name__ == "__main__":

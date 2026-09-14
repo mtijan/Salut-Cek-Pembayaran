@@ -146,6 +146,29 @@ def delete_study_program(db_path: str | Path, program_id: str, actor_id: str | N
         conn.close()
 
 
+def delete_all_study_programs(
+    db_path: str | Path, actor_id: str | None = None, reason: str = ""
+) -> dict[str, object]:
+    """Delete all study programs with audit logging."""
+    conn = connect(db_path)
+    try:
+        with conn:
+            repo = StudyProgramRepository(conn)
+            count = repo.delete_all()
+            if actor_id:
+                write_audit(
+                    conn,
+                    actor_id,
+                    "study_program.delete_all",
+                    "study_program",
+                    "all",
+                    {"deleted_count": count, "reason": reason},
+                )
+            return {"deleted": True, "deleted_count": count}
+    finally:
+        conn.close()
+
+
 # ==========================================
 # MASTER DATA: ACADEMIC PERIODS
 # ==========================================
@@ -278,6 +301,53 @@ def update_academic_period(
         conn.close()
 
 
+def delete_academic_period(db_path: str | Path, period_id: str, actor_id: str | None = None) -> bool:
+    """Delete an academic period record by ID with audit logging."""
+    conn = connect(db_path)
+    try:
+        with conn:
+            repo = AcademicPeriodRepository(conn)
+            current = repo.find_by_id(period_id)
+            if not current:
+                return False
+            deleted = repo.delete(period_id)
+            if deleted and actor_id:
+                write_audit(
+                    conn,
+                    actor_id,
+                    "academic_period.delete",
+                    "academic_period",
+                    period_id,
+                    {"code": current["code"], "name": current["name"]},
+                )
+            return deleted
+    finally:
+        conn.close()
+
+
+def delete_all_academic_periods(
+    db_path: str | Path, actor_id: str | None = None, reason: str = ""
+) -> dict[str, object]:
+    """Delete all academic period records with audit logging."""
+    conn = connect(db_path)
+    try:
+        with conn:
+            repo = AcademicPeriodRepository(conn)
+            count = repo.delete_all()
+            if actor_id:
+                write_audit(
+                    conn,
+                    actor_id,
+                    "academic_period.delete_all",
+                    "academic_period",
+                    "all",
+                    {"deleted_count": count, "reason": reason},
+                )
+            return {"deleted": True, "deleted_count": count}
+    finally:
+        conn.close()
+
+
 # ==========================================
 # REPORTING COMPAT WRAPPERS
 # ==========================================
@@ -295,6 +365,7 @@ def get_financial_summary(
     period: str = "",
     study_program_id: str = "",
     entry_period: str = "",
+    activation: str = "",
 ) -> dict[str, object]:
     """Compatibility wrapper for callers that still import the legacy service module."""
     from Backend.app.use_cases.reporting import ReportingService
@@ -303,4 +374,5 @@ def get_financial_summary(
         period=period,
         study_program_id=study_program_id,
         entry_period=entry_period,
+        activation=activation,
     )

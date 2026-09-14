@@ -28,6 +28,12 @@
   flex: 1;
 }
 
+.toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .search-input-wrap {
   position: relative;
   min-width: 240px;

@@ -49,11 +49,13 @@ def build_report_router(
         period = str(request.query_params.get("period") or "").strip()
         study_program_id = str(request.query_params.get("study_program_id") or "").strip()
         entry_period = str(request.query_params.get("entry_period") or "").strip()
+        activation = str(request.query_params.get("activation") or "").strip()
         return success_response(
             ReportingService(config.DB_PATH).financial_summary(
                 period=period,
                 study_program_id=study_program_id,
                 entry_period=entry_period,
+                activation=activation,
             )
         )
 

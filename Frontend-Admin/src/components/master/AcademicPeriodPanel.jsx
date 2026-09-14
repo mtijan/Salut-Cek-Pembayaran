@@ -1,5 +1,5 @@
 import React from 'react';
-import { Plus, Edit2, CheckCircle2, Power } from 'lucide-react';
+import { Plus, Edit2, CheckCircle2, Power, Trash2 } from 'lucide-react';
 
 export default function AcademicPeriodPanel({
   periods = [],
@@ -9,6 +9,8 @@ export default function AcademicPeriodPanel({
   onOpenCreate,
   onOpenEdit,
   onManageBills,
+  onDelete,
+  onDeleteAll,
 }) {
   return (
     <div className="panel-card">
@@ -20,10 +22,23 @@ export default function AcademicPeriodPanel({
           </p>
         </div>
         {canManage && (
-          <button type="button" className="btn btn-primary" onClick={onOpenCreate}>
-            <Plus size={16} />
-            <span>Tambah Periode Akademik</span>
-          </button>
+          <div className="toolbar-actions">
+            {periods.length > 0 && (
+              <button
+                type="button"
+                className="btn btn-danger btn-sm"
+                onClick={onDeleteAll}
+                title="Hapus seluruh data periode akademik"
+              >
+                <Trash2 size={15} />
+                <span>Hapus Seluruh Data</span>
+              </button>
+            )}
+            <button type="button" className="btn btn-primary" onClick={onOpenCreate}>
+              <Plus size={16} />
+              <span>Tambah Periode Akademik</span>
+            </button>
+          </div>
         )}
       </div>
 
@@ -85,14 +100,25 @@ export default function AcademicPeriodPanel({
                           </button>
                         )}
                         {canManage && (
-                          <button
-                            type="button"
-                            className="btn btn-secondary btn-sm"
-                            onClick={() => onOpenEdit(p)}
-                          >
-                            <Edit2 size={14} />
-                            <span>Edit Master</span>
-                          </button>
+                          <>
+                            <button
+                              type="button"
+                              className="btn btn-secondary btn-sm"
+                              onClick={() => onOpenEdit(p)}
+                            >
+                              <Edit2 size={14} />
+                              <span>Edit Master</span>
+                            </button>
+                            <button
+                              type="button"
+                              className="btn btn-danger btn-sm"
+                              onClick={() => onDelete(p)}
+                              title="Hapus periode akademik"
+                            >
+                              <Trash2 size={14} />
+                              <span>Hapus</span>
+                            </button>
+                          </>
                         )}
                       </div>
                     </td>
