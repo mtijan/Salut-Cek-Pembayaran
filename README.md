@@ -219,11 +219,6 @@ npm run format:check
 npm run build
 ```
 
-Baseline lokal 2026-08-30: 99 backend test pada 16 modul, 7 boundary test, 16 frontend unit test, dan 8 browser flow sintetis lulus. Bukti lokal ini bukan bukti deployment production.
-
-Browser gate memakai Google Chrome lokal dan menjalankan bundle admin melalui FastAPI pada port test `8765`. Seluruh API bisnis diintersep dengan fixture sintetis; SQLite, trace, screenshot, dan hasil Playwright disimpan pada `Frontend-Admin/test-results/` yang di-ignore. Gate ini bukan UAT maupun bukti deployment production.
-
-Versi aplikasi diubah hanya melalui file `VERSION`. FastAPI/OpenAPI, health check, metadata package admin, dan bundle Vite divalidasi agar memakai nilai yang sama. `release_id` tetap terpisah sebagai identitas commit/deployment.
 
 ### 4. Development frontend dengan hot reload
 
