@@ -112,7 +112,7 @@ Salut-Cek-Pembayaran/
 │   └── security/                # Pemeriksaan boundary repositori publik & audit
 ├── Dockerfile & docker-compose.yml
 ├── pyproject.toml & requirements*.txt
-├── README.md & SECURITY.md
+├── README.md
 └── VERSION                      # Sumber tunggal versi aplikasi
 ```
 
