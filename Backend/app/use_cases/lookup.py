@@ -40,9 +40,7 @@ class LookupService:
             active_period_name = ""
             period_name_map: dict[str, str] = {}
             try:
-                period_rows = connection.execute(
-                    "select code, name, is_active from academic_periods"
-                ).fetchall()
+                period_rows = connection.execute("select code, name, is_active from academic_periods").fetchall()
                 for pr in period_rows:
                     code_val = str(pr["code"] or "").strip()
                     name_val = str(pr["name"] or "").strip()

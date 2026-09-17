@@ -146,9 +146,7 @@ def delete_study_program(db_path: str | Path, program_id: str, actor_id: str | N
         conn.close()
 
 
-def delete_all_study_programs(
-    db_path: str | Path, actor_id: str | None = None, reason: str = ""
-) -> dict[str, object]:
+def delete_all_study_programs(db_path: str | Path, actor_id: str | None = None, reason: str = "") -> dict[str, object]:
     """Delete all study programs with audit logging."""
     conn = connect(db_path)
     try:

@@ -253,13 +253,3 @@ npm test
 npm run build
 ```
 
-## Catatan Keamanan Lokal
-
-- Jangan commit file `.env`, database SQLite, workbook, backup, atau private key.
-- Gunakan data sintetis ketika mendemonstrasikan aplikasi.
-- Ganti kredensial bootstrap bila workspace digunakan bersama.
-- Jangan menggunakan contoh secret dan password development untuk server publik.
-- Pertahankan `WEB_CONCURRENCY=1`/`UVICORN_WORKERS=1`; limiter bounded in-memory adalah keputusan topology saat ini dan production fail-fast bila worker lebih dari satu. Shared store wajib diputuskan sebelum scale-out.
-- `docs/` dan `deploy/` adalah artefak internal dan tidak boleh dilacak pada repository publik.
-- Jalankan `python scripts/security/check_public_repo_boundary.py` sebelum commit atau pull request.
-- Kebijakan pelaporan kerentanan tersedia di [`SECURITY.md`](SECURITY.md).
