@@ -16,6 +16,7 @@ const EMPTY_EDIT_FORM = {
   entry_year: '',
   entry_semester: 'ganjil',
   entry_period: '',
+  initial_registration: '',
   phone_number: '',
   email: '',
   address: '',
@@ -34,6 +35,7 @@ function toEditForm(student = {}) {
     entry_year: student.entry_year ? String(student.entry_year) : '',
     entry_semester: student.entry_semester || 'ganjil',
     entry_period: student.entry_period || '',
+    initial_registration: student.initial_registration || '',
     phone_number: student.phone_number || '',
     email: student.email || '',
     address: student.address || '',
@@ -124,18 +126,22 @@ export function useStudentProfile({ studentId, initialTab = 'profile' }) {
     }
     setSavingEdit(true);
     setEditError('');
+    const selectedProdi = prodis.find((p) => p.id === editForm.study_program_id);
     try {
       await studentsApi.update(studentId, {
+        nim: editForm.nim,
         full_name: editForm.full_name.trim(),
         no_ktp: editForm.no_ktp.trim(),
         tempat_lahir: editForm.tempat_lahir.trim(),
         tanggal_lahir: editForm.tanggal_lahir.trim(),
         nama_ibu_kandung: editForm.nama_ibu_kandung.trim(),
         study_program_id: editForm.study_program_id || null,
+        program_study: selectedProdi?.name || undefined,
         academic_status: editForm.academic_status,
         entry_year: editForm.entry_year ? Number(editForm.entry_year) : null,
         entry_semester: editForm.entry_semester,
         entry_period: editForm.entry_period.trim(),
+        initial_registration: editForm.initial_registration || undefined,
         phone_number: editForm.phone_number.trim(),
         email: editForm.email.trim(),
         address: editForm.address.trim(),

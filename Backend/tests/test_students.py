@@ -18,6 +18,7 @@ from Backend.app.services import (
     get_student_detail,
     list_bills,
     list_students,
+    update_student,
 )
 from db import connect, init_db, migrate_database
 from fastapi.testclient import TestClient
@@ -190,6 +191,16 @@ class StudentManagementTests(BackendBaseTestCase):
                 )
                 self.assertEqual(updated_student.status_code, 200)
                 self.assertEqual(updated_student.json()["data"]["student"]["full_name"], "Raka Putra Santoso")
+
+                # Verify partial PATCH without sending nim preserves original NIM
+                partial_updated = client.patch(
+                    f"/api/admin/students/{student_id}",
+                    json={"phone_number": "08123456789"},
+                )
+                self.assertEqual(partial_updated.status_code, 200)
+                self.assertEqual(partial_updated.json()["data"]["student"]["nim"], "01007")
+                self.assertEqual(partial_updated.json()["data"]["student"]["phone_number"], "08123456789")
+                self.assertEqual(partial_updated.json()["data"]["student"]["full_name"], "Raka Putra Santoso")
 
                 created_bill = client.post(
                     "/api/admin/bills",
@@ -462,6 +473,74 @@ class StudentManagementTests(BackendBaseTestCase):
             self.assertEqual([s["nim"] for s in second_page], ["9003", "9004"])
             self.assertEqual(len(third_page), 1)
             self.assertEqual([s["nim"] for s in third_page], ["9005"])
+
+    def test_update_student_partial_without_nim_preserves_existing_fields(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            database = Path(temporary_directory) / "salut.sqlite"
+            migrate_database(database)
+
+            student = create_student(
+                database,
+                {
+                    "nim": "050117001",
+                    "full_name": "Budi Santoso",
+                    "no_ktp": "3603100510860014",
+                    "initial_registration": "UNIVERSITAS TERBUKA 2024.1",
+                    "program_study": "S1 Ilmu Hukum",
+                    "email": "budi@test.com",
+                    "phone_number": "081234567890",
+                    "academic_status": "aktif",
+                },
+            )
+
+            # Partial update without nim and without initial_registration
+            updated = update_student(
+                database,
+                student["id"],
+                {
+                    "full_name": "Budi Santoso Putra",
+                    "phone_number": "089876543210",
+                },
+                actor_id="test-admin",
+            )
+            self.assertIsNotNone(updated)
+            self.assertEqual(updated["nim"], "050117001")
+            self.assertEqual(updated["full_name"], "Budi Santoso Putra")
+            self.assertEqual(updated["phone_number"], "089876543210")
+            self.assertEqual(updated["no_ktp"], "3603100510860014")
+            self.assertEqual(updated["email"], "budi@test.com")
+            self.assertEqual(updated["initial_registration"], "UNIVERSITAS TERBUKA 2024.1")
+            self.assertEqual(updated["program_study"], "S1 Ilmu Hukum")
+
+    def test_update_student_resolves_study_program_name(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            database = Path(temporary_directory) / "salut.sqlite"
+            migrate_database(database)
+
+            conn = connect(database)
+            prodi_row = conn.execute("select id, name from study_programs limit 1").fetchone()
+            conn.close()
+            self.assertIsNotNone(prodi_row)
+
+            student = create_student(
+                database,
+                {
+                    "nim": "050117002",
+                    "full_name": "Siti Nurhaliza",
+                },
+            )
+
+            updated = update_student(
+                database,
+                student["id"],
+                {
+                    "study_program_id": prodi_row["id"],
+                },
+                actor_id="test-admin",
+            )
+            self.assertIsNotNone(updated)
+            self.assertEqual(updated["study_program_id"], prodi_row["id"])
+            self.assertEqual(updated["program_study"], prodi_row["name"])
 
 
 if __name__ == "__main__":

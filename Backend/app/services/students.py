@@ -266,41 +266,6 @@ def update_student(
     db_path: str | Path, student_id: str, payload: dict[str, object], actor_id: str | None = None
 ) -> sqlite3.Row | None:
     """Update student biographical and academic profile fields with audit logging."""
-    normalized_nim = validate_nim_value(payload.get("nim"))
-    normalized_name = normalize_imported_name(payload.get("full_name"))
-    if not normalized_nim:
-        raise ValueError("NIM wajib diisi.")
-    if not normalized_name:
-        raise ValueError("Nama mahasiswa wajib diisi.")
-
-    prodi = clean_demographic_value(payload.get("program_study"))
-    prodi_id = normalize_text(payload.get("study_program_id")) or None
-    status = validate_academic_status(payload.get("academic_status"))
-    email = clean_demographic_value(payload.get("email"))
-    address = clean_demographic_value(payload.get("address"))
-    phone = (
-        normalize_nim(payload.get("phone_number"))
-        if payload.get("phone_number") and clean_demographic_value(payload.get("phone_number"))
-        else None
-    )
-    no_ktp = clean_demographic_value(payload.get("no_ktp"))
-    tempat = clean_demographic_value(payload.get("tempat_lahir"))
-    tgl = clean_demographic_value(payload.get("tanggal_lahir"))
-    ibu = clean_demographic_value(payload.get("nama_ibu_kandung"))
-    reg = clean_demographic_value(payload.get("initial_registration"))
-
-    parsed_year, parsed_sem, parsed_period = parse_entry_registration(reg)
-    try:
-        year = (
-            int(str(payload.get("entry_year")).strip())
-            if payload.get("entry_year") is not None and str(payload.get("entry_year")).strip().isdigit()
-            else parsed_year
-        )
-    except (ValueError, TypeError):
-        year = parsed_year
-    sem = clean_demographic_value(payload.get("entry_semester")) or parsed_sem
-    period = clean_demographic_value(payload.get("entry_period")) or parsed_period
-
     conn = connect(db_path)
     try:
         with conn:
@@ -308,9 +273,122 @@ def update_student(
             existing = repo.find_by_id(student_id)
             if not existing:
                 return None
+
+            raw_nim = payload.get("nim")
+            if "nim" in payload and raw_nim is not None and str(raw_nim).strip():
+                normalized_nim = validate_nim_value(raw_nim)
+            else:
+                normalized_nim = str(existing["nim"] or "")
+
+            if not normalized_nim:
+                raise ValueError("NIM wajib diisi.")
+
             duplicate = repo.find_duplicate_nim(normalized_nim, exclude_id=student_id)
             if duplicate:
                 raise ValueError("NIM sudah digunakan mahasiswa lain.")
+
+            raw_name = payload.get("full_name")
+            if "full_name" in payload and raw_name is not None and str(raw_name).strip():
+                normalized_name = normalize_imported_name(raw_name)
+            else:
+                normalized_name = str(existing["full_name"] or "")
+
+            if not normalized_name:
+                raise ValueError("Nama mahasiswa wajib diisi.")
+
+            if "study_program_id" in payload:
+                prodi_id = normalize_text(payload.get("study_program_id")) or None
+                if prodi_id:
+                    resolved_prodi_name = repo.find_study_program_name(prodi_id)
+                    if "program_study" in payload and payload.get("program_study"):
+                        prodi = clean_demographic_value(payload.get("program_study"))
+                    else:
+                        prodi = resolved_prodi_name or clean_demographic_value(existing["program_study"])
+                else:
+                    prodi = (
+                        clean_demographic_value(payload.get("program_study")) if "program_study" in payload else None
+                    )
+            elif "program_study" in payload:
+                prodi = clean_demographic_value(payload.get("program_study"))
+                if prodi:
+                    prodi_id = (
+                        resolve_study_program_id(conn, prodi) or normalize_text(existing["study_program_id"]) or None
+                    )
+                else:
+                    prodi_id = None
+            else:
+                prodi = clean_demographic_value(existing["program_study"])
+                prodi_id = normalize_text(existing["study_program_id"]) or None
+
+            if "academic_status" in payload and payload.get("academic_status"):
+                status = validate_academic_status(payload.get("academic_status"))
+            else:
+                status = validate_academic_status(existing["academic_status"])
+
+            if "initial_registration" in payload:
+                reg = clean_demographic_value(payload.get("initial_registration"))
+            else:
+                reg = clean_demographic_value(existing["initial_registration"])
+
+            parsed_year, parsed_sem, parsed_period = parse_entry_registration(reg)
+
+            year: int | None
+            if "entry_year" in payload:
+                raw_year = payload.get("entry_year")
+                if raw_year is not None and str(raw_year).strip().isdigit():
+                    year = int(str(raw_year).strip())
+                else:
+                    year = parsed_year
+            else:
+                year = int(existing["entry_year"]) if existing["entry_year"] is not None else parsed_year
+
+            if "entry_semester" in payload:
+                sem = clean_demographic_value(payload.get("entry_semester")) or parsed_sem
+            else:
+                sem = clean_demographic_value(existing["entry_semester"]) or parsed_sem
+
+            if "entry_period" in payload:
+                period = clean_demographic_value(payload.get("entry_period")) or parsed_period
+            else:
+                period = clean_demographic_value(existing["entry_period"]) or parsed_period
+
+            no_ktp = (
+                clean_demographic_value(payload.get("no_ktp"))
+                if "no_ktp" in payload
+                else clean_demographic_value(existing["no_ktp"])
+            )
+            tempat = (
+                clean_demographic_value(payload.get("tempat_lahir"))
+                if "tempat_lahir" in payload
+                else clean_demographic_value(existing["tempat_lahir"])
+            )
+            tgl = (
+                clean_demographic_value(payload.get("tanggal_lahir"))
+                if "tanggal_lahir" in payload
+                else clean_demographic_value(existing["tanggal_lahir"])
+            )
+            ibu = (
+                clean_demographic_value(payload.get("nama_ibu_kandung"))
+                if "nama_ibu_kandung" in payload
+                else clean_demographic_value(existing["nama_ibu_kandung"])
+            )
+            email = (
+                clean_demographic_value(payload.get("email"))
+                if "email" in payload
+                else clean_demographic_value(existing["email"])
+            )
+            address = (
+                clean_demographic_value(payload.get("address"))
+                if "address" in payload
+                else clean_demographic_value(existing["address"])
+            )
+
+            if "phone_number" in payload:
+                raw_phone = payload.get("phone_number")
+                phone = normalize_nim(raw_phone) if raw_phone and clean_demographic_value(raw_phone) else None
+            else:
+                phone = clean_demographic_value(existing["phone_number"])
+
             student = repo.update_profile(
                 student_id,
                 {

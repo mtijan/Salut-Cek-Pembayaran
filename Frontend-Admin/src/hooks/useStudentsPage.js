@@ -174,10 +174,12 @@ export function useStudentsPage() {
     setFormError('');
     setSaving(true);
     const nullable = (value) => value || null;
+    const selectedProdi = prodis.find((p) => p.id === formData.study_program_id);
     const payload = {
       ...formData,
       entry_year: formData.entry_year ? Number(formData.entry_year) : null,
       study_program_id: nullable(formData.study_program_id),
+      program_study: selectedProdi?.name || undefined,
       phone_number: nullable(formData.phone_number),
       email: nullable(formData.email),
       address: nullable(formData.address),

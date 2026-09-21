@@ -26,7 +26,7 @@ EXPECTED_TEST_COUNTS = {
     "Backend.tests.test_reporting": 5,
     "Backend.tests.test_security_ops": 14,
     "Backend.tests.test_service_boundaries": 1,
-    "Backend.tests.test_students": 10,
+    "Backend.tests.test_students": 12,
     "Backend.tests.test_version": 2,
 }
 
