@@ -138,7 +138,7 @@ export function useBillEditor({ billId, mode, navigateTo, onSaved, enabled = tru
       } else if (status === 'unpaid') {
         paidAmount = '0';
       } else if (Number(paidAmount) <= 0 || Number(paidAmount) >= totalAmount) {
-        paidAmount = String(Math.round(totalAmount / 2) || 500000);
+        paidAmount = '';
       }
       return { ...prev, status, paid_amount: paidAmount };
     });
@@ -151,8 +151,6 @@ export function useBillEditor({ billId, mode, navigateTo, onSaved, enabled = tru
       let paidAmount = prev.paid_amount;
       if (prev.status === 'paid') {
         paidAmount = String(numericValue);
-      } else if (prev.status === 'partial' && Number(paidAmount) >= numericValue) {
-        paidAmount = String(Math.round(numericValue / 2));
       }
       return { ...prev, amount: value, paid_amount: paidAmount };
     });
@@ -199,7 +197,7 @@ export function useBillEditor({ billId, mode, navigateTo, onSaved, enabled = tru
       setFormError('Nomor BRIVA wajib diisi.');
       return;
     }
-    if (totalAmountNum <= 0) {
+    if (!Number.isSafeInteger(totalAmountNum) || totalAmountNum <= 0) {
       setFormError('Nominal tagihan harus berupa angka positif lebih dari 0.');
       return;
     }
@@ -220,8 +218,16 @@ export function useBillEditor({ billId, mode, navigateTo, onSaved, enabled = tru
       return;
     }
 
+    if (!Number.isSafeInteger(paidAmountNum) || paidAmountNum < 0) {
+      setFormError('Nominal terbayar harus berupa rupiah bulat dan tidak boleh negatif.');
+      return;
+    }
     if (paidAmountNum > totalAmountNum) {
       setFormError('Nominal terbayar tidak boleh melebihi total nominal tagihan.');
+      return;
+    }
+    if (formData.status === 'partial' && (paidAmountNum <= 0 || paidAmountNum >= totalAmountNum)) {
+      setFormError('Nominal bayar sebagian harus lebih dari 0 dan lebih kecil dari total tagihan.');
       return;
     }
 

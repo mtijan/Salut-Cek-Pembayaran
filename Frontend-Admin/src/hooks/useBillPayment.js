@@ -71,16 +71,19 @@ export function useBillPayment({ billId, onPaymentSuccess }) {
     setFormError('');
     if (mode === 'full') {
       setPaymentAmount(String(remainingAmount));
-    } else {
-      const suggest = remainingAmount > 500000 ? 500000 : Math.round(remainingAmount / 2);
-      setPaymentAmount(String(suggest));
+    } else if (Number(paymentAmount) <= 0 || Number(paymentAmount) >= remainingAmount) {
+      setPaymentAmount('');
     }
   };
 
-  const handleQuickAmount = (val) => {
-    setPaymentMode('partial');
-    setPaymentAmount(String(val));
+  const handlePaymentAmountChange = (value) => {
+    setPaymentAmount(value);
+    setPaymentMode(Number(value) === remainingAmount && value !== '' ? 'full' : 'partial');
     setFormError('');
+  };
+
+  const handleQuickAmount = (val) => {
+    handlePaymentAmountChange(String(val));
   };
 
   // Real-time calculation
@@ -98,7 +101,7 @@ export function useBillPayment({ billId, onPaymentSuccess }) {
       setFormError('Tagihan ini sudah lunas.');
       return;
     }
-    if (!paymentAmount || numericPayment <= 0) {
+    if (!paymentAmount || !Number.isSafeInteger(numericPayment) || numericPayment <= 0) {
       setFormError('Nominal pembayaran transaksi wajib diisi dan lebih dari 0.');
       return;
     }
@@ -143,7 +146,7 @@ export function useBillPayment({ billId, onPaymentSuccess }) {
     remainingAmount,
     paymentMode,
     paymentAmount,
-    setPaymentAmount,
+    handlePaymentAmountChange,
     paymentDate,
     setPaymentDate,
     paymentMethod,

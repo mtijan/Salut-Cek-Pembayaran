@@ -583,11 +583,29 @@ test('bill payment flow: partial payment, live calculation, submit transaksi dan
   // Mode switcher to partial
   await page.getByRole('button', { name: /Bayar Sebagian/ }).click();
   const nominalInput = page.locator('.currency-input');
-  await nominalInput.fill('500000');
+  await nominalInput.fill('');
+  await expect(nominalInput).toHaveValue('');
+  await nominalInput.pressSequentially('345678');
+  await expect(nominalInput).toHaveValue('345678');
+
+  // Re-selecting partial must preserve a custom amount; presets remain optional.
+  await page.getByRole('button', { name: /Bayar Sebagian/ }).click();
+  await expect(nominalInput).toHaveValue('345678');
+  await page.getByRole('button', { name: 'Rp 250.000', exact: true }).click();
+  await expect(nominalInput).toHaveValue('250000');
+  await nominalInput.fill('');
+  await nominalInput.pressSequentially('345678');
+  await expect(nominalInput).toHaveValue('345678');
+
+  // Full payment can also be edited directly, without locking the amount.
+  await nominalInput.fill('750000');
+  await expect(page.getByRole('button', { name: /Pelunasan Penuh/ })).toHaveClass(/is-active/);
+  await nominalInput.fill('345678');
+  await expect(page.getByRole('button', { name: /Bayar Sebagian/ })).toHaveClass(/is-active/);
 
   // Verify live calculation preview
-  await expect(page.locator('.live-calc-box')).toContainText(/500\.000/);
-  await expect(page.locator('.live-calc-box')).toContainText(/250\.000/);
+  await expect(page.locator('.live-calc-box')).toContainText(/345\.678/);
+  await expect(page.locator('.live-calc-box')).toContainText(/404\.322/);
 
   // Fill reference & notes
   await page.getByPlaceholder('Contoh: REF-20260825-9988').fill('REF-SYNTH-001');
@@ -596,12 +614,111 @@ test('bill payment flow: partial payment, live calculation, submit transaksi dan
     .fill('Cicilan pertama');
 
   // Submit payment
+  const paymentRequest = page.waitForRequest(
+    (request) => request.method() === 'POST' && request.url().endsWith('/bills/bill-2/payments'),
+  );
   await page.getByRole('button', { name: /Simpan & Catat Transaksi/ }).click();
+  expect((await paymentRequest).postDataJSON().payment_amount).toBe(345678);
 
   // Verify ledger row appears
   await expect(page.getByText('REF-SYNTH-001')).toBeVisible();
   await expect(page.getByText('PEMBAYARAN', { exact: true })).toBeVisible();
 });
+
+test('custom payment input rejects invalid amounts and supports full/partial switching', async ({
+  page,
+}) => {
+  await installApiMocks(page);
+  await page.goto('/admin');
+  await page.getByRole('button', { name: 'Tagihan Mahasiswa', exact: true }).click();
+  await page.getByRole('button', { name: 'Bayar' }).nth(1).click();
+  const nominal = page.locator('.currency-input');
+  const submit = page.getByRole('button', { name: /Simpan & Catat Transaksi/ });
+  const paymentRequests = [];
+  page.on('request', (request) => {
+    if (request.method() === 'POST' && request.url().endsWith('/payments')) {
+      paymentRequests.push(request);
+    }
+  });
+  for (const invalid of ['', '0', '-1', '750001', '123.5']) {
+    await nominal.fill(invalid);
+    await expect(nominal).toHaveValue(invalid);
+    await expect(submit).toBeDisabled();
+    await nominal.press('Enter');
+  }
+  expect(paymentRequests).toHaveLength(0);
+  await page.getByRole('button', { name: /Pelunasan Penuh/ }).click();
+  await expect(nominal).toHaveValue('750000');
+  await expect(submit).toBeEnabled();
+  await page.getByRole('button', { name: /Bayar Sebagian/ }).click();
+  await expect(nominal).toHaveValue('');
+  await nominal.pressSequentially('123456');
+  await expect(nominal).toHaveValue('123456');
+  await expect(submit).toBeEnabled();
+});
+
+for (const mode of ['edit', 'create']) {
+  test(`bill ${mode}: custom paid amount stays editable after clearing, zero and full payment`, async ({
+    page,
+  }) => {
+    await installApiMocks(page);
+    await page.goto('/admin');
+    await page.getByRole('button', { name: 'Tagihan Mahasiswa', exact: true }).click();
+    if (mode === 'edit') {
+      await page.getByTitle('Edit Data Pokok Tagihan').nth(1).click();
+    } else {
+      await page.getByRole('button', { name: 'Buat Tagihan Baru' }).click();
+      await page.locator('.bill-student-select').selectOption('student-01');
+      await page.locator('.bill-input-btn-wrap input').fill('178100099999');
+    }
+    const total = page.locator('.bill-currency-field').first();
+    const paid = page.locator('.bill-currency-field').last();
+    const status = page.locator('.bill-status-select');
+    await total.fill('1000000');
+    await status.selectOption('partial');
+    await paid.fill('');
+    await expect(paid).toBeEnabled();
+    await expect(paid).toHaveValue('');
+    await paid.pressSequentially('345678');
+    await expect(paid).toHaveValue('345678');
+    await expect(status).toHaveValue('partial');
+
+    // Changing the total must leave the existing partial amount intact.
+    await total.fill('');
+    await expect(paid).toHaveValue('345678');
+    await total.pressSequentially('100000');
+    await expect(paid).toHaveValue('345678');
+    expect(await paid.evaluate((input) => input.validity.rangeOverflow)).toBe(true);
+    await total.fill('1000000');
+
+    for (const value of ['0', '1000000']) {
+      await paid.fill(value);
+      await expect(status).toHaveValue(value === '0' ? 'unpaid' : 'paid');
+      await expect(paid).toBeEnabled();
+      await paid.fill('');
+      await expect(paid).toBeEnabled();
+      await paid.pressSequentially('345678');
+      await expect(paid).toHaveValue('345678');
+      await expect(status).toHaveValue('partial');
+    }
+
+    const savedRequest = page.waitForRequest(
+      (request) =>
+        request.method() === (mode === 'edit' ? 'PATCH' : 'POST') &&
+        request.url().endsWith(mode === 'edit' ? '/bills/bill-2' : '/bills'),
+    );
+    await page
+      .getByRole('button', {
+        name: mode === 'edit' ? 'Simpan Perubahan Tagihan' : 'Buat Tagihan Mahasiswa',
+      })
+      .click();
+    expect((await savedRequest).postDataJSON()).toMatchObject({
+      amount: 1000000,
+      paid_amount: 345678,
+      status: 'partial',
+    });
+  });
+}
 
 test('bill management memakai satu halaman untuk bayar, edit, dan buat tagihan', async ({
   page,

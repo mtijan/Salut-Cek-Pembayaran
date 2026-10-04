@@ -11,13 +11,11 @@ export default function BillPaymentFields({
   copiedKey,
   onCopyBriva,
 }) {
-  const isPaidOrUnpaid = formData.status === 'unpaid' || formData.status === 'paid';
-
   return (
     <>
       {/* Total Amount */}
       <div className="bill-field-group">
-        <label className="bill-field-label">
+        <label htmlFor="bill-total-amount" className="bill-field-label">
           <Coins size={14} className="field-label-icon" />
           <span>Total Nominal Tagihan</span>
           <span className="bill-req-star">*</span>
@@ -25,12 +23,15 @@ export default function BillPaymentFields({
         <div className="bill-currency-input-container">
           <span className="bill-currency-prefix-tag">Rp</span>
           <input
+            id="bill-total-amount"
             type="number"
+            inputMode="numeric"
             className="form-control bill-currency-field"
             value={formData.amount}
             onChange={handleAmountChange}
             placeholder="Contoh: 1850000"
             min="1"
+            step="1"
             required
           />
         </div>
@@ -38,12 +39,13 @@ export default function BillPaymentFields({
 
       {/* Status */}
       <div className="bill-field-group">
-        <label className="bill-field-label">
+        <label htmlFor="bill-payment-status" className="bill-field-label">
           <Activity size={14} className="field-label-icon" />
           <span>Status Pembayaran</span>
           <span className="bill-req-star">*</span>
         </label>
         <select
+          id="bill-payment-status"
           className="form-control bill-select-control bill-status-select"
           value={formData.status}
           onChange={(e) => handleStatusChange(e.target.value)}
@@ -103,29 +105,30 @@ export default function BillPaymentFields({
 
       {/* Paid Amount */}
       <div className="bill-field-full-col">
-        <label className="bill-field-label">
+        <label htmlFor="bill-paid-amount" className="bill-field-label">
           <Coins size={14} className="field-label-icon" />
           <span>Nominal Sudah Terbayar (Rp)</span>
         </label>
         <div className="bill-currency-input-container">
           <span className="bill-currency-prefix-tag">Rp</span>
           <input
+            id="bill-paid-amount"
             type="number"
-            className={`form-control bill-currency-field ${isPaidOrUnpaid ? 'bg-field-disabled' : 'bg-field-enabled'}`}
+            inputMode="numeric"
+            className="form-control bill-currency-field bg-field-enabled"
             value={formData.paid_amount}
             onChange={handlePaidAmountChange}
-            disabled={isPaidOrUnpaid}
             placeholder="0"
             min="0"
             max={totalAmountNum}
+            step="1"
+            required
+            aria-describedby="bill-paid-amount-hint"
           />
         </div>
-        <div className="bill-field-hint">
-          {formData.status === 'partial'
-            ? 'Masukkan nominal cicilan yang sudah dibayarkan mahasiswa'
-            : formData.status === 'paid'
-              ? 'Otomatis bernilai penuh sesuai total tagihan'
-              : 'Bernilai Rp 0 saat status Belum Lunas'}
+        <div id="bill-paid-amount-hint" className="bill-field-hint">
+          Ketik nominal yang sudah dibayarkan dalam rupiah bulat. Status mengikuti nominal: Rp 0
+          berarti belum lunas, sama dengan total berarti lunas.
         </div>
       </div>
     </>

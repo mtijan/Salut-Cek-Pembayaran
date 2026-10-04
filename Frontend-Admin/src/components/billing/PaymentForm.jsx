@@ -15,7 +15,7 @@ export default function PaymentForm({
   totalAmount,
   paymentMode,
   paymentAmount,
-  setPaymentAmount,
+  handlePaymentAmountChange,
   paymentDate,
   setPaymentDate,
   paymentMethod,
@@ -103,7 +103,7 @@ export default function PaymentForm({
 
           {/* Nominal Input */}
           <div className="form-group nominal-input-group">
-            <label className="payment-nominal-label">
+            <label htmlFor="payment-amount" className="payment-nominal-label">
               <span className="nominal-label-text">
                 Nominal Pembayaran Transaksi Ini <span className="text-danger">*</span>
               </span>
@@ -114,24 +114,23 @@ export default function PaymentForm({
             <div className="currency-input-wrap">
               <span className="currency-prefix">Rp</span>
               <input
+                id="payment-amount"
                 type="number"
+                inputMode="numeric"
                 value={paymentAmount}
-                onChange={(e) => {
-                  setPaymentAmount(e.target.value);
-                  const val = Number(e.target.value);
-                  if (val === remainingAmount) {
-                    handleModeChange('full');
-                  } else {
-                    handleModeChange('partial');
-                  }
-                }}
+                onChange={(e) => handlePaymentAmountChange(e.target.value)}
                 className="currency-input"
                 placeholder="0"
                 min={1}
                 max={remainingAmount}
+                step={1}
+                aria-describedby="payment-amount-hint"
                 required
               />
             </div>
+            <p id="payment-amount-hint" className="bill-field-hint">
+              Ketik nominal sendiri dalam rupiah bulat atau gunakan pilihan cepat di bawah.
+            </p>
 
             {/* Quick Chips */}
             <div className="quick-chips-row">
@@ -218,7 +217,12 @@ export default function PaymentForm({
             <button
               type="submit"
               className="btn btn-primary btn-large btn-submit-payment"
-              disabled={submitting || numericPayment <= 0 || numericPayment > remainingAmount}
+              disabled={
+                submitting ||
+                !Number.isSafeInteger(numericPayment) ||
+                numericPayment <= 0 ||
+                numericPayment > remainingAmount
+              }
             >
               {submitting ? (
                 <>
